@@ -748,17 +748,6 @@ function renderOptions() {
     optionsDiv.appendChild(backBtn);
   }
 
-  if (currentPath.length === 0) {
-    const emergBtn = document.createElement('button');
-    emergBtn.className = 'emergency-btn';
-    emergBtn.innerHTML = `
-      <span class="material-symbols-outlined" style="color:#ef4444">priority_high</span>
-      <span class="label">緊急の問い合わせ</span>
-    `;
-    emergBtn.addEventListener('click', handleEmergencyRequest);
-    optionsDiv.appendChild(emergBtn);
-  }
-
   lastBotContent.appendChild(optionsDiv);
   smoothScrollToBottom();
 }
@@ -779,17 +768,30 @@ function handleOptionSelect(nodeId) {
       addBotMessage('次の項目をお選びください。');
       renderOptions();
     } else {
+      // 終端ノード
       const pathText = getBreadcrumbText(newPath);
-      addBotMessage(`承知しました。\n\n「${node.value}」についてご案内いたします。`);
-      createTicket('general', { path: pathText, nodeId });
-
-      setTimeout(() => {
-        addBotMessage('他にご質問はございますか？');
-        currentPath = [];
-        updateBreadcrumb();
-        updateHeaderStatus();
-        renderOptions();
-      }, 1000);
+      
+      // フォーム判定
+      if (node.value.includes('フォーム') && node.value.includes('一般チケット')) {
+        // 一般チケットフォーム
+        addBotMessage(`承知しました。\n\nお問い合わせ内容を承りました。\n詳細情報をご入力ください。`);
+        renderGeneralTicketForm(pathText);
+      } else if (node.value.includes('緊急対応') && node.value.includes('スタッフが直対応')) {
+        // 緊急フォーム
+        addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
+        renderEmergencyForm();
+      } else {
+        // 言葉で完結
+        addBotMessage(`${node.value}\n\nご不明な点がございましたら、最初からお選びいただくか、緊急の場合はスタッフまでお電話ください。`);
+        
+        setTimeout(() => {
+          addBotMessage('他にご質問はございますか？');
+          currentPath = [];
+          updateBreadcrumb();
+          updateHeaderStatus();
+          renderOptions();
+        }, 1500);
+      }
     }
   }, 400);
 }
@@ -811,13 +813,63 @@ function handleGoBack() {
   }, 300);
 }
 
-function handleEmergencyRequest() {
-  addUserMessage('緊急の問い合わせ');
-  isEmergencyView = true;
+function renderGeneralTicketForm(pathText) {
+  const messages = document.getElementById('messages');
+  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  if (!lastBotContent) return;
+
+  const form = document.createElement('div');
+  form.className = 'emergency-form';
+  form.style.background = '#f0f9ff';
+  form.style.borderColor = '#bae6fd';
+  form.innerHTML = `
+    <input type="text" id="gt-reservation" placeholder="予約番号（わかる場合）" />
+    <input type="text" id="gt-store" placeholder="店舗名 *" />
+    <input type="text" id="gt-name" placeholder="お名前 *" />
+    <input type="email" id="gt-email" placeholder="メールアドレス *" />
+    <input type="text" id="gt-amount" placeholder="お支払い予定金額（わかる場合）" />
+    <textarea id="gt-inquiry" placeholder="お問い合わせ内容 *" readonly style="background:#f9fafb">${pathText}</textarea>
+    <button class="emergency-submit" style="background:#0ea5e9" onclick="submitGeneralTicketForm('${pathText.replace(/'/g, "\\'")}')">
+      <span class="material-symbols-outlined">send</span>
+      送信する
+    </button>
+  `;
+
+  lastBotContent.appendChild(form);
+  smoothScrollToBottom();
+}
+
+function submitGeneralTicketForm(pathText) {
+  const reservation = document.getElementById('gt-reservation').value;
+  const store = document.getElementById('gt-store').value;
+  const name = document.getElementById('gt-name').value;
+  const email = document.getElementById('gt-email').value;
+  const amount = document.getElementById('gt-amount').value;
+  const inquiry = pathText;
+
+  if (!store || !name || !email) {
+    alert('必須項目（店舗名、お名前、メールアドレス）をご入力ください');
+    return;
+  }
+
+  let summary = `店舗: ${store}\nお名前: ${name}\nメール: ${email}`;
+  if (reservation) summary += `\n予約番号: ${reservation}`;
+  if (amount) summary += `\nお支払い予定金額: ${amount}`;
+  summary += `\nお問い合わせ: ${inquiry}`;
+
+  addUserMessage(summary);
+  createTicket('general', { reservation, store, name, email, amount, inquiry, path: pathText });
 
   setTimeout(() => {
-    addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
-    renderEmergencyForm();
+    addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
+    currentPath = [];
+    updateBreadcrumb();
+    updateHeaderStatus();
+
+    setTimeout(() => {
+      addBotMessage('他にご質問はございますか？');
+      renderOptions();
+    }, 1000);
   }, 500);
 }
 
