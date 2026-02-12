@@ -630,6 +630,14 @@ let emergencyForm = { name: '', email: '', store: '', situation: '' };
 window.addEventListener('DOMContentLoaded', () => {
   loadTreeData();
   updateTicketBadge();
+  
+  // URLパラメータでチャット自動オープン
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('chat') === 'open' || window.location.hash === '#chat') {
+    setTimeout(() => {
+      document.getElementById('chatBtn').click();
+    }, 500);
+  }
 });
 
 async function loadTreeData() {
@@ -639,6 +647,14 @@ async function loadTreeData() {
     if (result.success) {
       treeData = result.data;
       console.log('✅ データ読み込み成功', treeData);
+      
+      // チャットが開いていて、メッセージがあれば選択肢を再表示
+      if (isOpen && document.getElementById('messages').children.length > 0) {
+        const lastMsg = document.getElementById('messages').lastElementChild;
+        if (lastMsg && lastMsg.classList.contains('bot')) {
+          renderOptions();
+        }
+      }
     }
   } catch (e) {
     console.error('❌ データ読み込みエラー', e);
@@ -663,7 +679,7 @@ document.getElementById('chatBtn').addEventListener('click', () => {
     chatWindow.classList.remove('hidden');
     chatBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
     if (document.getElementById('messages').children.length === 0) {
-      addBotMessage('いらっしゃいませ！\nご用件をお選びください。');
+      addBotMessage('下記からご用件をお選びください！');
       renderOptions();
     }
   } else {
@@ -673,12 +689,32 @@ document.getElementById('chatBtn').addEventListener('click', () => {
 });
 
 function formatTextWithLinks(text) {
-  // URLを検出してリンクに変換
-  // パターン1: https://... または http://...
-  let formatted = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#0ea5e9;text-decoration:underline">リンクを開く</a>');
+  // URLを検出
+  const urlRegex = /(https?:\/\/[^\s\]】]+)/g;
+  const urls = text.match(urlRegex);
   
-  // パターン2: 【URL】形式
-  formatted = formatted.replace(/【(https?:\/\/[^】]+)】/g, '<a href="$1" target="_blank" style="color:#0ea5e9;text-decoration:underline">こちら</a>');
+  if (!urls || urls.length === 0) {
+    return text.replace(/\n/g, '<br/>');
+  }
+  
+  // URLを含む行全体をリンクボタンに変換
+  let formatted = text;
+  
+  urls.forEach(url => {
+    // URLを含む行を抽出
+    const lines = formatted.split('\n');
+    const processedLines = lines.map(line => {
+      if (line.includes(url)) {
+        // URLを除いたテキスト
+        const cleanText = line.replace(url, '').replace(/【】/g, '').trim();
+        // リンクボタンとして整形
+        return `<a href="${url}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;transition:background 0.2s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">${cleanText || 'リンクを開く'} →</a>`;
+      }
+      return line;
+    });
+    
+    formatted = processedLines.join('<br/>');
+  });
   
   return formatted;
 }
@@ -1020,7 +1056,7 @@ function resetChat() {
   isEmergencyView = false;
   updateBreadcrumb();
   updateHeaderStatus();
-  addBotMessage('いらっしゃいませ！\nご用件をお選びください。');
+  addBotMessage('下記からご用件をお選びください！');
   renderOptions();
 }
 
