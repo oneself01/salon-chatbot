@@ -672,6 +672,32 @@ document.getElementById('chatBtn').addEventListener('click', () => {
   }
 });
 
+function formatTextWithLinks(text) {
+  // URLを検出してリンクに変換
+  // パターン1: https://... または http://...
+  let formatted = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#0ea5e9;text-decoration:underline">リンクを開く</a>');
+  
+  // パターン2: 【URL】形式
+  formatted = formatted.replace(/【(https?:\/\/[^】]+)】/g, '<a href="$1" target="_blank" style="color:#0ea5e9;text-decoration:underline">こちら</a>');
+  
+  return formatted;
+}
+
+function addBotMessageWithHTML(htmlContent) {
+  const messages = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'message-row bot';
+  row.innerHTML = `
+    <div class="bot-icon"><img src="${BEAR_IMG}" alt="Bear"/></div>
+    <div class="message-content">
+      <div class="bubble bot">${htmlContent}</div>
+    </div>
+  `;
+  messages.appendChild(row);
+  smoothScrollToBottom();
+  return row.querySelector('.message-content');
+}
+
 function addBotMessage(text) {
   const messages = document.getElementById('messages');
   const row = document.createElement('div');
@@ -762,6 +788,7 @@ function handleOptionSelect(nodeId) {
 
   setTimeout(() => {
     if (node.children && node.children.length > 0) {
+      // 子がある場合
       currentPath = newPath;
       updateBreadcrumb();
       updateHeaderStatus();
@@ -782,7 +809,9 @@ function handleOptionSelect(nodeId) {
         renderEmergencyForm();
       } else {
         // 言葉で完結
-        addBotMessage(`${node.value}\n\nご不明な点がございましたら、最初からお選びいただくか、緊急の場合はスタッフまでお電話ください。`);
+        // リンクを検出して変換
+        const formattedText = formatTextWithLinks(node.value);
+        addBotMessageWithHTML(formattedText);
         
         setTimeout(() => {
           addBotMessage('他にご質問はございますか？');
