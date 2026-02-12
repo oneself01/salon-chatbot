@@ -23,6 +23,8 @@
     --gray-700: #374151;
     --gray-800: #1f2937;
     --white: #ffffff;
+    --green-100: #dcfce7;
+    --green-600: #16a34a;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,7 +36,6 @@
     color: var(--blue-900);
   }
 
-  /* ===== メイン画面 ===== */
   .app {
     display: flex;
     flex-direction: column;
@@ -123,16 +124,6 @@
     max-width: 100%;
   }
 
-  .speech-bubble::before {
-    content: '';
-    position: absolute;
-    top: -10px; left: 50%;
-    transform: translateX(-50%);
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-bottom: 10px solid rgba(255,255,255,0.85);
-  }
-
   .speech-bubble h2 { font-size: 15px; font-weight: 700; line-height: 1.6; color: var(--blue-900); }
 
   .info-box {
@@ -143,7 +134,6 @@
     border-radius: 16px;
     padding: 16px;
     display: flex; align-items: flex-start; gap: 12px;
-    margin-bottom: 24px;
   }
 
   .info-box p { font-size: 12px; line-height: 1.6; color: white; font-weight: 500; }
@@ -177,7 +167,7 @@
     border-radius: 9999px;
   }
 
-  /* ===== チャットボット ===== */
+  /* チャットボット */
   .chat-btn {
     position: fixed;
     bottom: 96px; right: 24px;
@@ -252,9 +242,15 @@
     display: flex; align-items: center; gap: 8px;
     font-size: 11px; color: #0369a1;
     flex-wrap: wrap;
+    writing-mode: horizontal-tb;
   }
 
   .breadcrumb .sep { color: #7dd3fc; }
+  
+  #breadcrumbText {
+    writing-mode: horizontal-tb;
+    white-space: normal;
+  }
 
   /* メッセージエリア */
   .messages {
@@ -263,10 +259,17 @@
     padding: 16px;
     background: var(--gray-50);
     display: flex; flex-direction: column; gap: 16px;
+    scroll-behavior: smooth;
   }
 
   .message-row {
     display: flex;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .message-row.user { justify-content: flex-end; }
@@ -292,8 +295,10 @@
     padding: 12px 16px;
     border-radius: 16px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.8;
     white-space: pre-line;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .bubble.bot {
@@ -304,17 +309,23 @@
   }
 
   .bubble.user {
-    background: var(--blue-500);
+    background: var(--green-600);
     color: white;
     border-bottom-right-radius: 4px;
+    font-weight: 500;
   }
 
   /* 選択肢ボタン */
-  .options { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .options { 
+    margin-top: 12px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
+  }
 
   .option-btn {
     display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px;
+    padding: 14px 16px;
     background: white;
     border: 2px solid var(--gray-100);
     border-radius: 12px;
@@ -323,37 +334,73 @@
     transition: all 0.2s;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     width: 100%;
+    animation: slideInUp 0.3s ease;
+    animation-fill-mode: both;
   }
 
-  .option-btn:hover { border-color: var(--sky-400); background: #f0f9ff; }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .option-btn:nth-child(1) { animation-delay: 0.05s; }
+  .option-btn:nth-child(2) { animation-delay: 0.1s; }
+  .option-btn:nth-child(3) { animation-delay: 0.15s; }
+  .option-btn:nth-child(4) { animation-delay: 0.2s; }
+  .option-btn:nth-child(5) { animation-delay: 0.25s; }
+  .option-btn:nth-child(6) { animation-delay: 0.3s; }
+  .option-btn:nth-child(7) { animation-delay: 0.35s; }
+  .option-btn:nth-child(8) { animation-delay: 0.4s; }
+
+  .option-btn:hover { 
+    border-color: var(--sky-400); 
+    background: #f0f9ff; 
+    transform: translateX(4px);
+  }
 
   .option-icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    background: #e0f2fe;
-    color: var(--sky-500);
-    display: flex; align-items: center; justify-content: center;
+    min-width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sky-400);
     flex-shrink: 0;
-    font-weight: 700; font-size: 14px;
   }
 
-  .option-label { font-size: 13px; font-weight: 500; color: var(--gray-700); flex: 1; }
+  .option-label { 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: var(--gray-800); 
+    flex: 1;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
 
-  .option-btn .chevron { color: var(--gray-400); font-size: 20px; }
+  .option-btn .chevron { 
+    color: var(--gray-400); 
+    font-size: 18px;
+    flex-shrink: 0;
+  }
 
   /* 戻るボタン */
   .back-btn {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 16px;
-    background: var(--gray-50);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 16px;
+    background: var(--gray-100);
     border: 2px solid var(--gray-200);
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s;
     width: 100%;
+    animation: slideInUp 0.3s ease;
+    animation-delay: 0.45s;
+    animation-fill-mode: both;
   }
-  .back-btn:hover { border-color: var(--gray-400); }
-  .back-btn span { font-size: 13px; color: var(--gray-500); }
+  .back-btn:hover { 
+    border-color: var(--gray-400); 
+    background: var(--gray-200);
+  }
+  .back-btn span { font-size: 13px; color: var(--gray-700); font-weight: 500; }
 
   /* 緊急ボタン */
   .emergency-btn {
@@ -366,6 +413,9 @@
     text-align: left;
     transition: all 0.2s;
     width: 100%;
+    animation: slideInUp 0.3s ease;
+    animation-delay: 0.5s;
+    animation-fill-mode: both;
   }
   .emergency-btn:hover { background: #ffe4e6; border-color: #fda4af; }
   .emergency-btn span.label { font-size: 13px; font-weight: 700; color: var(--red-500); flex: 1; }
@@ -531,7 +581,6 @@
 
 <!-- チャットウィンドウ -->
 <div class="chat-window hidden" id="chatWindow">
-  <!-- ヘッダー -->
   <div class="chat-header">
     <div class="chat-header-icon">
       <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg" alt="Bear"/>
@@ -550,20 +599,16 @@
     </div>
   </div>
 
-  <!-- パンくずリスト -->
   <div class="breadcrumb hidden" id="breadcrumb">
     <span class="material-symbols-outlined" style="font-size:14px">home</span>
     <span id="breadcrumbText"></span>
   </div>
 
-  <!-- メッセージエリア -->
   <div class="messages" id="messages"></div>
 
-  <!-- フッター -->
   <div class="chat-footer">💬 スプレッドシートから自動読み込み</div>
 </div>
 
-<!-- チケット状況 -->
 <div class="ticket-badge hidden" id="ticketBadge">
   <div class="title">チケット状況</div>
   <div class="emergency" id="emergencyCount">🚨 緊急: 0件</div>
@@ -571,16 +616,10 @@
 </div>
 
 <script>
-// ============================================================
-// ⚠️ ここにGASのURLを入れてください！
-// ============================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzibjrSDBt4BJVuXgX28LmkPvfthxsNolHjgpdajhlxzro2brT8ww3VgsKc5gbhdscYsw/exec';
-// 例: 'https://script.google.com/macros/s/AKfycbxxxxxxxx/exec'
-// ============================================================
 
 const BEAR_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg';
 
-// 状態管理
 let treeData = null;
 let currentPath = [];
 let tickets = JSON.parse(localStorage.getItem('salon_tickets') || '[]');
@@ -588,15 +627,11 @@ let isOpen = false;
 let isEmergencyView = false;
 let emergencyForm = { name: '', email: '', store: '', situation: '' };
 
-// ============================================================
-// 初期化
-// ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   loadTreeData();
   updateTicketBadge();
 });
 
-// データ読み込み
 async function loadTreeData() {
   try {
     const response = await fetch(GAS_URL);
@@ -606,32 +641,19 @@ async function loadTreeData() {
       console.log('✅ データ読み込み成功', treeData);
     }
   } catch (e) {
-    console.error('❌ データ読み込みエラー（デフォルトデータを使用）', e);
+    console.error('❌ データ読み込みエラー', e);
     treeData = getDefaultData();
   }
 }
 
-// デフォルトデータ（GAS接続失敗時）
 function getDefaultData() {
   return {
-    level0: ['A', 'B', 'C', 'D'],
-    'A': { id: 'A', value: 'A', level: 0, children: ['A.1', 'A.2'], parent: null },
-    'A.1': { id: 'A.1', value: '1', level: 1, children: ['A.1.①', 'A.1.②'], parent: 'A' },
-    'A.1.①': { id: 'A.1.①', value: '①', level: 2, children: [], parent: 'A.1' },
-    'A.1.②': { id: 'A.1.②', value: '②', level: 2, children: [], parent: 'A.1' },
-    'A.2': { id: 'A.2', value: '2', level: 1, children: [], parent: 'A' },
-    'B': { id: 'B', value: 'B', level: 0, children: ['B.1'], parent: null },
-    'B.1': { id: 'B.1', value: '1', level: 1, children: [], parent: 'B' },
-    'C': { id: 'C', value: 'C', level: 0, children: ['C.1'], parent: null },
-    'C.1': { id: 'C.1', value: '1', level: 1, children: [], parent: 'C' },
-    'D': { id: 'D', value: 'D', level: 0, children: ['D.1'], parent: null },
-    'D.1': { id: 'D.1', value: '1', level: 1, children: [], parent: 'D' },
+    level0: ['node_1'],
+    'node_1': { id: 'node_1', value: 'デモ項目A', level: 0, children: ['node_2'], parent: null },
+    'node_2': { id: 'node_2', value: 'デモ項目A-1', level: 1, children: [], parent: 'node_1' }
   };
 }
 
-// ============================================================
-// チャット開閉
-// ============================================================
 document.getElementById('chatBtn').addEventListener('click', () => {
   isOpen = !isOpen;
   const chatWindow = document.getElementById('chatWindow');
@@ -650,30 +672,23 @@ document.getElementById('chatBtn').addEventListener('click', () => {
   }
 });
 
-// ============================================================
-// メッセージ追加
-// ============================================================
 function addBotMessage(text) {
   const messages = document.getElementById('messages');
-
   const row = document.createElement('div');
   row.className = 'message-row bot';
-
   row.innerHTML = `
     <div class="bot-icon"><img src="${BEAR_IMG}" alt="Bear"/></div>
     <div class="message-content">
       <div class="bubble bot">${text.replace(/\n/g, '<br/>')}</div>
     </div>
   `;
-
   messages.appendChild(row);
-  messages.scrollTop = messages.scrollHeight;
+  smoothScrollToBottom();
   return row.querySelector('.message-content');
 }
 
 function addUserMessage(text) {
   const messages = document.getElementById('messages');
-
   const row = document.createElement('div');
   row.className = 'message-row user';
   row.innerHTML = `
@@ -681,14 +696,21 @@ function addUserMessage(text) {
       <div class="bubble user">${text.replace(/\n/g, '<br/>')}</div>
     </div>
   `;
-
   messages.appendChild(row);
-  messages.scrollTop = messages.scrollHeight;
+  smoothScrollToBottom();
 }
 
-// ============================================================
-// 選択肢レンダリング
-// ============================================================
+function smoothScrollToBottom() {
+  const messages = document.getElementById('messages');
+  setTimeout(() => {
+    // 最新のボットメッセージまでスクロール
+    const lastBotMsg = messages.querySelector('.message-row.bot:last-child');
+    if (lastBotMsg) {
+      lastBotMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+}
+
 function renderOptions() {
   const messages = document.getElementById('messages');
   const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
@@ -700,14 +722,13 @@ function renderOptions() {
   const optionsDiv = document.createElement('div');
   optionsDiv.className = 'options';
 
-  // 選択肢ボタン
   options.forEach(option => {
     const btn = document.createElement('button');
     btn.className = 'option-btn';
     const hasChildren = option.children && option.children.length > 0;
 
     btn.innerHTML = `
-      <div class="option-icon">${option.value}</div>
+      <div class="option-icon"></div>
       <span class="option-label">${option.value}</span>
       ${hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : ''}
     `;
@@ -716,7 +737,6 @@ function renderOptions() {
     optionsDiv.appendChild(btn);
   });
 
-  // 戻るボタン
   if (currentPath.length > 0) {
     const backBtn = document.createElement('button');
     backBtn.className = 'back-btn';
@@ -728,7 +748,6 @@ function renderOptions() {
     optionsDiv.appendChild(backBtn);
   }
 
-  // 緊急ボタン（トップのみ）
   if (currentPath.length === 0) {
     const emergBtn = document.createElement('button');
     emergBtn.className = 'emergency-btn';
@@ -741,12 +760,9 @@ function renderOptions() {
   }
 
   lastBotContent.appendChild(optionsDiv);
-  messages.scrollTop = messages.scrollHeight;
+  smoothScrollToBottom();
 }
 
-// ============================================================
-// 操作ハンドラー
-// ============================================================
 function handleOptionSelect(nodeId) {
   if (!treeData) return;
   const node = treeData[nodeId];
@@ -760,12 +776,11 @@ function handleOptionSelect(nodeId) {
       currentPath = newPath;
       updateBreadcrumb();
       updateHeaderStatus();
-      const breadcrumb = getBreadcrumbText();
-      addBotMessage(`${breadcrumb}\n\n続けて選択してください。`);
+      addBotMessage('次の項目をお選びください。');
       renderOptions();
     } else {
       const pathText = getBreadcrumbText(newPath);
-      addBotMessage(`選択されました：${pathText}\n\nこちらについての詳細をお調べします。`);
+      addBotMessage(`承知しました。\n\n「${node.value}」についてご案内いたします。`);
       createTicket('general', { path: pathText, nodeId });
 
       setTimeout(() => {
@@ -776,7 +791,7 @@ function handleOptionSelect(nodeId) {
         renderOptions();
       }, 1000);
     }
-  }, 500);
+  }, 400);
 }
 
 function handleGoBack() {
@@ -790,7 +805,7 @@ function handleGoBack() {
     if (currentPath.length === 0) {
       addBotMessage('最初の選択に戻ります。');
     } else {
-      addBotMessage(`${getBreadcrumbText()}\n\n選択してください。`);
+      addBotMessage('次の項目をお選びください。');
     }
     renderOptions();
   }, 300);
@@ -806,9 +821,6 @@ function handleEmergencyRequest() {
   }, 500);
 }
 
-// ============================================================
-// 緊急フォーム
-// ============================================================
 function renderEmergencyForm() {
   const messages = document.getElementById('messages');
   const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
@@ -828,7 +840,7 @@ function renderEmergencyForm() {
   `;
 
   lastBotContent.appendChild(form);
-  messages.scrollTop = messages.scrollHeight;
+  smoothScrollToBottom();
 }
 
 function submitEmergencyForm() {
@@ -846,7 +858,7 @@ function submitEmergencyForm() {
   createTicket('emergency', { name, email, store, situation });
 
   setTimeout(() => {
-    addBotMessage('✅ 緊急対応チケットを作成しました。\n\nスタッフより至急ご連絡いたします。\nチャットが途切れても、入力いただいた情報で対応いたします。');
+    addBotMessage('✅ 緊急対応チケットを作成しました。\n\nスタッフより至急ご連絡いたします。');
     isEmergencyView = false;
     currentPath = [];
     updateBreadcrumb();
@@ -859,9 +871,6 @@ function submitEmergencyForm() {
   }, 500);
 }
 
-// ============================================================
-// ユーティリティ
-// ============================================================
 function getCurrentOptions() {
   if (!treeData) return [];
   if (currentPath.length === 0) {
