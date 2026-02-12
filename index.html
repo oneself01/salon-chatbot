@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>クマのコンシェルジュ - 予約管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<style>
+  :root {
+    --sky-400: #38bdf8;
+    --sky-500: #0ea5e9;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    --blue-900: #1e3a5f;
+    --red-500: #ef4444;
+    --red-600: #dc2626;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: linear-gradient(135deg, #bae6fd 0%, #38bdf8 50%, #0284c7 100%);
+    min-height: 100dvh;
+    color: var(--blue-900);
+  }
+
+  /* ===== メイン画面 ===== */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 24px 8px;
+    z-index: 20;
+  }
+
+  .header-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+
+  .header-title {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .header-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.9);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+
+  .header-icon img { width: 28px; height: 28px; object-fit: contain; }
+
+  h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: white; }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .bear-section {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 32px; width: 100%;
+  }
+
+  .bear-wrap {
+    position: relative;
+    width: 176px; height: 176px;
+    margin-bottom: 24px;
+    filter: drop-shadow(0 12px 20px rgba(0,56,101,0.2));
+  }
+
+  .bear-glow {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.2);
+    filter: blur(50px);
+    border-radius: 50%;
+  }
+
+  .bear-img { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 1; }
+
+  .speech-bubble {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0 8px 32px rgba(0,56,101,0.15);
+    padding: 20px 32px;
+    border-radius: 40px;
+    text-align: center;
+    position: relative;
+    max-width: 100%;
+  }
+
+  .speech-bubble::before {
+    content: '';
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid rgba(255,255,255,0.85);
+  }
+
+  .speech-bubble h2 { font-size: 15px; font-weight: 700; line-height: 1.6; color: var(--blue-900); }
+
+  .info-box {
+    width: 100%;
+    background: rgba(255,255,255,0.3);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .info-box p { font-size: 12px; line-height: 1.6; color: white; font-weight: 500; }
+
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: white;
+    padding: 16px 24px 36px;
+    border-radius: 40px 40px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,56,101,0.1);
+  }
+
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: #94a3b8;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .nav-item.active { color: var(--sky-500); }
+  .nav-item span:last-child { font-size: 10px; font-weight: 700; }
+
+  .home-indicator {
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 128px; height: 4px;
+    background: #e2e8f0;
+    border-radius: 9999px;
+  }
+
+  /* ===== チャットボット ===== */
+  .chat-btn {
+    position: fixed;
+    bottom: 96px; right: 24px;
+    z-index: 50;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--sky-400), var(--blue-500));
+    border: none;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(14,165,233,0.4);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+
+  .chat-btn:hover { transform: scale(1.1); }
+  .chat-btn .material-symbols-outlined { font-size: 32px; }
+
+  .chat-window {
+    position: fixed;
+    bottom: 96px; right: 24px;
+    z-index: 40;
+    width: 380px;
+    max-width: calc(100vw - 48px);
+    height: 600px;
+    max-height: calc(100vh - 200px);
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chat-header {
+    background: linear-gradient(90deg, var(--sky-400), var(--blue-500));
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .chat-header-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+
+  .chat-header-icon img { width: 40px; height: 40px; object-fit: contain; }
+
+  .chat-header-info { flex: 1; }
+  .chat-header-info h3 { color: white; font-weight: 700; font-size: 16px; }
+  .chat-header-info p { color: rgba(255,255,255,0.8); font-size: 11px; }
+
+  .chat-header-btns { display: flex; gap: 8px; }
+  .chat-header-btns button {
+    background: none; border: none;
+    color: rgba(255,255,255,0.8); cursor: pointer;
+  }
+  .chat-header-btns button:hover { color: white; }
+
+  /* パンくずリスト */
+  .breadcrumb {
+    background: #f0f9ff;
+    padding: 8px 16px;
+    border-bottom: 1px solid #e0f2fe;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: #0369a1;
+    flex-wrap: wrap;
+  }
+
+  .breadcrumb .sep { color: #7dd3fc; }
+
+  /* メッセージエリア */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: var(--gray-50);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .message-row {
+    display: flex;
+  }
+
+  .message-row.user { justify-content: flex-end; }
+  .message-row.bot { justify-content: flex-start; }
+
+  .bot-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 8px;
+    flex-shrink: 0;
+    margin-top: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .bot-icon img { width: 24px; height: 24px; object-fit: contain; }
+
+  .message-content { display: flex; flex-direction: column; max-width: 75%; }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+
+  .bubble.bot {
+    background: white;
+    color: var(--gray-800);
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .bubble.user {
+    background: var(--blue-500);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  /* 選択肢ボタン */
+  .options { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  .option-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    border: 2px solid var(--gray-100);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    width: 100%;
+  }
+
+  .option-btn:hover { border-color: var(--sky-400); background: #f0f9ff; }
+
+  .option-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: #e0f2fe;
+    color: var(--sky-500);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700; font-size: 14px;
+  }
+
+  .option-label { font-size: 13px; font-weight: 500; color: var(--gray-700); flex: 1; }
+
+  .option-btn .chevron { color: var(--gray-400); font-size: 20px; }
+
+  /* 戻るボタン */
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    background: var(--gray-50);
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .back-btn:hover { border-color: var(--gray-400); }
+  .back-btn span { font-size: 13px; color: var(--gray-500); }
+
+  /* 緊急ボタン */
+  .emergency-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: #fff1f2;
+    border: 2px solid #fecdd3;
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .emergency-btn:hover { background: #ffe4e6; border-color: #fda4af; }
+  .emergency-btn span.label { font-size: 13px; font-weight: 700; color: var(--red-500); flex: 1; }
+
+  /* 緊急フォーム */
+  .emergency-form {
+    margin-top: 12px;
+    background: #fff1f2;
+    border: 2px solid #fecdd3;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .emergency-form input,
+  .emergency-form textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--gray-200);
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .emergency-form input:focus,
+  .emergency-form textarea:focus { border-color: var(--red-500); }
+
+  .emergency-form textarea { resize: none; height: 80px; }
+
+  .emergency-submit {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: var(--red-500);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: background 0.2s;
+  }
+  .emergency-submit:hover { background: var(--red-600); }
+
+  /* ローディング */
+  .loading {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    font-size: 13px; color: var(--gray-500);
+  }
+
+  .loading-dots { display: flex; gap: 4px; }
+  .loading-dots span {
+    width: 6px; height: 6px;
+    background: var(--sky-400);
+    border-radius: 50%;
+    animation: bounce 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* チャットフッター */
+  .chat-footer {
+    padding: 10px 16px;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    text-align: center;
+    font-size: 11px; color: var(--gray-500);
+  }
+
+  /* チケット状況 */
+  .ticket-badge {
+    position: fixed;
+    top: 16px; right: 16px;
+    z-index: 50;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+
+  .ticket-badge .title { font-weight: 700; margin-bottom: 4px; }
+  .ticket-badge .emergency { color: var(--red-500); }
+  .ticket-badge .general { color: var(--blue-500); }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<!-- メイン画面 -->
+<div class="app">
+  <header>
+    <button class="header-btn">
+      <span class="material-symbols-outlined" style="font-size:20px">arrow_back_ios_new</span>
+    </button>
+    <div class="header-title">
+      <div class="header-icon">
+        <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg" alt="Bear"/>
+      </div>
+      <h1>予約管理</h1>
+    </div>
+    <button class="header-btn">
+      <span class="material-symbols-outlined" style="font-size:20px">more_horiz</span>
+    </button>
+  </header>
+
+  <main>
+    <div class="bear-section">
+      <div class="bear-wrap">
+        <div class="bear-glow"></div>
+        <img class="bear-img" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg" alt="Concierge Bear"/>
+      </div>
+      <div class="speech-bubble">
+        <h2>ご不明な点がございましたら<br/>右下のチャットボタンから<br/>お気軽にお問い合わせください！</h2>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <span class="material-symbols-outlined" style="color:white;font-size:20px;flex-shrink:0">info</span>
+      <p>直前（24時間以内）のキャンセル・変更はお電話にて承っております。お急ぎの場合は店舗までご連絡ください。</p>
+    </div>
+  </main>
+
+  <nav>
+    <a class="nav-item" href="#">
+      <span class="material-symbols-outlined">home</span>
+      <span>ホーム</span>
+    </a>
+    <a class="nav-item active" href="#">
+      <span class="material-symbols-outlined">chat_bubble</span>
+      <span>チャット</span>
+    </a>
+    <a class="nav-item" href="#">
+      <span class="material-symbols-outlined">event</span>
+      <span>予約</span>
+    </a>
+    <a class="nav-item" href="#">
+      <span class="material-symbols-outlined">person</span>
+      <span>マイページ</span>
+    </a>
+  </nav>
+
+  <div class="home-indicator"></div>
+</div>
+
+<!-- チャットボタン -->
+<button class="chat-btn" id="chatBtn">
+  <span class="material-symbols-outlined">chat</span>
+</button>
+
+<!-- チャットウィンドウ -->
+<div class="chat-window hidden" id="chatWindow">
+  <!-- ヘッダー -->
+  <div class="chat-header">
+    <div class="chat-header-icon">
+      <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg" alt="Bear"/>
+    </div>
+    <div class="chat-header-info">
+      <h3>クマのコンシェルジュ</h3>
+      <p id="headerStatus">トップ</p>
+    </div>
+    <div class="chat-header-btns">
+      <button onclick="reloadData()" title="データ再読み込み">
+        <span class="material-symbols-outlined">sync</span>
+      </button>
+      <button onclick="resetChat()" title="最初から">
+        <span class="material-symbols-outlined">refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- パンくずリスト -->
+  <div class="breadcrumb hidden" id="breadcrumb">
+    <span class="material-symbols-outlined" style="font-size:14px">home</span>
+    <span id="breadcrumbText"></span>
+  </div>
+
+  <!-- メッセージエリア -->
+  <div class="messages" id="messages"></div>
+
+  <!-- フッター -->
+  <div class="chat-footer">💬 スプレッドシートから自動読み込み</div>
+</div>
+
+<!-- チケット状況 -->
+<div class="ticket-badge hidden" id="ticketBadge">
+  <div class="title">チケット状況</div>
+  <div class="emergency" id="emergencyCount">🚨 緊急: 0件</div>
+  <div class="general" id="generalCount">📋 一般: 0件</div>
+</div>
+
+<script>
+// ============================================================
+// ⚠️ ここにGASのURLを入れてください！
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzibjrSDBt4BJVuXgX28LmkPvfthxsNolHjgpdajhlxzro2brT8ww3VgsKc5gbhdscYsw/exec';
+// 例: 'https://script.google.com/macros/s/AKfycbxxxxxxxx/exec'
+// ============================================================
+
+const BEAR_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg';
+
+// 状態管理
+let treeData = null;
+let currentPath = [];
+let tickets = JSON.parse(localStorage.getItem('salon_tickets') || '[]');
+let isOpen = false;
+let isEmergencyView = false;
+let emergencyForm = { name: '', email: '', store: '', situation: '' };
+
+// ============================================================
+// 初期化
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadTreeData();
+  updateTicketBadge();
+});
+
+// データ読み込み
+async function loadTreeData() {
+  try {
+    const response = await fetch(GAS_URL);
+    const result = await response.json();
+    if (result.success) {
+      treeData = result.data;
+      console.log('✅ データ読み込み成功', treeData);
+    }
+  } catch (e) {
+    console.error('❌ データ読み込みエラー（デフォルトデータを使用）', e);
+    treeData = getDefaultData();
+  }
+}
+
+// デフォルトデータ（GAS接続失敗時）
+function getDefaultData() {
+  return {
+    level0: ['A', 'B', 'C', 'D'],
+    'A': { id: 'A', value: 'A', level: 0, children: ['A.1', 'A.2'], parent: null },
+    'A.1': { id: 'A.1', value: '1', level: 1, children: ['A.1.①', 'A.1.②'], parent: 'A' },
+    'A.1.①': { id: 'A.1.①', value: '①', level: 2, children: [], parent: 'A.1' },
+    'A.1.②': { id: 'A.1.②', value: '②', level: 2, children: [], parent: 'A.1' },
+    'A.2': { id: 'A.2', value: '2', level: 1, children: [], parent: 'A' },
+    'B': { id: 'B', value: 'B', level: 0, children: ['B.1'], parent: null },
+    'B.1': { id: 'B.1', value: '1', level: 1, children: [], parent: 'B' },
+    'C': { id: 'C', value: 'C', level: 0, children: ['C.1'], parent: null },
+    'C.1': { id: 'C.1', value: '1', level: 1, children: [], parent: 'C' },
+    'D': { id: 'D', value: 'D', level: 0, children: ['D.1'], parent: null },
+    'D.1': { id: 'D.1', value: '1', level: 1, children: [], parent: 'D' },
+  };
+}
+
+// ============================================================
+// チャット開閉
+// ============================================================
+document.getElementById('chatBtn').addEventListener('click', () => {
+  isOpen = !isOpen;
+  const chatWindow = document.getElementById('chatWindow');
+  const chatBtn = document.getElementById('chatBtn');
+
+  if (isOpen) {
+    chatWindow.classList.remove('hidden');
+    chatBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
+    if (document.getElementById('messages').children.length === 0) {
+      addBotMessage('いらっしゃいませ！\nご用件をお選びください。');
+      renderOptions();
+    }
+  } else {
+    chatWindow.classList.add('hidden');
+    chatBtn.innerHTML = '<span class="material-symbols-outlined">chat</span>';
+  }
+});
+
+// ============================================================
+// メッセージ追加
+// ============================================================
+function addBotMessage(text) {
+  const messages = document.getElementById('messages');
+
+  const row = document.createElement('div');
+  row.className = 'message-row bot';
+
+  row.innerHTML = `
+    <div class="bot-icon"><img src="${BEAR_IMG}" alt="Bear"/></div>
+    <div class="message-content">
+      <div class="bubble bot">${text.replace(/\n/g, '<br/>')}</div>
+    </div>
+  `;
+
+  messages.appendChild(row);
+  messages.scrollTop = messages.scrollHeight;
+  return row.querySelector('.message-content');
+}
+
+function addUserMessage(text) {
+  const messages = document.getElementById('messages');
+
+  const row = document.createElement('div');
+  row.className = 'message-row user';
+  row.innerHTML = `
+    <div class="message-content">
+      <div class="bubble user">${text.replace(/\n/g, '<br/>')}</div>
+    </div>
+  `;
+
+  messages.appendChild(row);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// ============================================================
+// 選択肢レンダリング
+// ============================================================
+function renderOptions() {
+  const messages = document.getElementById('messages');
+  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  if (!lastBotContent) return;
+
+  const options = getCurrentOptions();
+  if (options.length === 0) return;
+
+  const optionsDiv = document.createElement('div');
+  optionsDiv.className = 'options';
+
+  // 選択肢ボタン
+  options.forEach(option => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    const hasChildren = option.children && option.children.length > 0;
+
+    btn.innerHTML = `
+      <div class="option-icon">${option.value}</div>
+      <span class="option-label">${option.value}</span>
+      ${hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : ''}
+    `;
+
+    btn.addEventListener('click', () => handleOptionSelect(option.id));
+    optionsDiv.appendChild(btn);
+  });
+
+  // 戻るボタン
+  if (currentPath.length > 0) {
+    const backBtn = document.createElement('button');
+    backBtn.className = 'back-btn';
+    backBtn.innerHTML = `
+      <span class="material-symbols-outlined" style="color:#6b7280;font-size:18px">arrow_back</span>
+      <span>一つ前に戻る</span>
+    `;
+    backBtn.addEventListener('click', handleGoBack);
+    optionsDiv.appendChild(backBtn);
+  }
+
+  // 緊急ボタン（トップのみ）
+  if (currentPath.length === 0) {
+    const emergBtn = document.createElement('button');
+    emergBtn.className = 'emergency-btn';
+    emergBtn.innerHTML = `
+      <span class="material-symbols-outlined" style="color:#ef4444">priority_high</span>
+      <span class="label">緊急の問い合わせ</span>
+    `;
+    emergBtn.addEventListener('click', handleEmergencyRequest);
+    optionsDiv.appendChild(emergBtn);
+  }
+
+  lastBotContent.appendChild(optionsDiv);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// ============================================================
+// 操作ハンドラー
+// ============================================================
+function handleOptionSelect(nodeId) {
+  if (!treeData) return;
+  const node = treeData[nodeId];
+  if (!node) return;
+
+  const newPath = nodeId.split('.');
+  addUserMessage(node.value);
+
+  setTimeout(() => {
+    if (node.children && node.children.length > 0) {
+      currentPath = newPath;
+      updateBreadcrumb();
+      updateHeaderStatus();
+      const breadcrumb = getBreadcrumbText();
+      addBotMessage(`${breadcrumb}\n\n続けて選択してください。`);
+      renderOptions();
+    } else {
+      const pathText = getBreadcrumbText(newPath);
+      addBotMessage(`選択されました：${pathText}\n\nこちらについての詳細をお調べします。`);
+      createTicket('general', { path: pathText, nodeId });
+
+      setTimeout(() => {
+        addBotMessage('他にご質問はございますか？');
+        currentPath = [];
+        updateBreadcrumb();
+        updateHeaderStatus();
+        renderOptions();
+      }, 1000);
+    }
+  }, 500);
+}
+
+function handleGoBack() {
+  if (currentPath.length === 0) return;
+  currentPath = currentPath.slice(0, -1);
+  updateBreadcrumb();
+  updateHeaderStatus();
+  addUserMessage('一つ前に戻る');
+
+  setTimeout(() => {
+    if (currentPath.length === 0) {
+      addBotMessage('最初の選択に戻ります。');
+    } else {
+      addBotMessage(`${getBreadcrumbText()}\n\n選択してください。`);
+    }
+    renderOptions();
+  }, 300);
+}
+
+function handleEmergencyRequest() {
+  addUserMessage('緊急の問い合わせ');
+  isEmergencyView = true;
+
+  setTimeout(() => {
+    addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
+    renderEmergencyForm();
+  }, 500);
+}
+
+// ============================================================
+// 緊急フォーム
+// ============================================================
+function renderEmergencyForm() {
+  const messages = document.getElementById('messages');
+  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  if (!lastBotContent) return;
+
+  const form = document.createElement('div');
+  form.className = 'emergency-form';
+  form.innerHTML = `
+    <input type="text" id="ef-name" placeholder="お名前 *" />
+    <input type="email" id="ef-email" placeholder="メールアドレス *" />
+    <input type="text" id="ef-store" placeholder="ご予約店舗名 *" />
+    <textarea id="ef-situation" placeholder="状況を詳しく教えてください *"></textarea>
+    <button class="emergency-submit" onclick="submitEmergencyForm()">
+      <span class="material-symbols-outlined">priority_high</span>
+      緊急対応を依頼
+    </button>
+  `;
+
+  lastBotContent.appendChild(form);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function submitEmergencyForm() {
+  const name = document.getElementById('ef-name').value;
+  const email = document.getElementById('ef-email').value;
+  const store = document.getElementById('ef-store').value;
+  const situation = document.getElementById('ef-situation').value;
+
+  if (!name || !email || !store || !situation) {
+    alert('すべての項目をご入力ください');
+    return;
+  }
+
+  addUserMessage(`お名前: ${name}\nメール: ${email}\n店舗: ${store}\n状況: ${situation}`);
+  createTicket('emergency', { name, email, store, situation });
+
+  setTimeout(() => {
+    addBotMessage('✅ 緊急対応チケットを作成しました。\n\nスタッフより至急ご連絡いたします。\nチャットが途切れても、入力いただいた情報で対応いたします。');
+    isEmergencyView = false;
+    currentPath = [];
+    updateBreadcrumb();
+    updateHeaderStatus();
+
+    setTimeout(() => {
+      addBotMessage('他にご質問はございますか？');
+      renderOptions();
+    }, 1000);
+  }, 500);
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function getCurrentOptions() {
+  if (!treeData) return [];
+  if (currentPath.length === 0) {
+    return treeData.level0.map(id => treeData[id]).filter(Boolean);
+  }
+  const nodeId = currentPath.join('.');
+  const node = treeData[nodeId];
+  if (node && node.children) {
+    return node.children.map(id => treeData[id]).filter(Boolean);
+  }
+  return [];
+}
+
+function getBreadcrumbText(path = currentPath) {
+  if (!treeData) return '';
+  return path.map((p, i) => {
+    const id = path.slice(0, i + 1).join('.');
+    return treeData[id] ? treeData[id].value : p;
+  }).join(' > ');
+}
+
+function updateBreadcrumb() {
+  const el = document.getElementById('breadcrumb');
+  const text = document.getElementById('breadcrumbText');
+  if (currentPath.length === 0) {
+    el.classList.add('hidden');
+  } else {
+    el.classList.remove('hidden');
+    text.textContent = getBreadcrumbText();
+  }
+}
+
+function updateHeaderStatus() {
+  document.getElementById('headerStatus').textContent =
+    currentPath.length === 0 ? 'トップ' : `階層: ${currentPath.length + 1}`;
+}
+
+function createTicket(type, data) {
+  const ticket = {
+    id: `TICKET-${Date.now()}`,
+    type,
+    createdAt: new Date().toISOString(),
+    status: 'open',
+    data
+  };
+  tickets.push(ticket);
+  localStorage.setItem('salon_tickets', JSON.stringify(tickets));
+  updateTicketBadge();
+  console.log(type === 'emergency' ? '🚨 緊急チケット:' : '📋 一般チケット:', ticket);
+}
+
+function updateTicketBadge() {
+  const badge = document.getElementById('ticketBadge');
+  if (tickets.length > 0) {
+    badge.classList.remove('hidden');
+    document.getElementById('emergencyCount').textContent =
+      `🚨 緊急: ${tickets.filter(t => t.type === 'emergency').length}件`;
+    document.getElementById('generalCount').textContent =
+      `📋 一般: ${tickets.filter(t => t.type === 'general').length}件`;
+  }
+}
+
+function resetChat() {
+  document.getElementById('messages').innerHTML = '';
+  currentPath = [];
+  isEmergencyView = false;
+  updateBreadcrumb();
+  updateHeaderStatus();
+  addBotMessage('いらっしゃいませ！\nご用件をお選びください。');
+  renderOptions();
+}
+
+async function reloadData() {
+  await loadTreeData();
+  resetChat();
+  alert('データを再読み込みしました');
+}
+</script>
+</body>
+</html>
