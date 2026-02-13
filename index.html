@@ -704,22 +704,21 @@ let isOpen = false;
 let isEmergencyView = false;
 let emergencyForm = { name: '', email: '', store: '', situation: '' };
 
-window.addEventListener('DOMContentLoaded', () => {
-  loadTreeData();
-  updateTicketBadge();
-  
+window.addEventListener('DOMContentLoaded', async () => {
   // チャットを自動的に開く
   const chatWindow = document.getElementById('chatWindow');
   chatWindow.classList.remove('hidden');
   isOpen = true;
   
-  // データ読み込み後に初期メッセージと選択肢を表示
-  setTimeout(() => {
-    if (document.getElementById('messages').children.length === 0) {
-      addBotMessage('下記からご用件をお選びください！');
-      renderOptions();
-    }
-  }, 500);
+  // 初期メッセージをすぐ表示
+  addBotMessage('下記からご用件をお選びください！');
+  
+  // データ読み込み（バックグラウンド）
+  await loadTreeData();
+  updateTicketBadge();
+  
+  // データ読み込み完了後に選択肢を表示
+  renderOptions();
 });
 
 async function loadTreeData() {
@@ -917,6 +916,7 @@ function handleOptionSelect(nodeId) {
       console.log('✅ 子がある - 次の階層へ');
       currentPath = newPath;
       console.log('📍 currentPath更新:', currentPath);
+      console.log('📍 配列確認:', Array.isArray(currentPath), 'length:', currentPath.length);
       updateBreadcrumb();
       updateHeaderStatus();
       
@@ -929,6 +929,10 @@ function handleOptionSelect(nodeId) {
       // 終端ノード
       const pathText = getBreadcrumbText(newPath);
       
+      // URLを含むかチェック
+      const urlRegex = /(https?:\/\/[^\s\]】]+)/;
+      const hasUrl = urlRegex.test(node.value);
+      
       // フォーム判定
       if (node.value.includes('フォーム') && node.value.includes('一般チケット')) {
         // 一般チケットフォーム
@@ -938,11 +942,21 @@ function handleOptionSelect(nodeId) {
         // 緊急フォーム
         addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
         renderEmergencyForm();
-      } else {
-        // 言葉で完結
-        // リンクを検出して変換
+      } else if (hasUrl) {
+        // URLがある場合は直接リンクボタンを表示
         const formattedText = formatTextWithLinks(node.value);
         addBotMessageWithHTML(formattedText);
+        
+        setTimeout(() => {
+          addBotMessage('他にご質問はございますか？');
+          currentPath = [];
+          updateBreadcrumb();
+          updateHeaderStatus();
+          renderOptions();
+        }, 1500);
+      } else {
+        // 言葉で完結
+        addBotMessage(node.value);
         
         setTimeout(() => {
           addBotMessage('他にご質問はございますか？');
@@ -958,7 +972,14 @@ function handleOptionSelect(nodeId) {
 
 function handleGoBack() {
   if (currentPath.length === 0) return;
+  
+  console.log('🔙 戻る前のcurrentPath:', currentPath);
+  
+  // 最後の要素を削除（1階層だけ戻る）
   currentPath = currentPath.slice(0, -1);
+  
+  console.log('🔙 戻った後のcurrentPath:', currentPath);
+  
   updateBreadcrumb();
   updateHeaderStatus();
   addUserMessage('一つ前に戻る');
