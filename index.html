@@ -704,19 +704,22 @@ let isOpen = false;
 let isEmergencyView = false;
 let emergencyForm = { name: '', email: '', store: '', situation: '' };
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   // チャットを自動的に開く
   const chatWindow = document.getElementById('chatWindow');
   chatWindow.classList.remove('hidden');
   isOpen = true;
   
-  // データ読み込み
-  await loadTreeData();
-  updateTicketBadge();
-  
-  // 初期メッセージと選択肢を表示
+  // 初期メッセージをすぐ表示
   addBotMessage('下記からご用件をお選びください！');
-  renderOptions();
+  
+  // データ読み込みを開始（非同期）
+  loadTreeData().then(() => {
+    // データ読み込み完了後に選択肢を表示
+    renderOptions();
+  });
+  
+  updateTicketBadge();
 });
 
 async function loadTreeData() {
@@ -862,14 +865,29 @@ function renderOptions() {
     const btn = document.createElement('button');
     btn.className = 'option-btn';
     const hasChildren = option.children && option.children.length > 0;
+    
+    // URLを検出
+    const urlRegex = /(https?:\/\/[^\s\]】]+)/;
+    const urlMatch = option.value.match(urlRegex);
+    const hasUrl = urlMatch && urlMatch.length > 0;
 
     btn.innerHTML = `
       <div class="option-icon"></div>
-      <span class="option-label">${option.value}</span>
+      <span class="option-label">${option.value.replace(urlRegex, '').replace(/【】/g, '').trim()}</span>
       ${hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : ''}
+      ${hasUrl ? '<span class="material-symbols-outlined chevron">open_in_new</span>' : ''}
     `;
 
-    btn.addEventListener('click', () => handleOptionSelect(option.id));
+    if (hasUrl && !hasChildren) {
+      // URLがあり、子がない場合は直接リンクに飛ぶ
+      btn.addEventListener('click', () => {
+        window.open(urlMatch[0], '_blank');
+      });
+    } else {
+      // 通常の選択動作
+      btn.addEventListener('click', () => handleOptionSelect(option.id));
+    }
+    
     optionsDiv.appendChild(btn);
   });
 
