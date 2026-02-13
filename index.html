@@ -889,22 +889,37 @@ function renderOptions() {
 }
 
 function handleOptionSelect(nodeId) {
-  if (!treeData) return;
+  console.log('🔵 handleOptionSelect 呼び出し:', nodeId);
+  if (!treeData) {
+    console.error('❌ treeData が null');
+    return;
+  }
   const node = treeData[nodeId];
-  if (!node) return;
+  if (!node) {
+    console.error('❌ node が見つからない:', nodeId);
+    return;
+  }
+  console.log('📦 選択されたノード:', node);
 
   const newPath = nodeId.split('.');
   addUserMessage(node.value);
 
   setTimeout(() => {
+    console.log('⏱️ タイムアウト後の処理開始');
+    console.log('👶 children:', node.children);
+    console.log('📏 children.length:', node.children ? node.children.length : 0);
+    
     if (node.children && node.children.length > 0) {
       // 子がある場合
+      console.log('✅ 子がある - 次の階層へ');
       currentPath = newPath;
+      console.log('📍 currentPath更新:', currentPath);
       updateBreadcrumb();
       updateHeaderStatus();
       
       // 必ず選択肢をレンダリング
       setTimeout(() => {
+        console.log('🎨 renderOptions 呼び出し');
         renderOptions();
       }, 100);
     } else {
