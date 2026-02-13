@@ -710,14 +710,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   chatWindow.classList.remove('hidden');
   isOpen = true;
   
-  // 初期メッセージをすぐ表示
-  addBotMessage('下記からご用件をお選びください！');
-  
-  // データ読み込み（バックグラウンド）
+  // データ読み込み
   await loadTreeData();
   updateTicketBadge();
   
-  // データ読み込み完了後に選択肢を表示
+  // 初期メッセージと選択肢を表示
+  addBotMessage('下記からご用件をお選びください！');
   renderOptions();
 });
 
