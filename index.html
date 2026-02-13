@@ -841,10 +841,13 @@ function smoothScrollToBottom() {
 
 function renderOptions() {
   const messages = document.getElementById('messages');
-  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  let lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  
+  // lastBotContentがない場合、空のボットメッセージを追加
   if (!lastBotContent) {
-    console.error('❌ lastBotContent が見つかりません');
-    return;
+    console.warn('⚠️ lastBotContent が見つからないため、空のボットメッセージを作成');
+    const emptyBot = addBotMessage(''); // 空メッセージ
+    lastBotContent = emptyBot;
   }
 
   const options = getCurrentOptions();
@@ -917,11 +920,11 @@ function handleOptionSelect(nodeId) {
       updateBreadcrumb();
       updateHeaderStatus();
       
-      // 必ず選択肢をレンダリング
+      // 空のボットメッセージを追加してから選択肢をレンダリング
       setTimeout(() => {
-        console.log('🎨 renderOptions 呼び出し');
+        console.log('🎨 選択肢をレンダリング開始');
         renderOptions();
-      }, 100);
+      }, 150);
     } else {
       // 終端ノード
       const pathText = getBreadcrumbText(newPath);
