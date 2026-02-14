@@ -1052,6 +1052,9 @@ function renderMedia(media) {
     // リンクボタンを表示
     const linkHTML = `<a href="${media.url.trim()}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;transition:background 0.2s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">🔗 ${media.text} →</a>`;
     addBotMessageWithHTML(linkHTML);
+  } else if (type === 'form') {
+    // フォームを表示
+    renderGeneralTicketForm(media.text);
   }
 }
 
@@ -1119,25 +1122,58 @@ function submitGeneralTicketForm(pathText) {
     return;
   }
 
-  let summary = `店舗: ${store}\nお名前: ${name}\nメール: ${email}`;
-  if (reservation) summary += `\n予約番号: ${reservation}`;
-  if (amount) summary += `\nお支払い予定金額: ${amount}`;
-  summary += `\nお問い合わせ: ${inquiry}`;
+  // フォームを無効化
+  const submitBtn = event.target;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中...';
 
-  addUserMessage(summary);
-  createTicket('general', { reservation, store, name, email, amount, inquiry, path: pathText });
+  // GASに送信
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'saveGeneralTicket',
+      name: name,
+      email: email,
+      category: inquiry,
+      situation: `予約番号: ${reservation || 'なし'}\n店舗: ${store}\nお支払い予定金額: ${amount || 'なし'}`
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      let summary = `店舗: ${store}\nお名前: ${name}\nメール: ${email}`;
+      if (reservation) summary += `\n予約番号: ${reservation}`;
+      if (amount) summary += `\nお支払い予定金額: ${amount}`;
+      summary += `\nお問い合わせ: ${inquiry}`;
 
-  setTimeout(() => {
-    addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
-    currentPath = [];
-    updateBreadcrumb();
-    updateHeaderStatus();
+      addUserMessage(summary);
 
-    setTimeout(() => {
-      addBotMessage('他にご質問はございますか？');
-      renderOptions();
-    }, 1000);
-  }, 500);
+      setTimeout(() => {
+        addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
+        currentPath = [];
+        updateBreadcrumb();
+        updateHeaderStatus();
+
+        setTimeout(() => {
+          addBotMessage('他にご質問はございますか？');
+          renderOptions();
+        }, 1000);
+      }, 500);
+    } else {
+      alert('送信に失敗しました。もう一度お試しください。');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する';
+    }
+  })
+  .catch(error => {
+    console.error('送信エラー:', error);
+    alert('送信に失敗しました。もう一度お試しください。');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する';
+  });
 }
 
 function renderEmergencyForm() {
