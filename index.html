@@ -1089,128 +1089,32 @@ function renderCustomForm(formType, category) {
   const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) return;
 
-  const form = document.createElement('div');
-  form.className = 'emergency-form';
-  form.style.background = '#f0f9ff';
-  form.style.borderColor = '#bae6fd';
+  const iframeContainer = document.createElement('div');
+  iframeContainer.style.cssText = 'margin-top: 12px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);';
   
-  let formHTML = '';
+  const iframe = document.createElement('iframe');
+  iframe.src = `${GAS_URL}?page=form&type=${formType}&category=${encodeURIComponent(category)}`;
+  iframe.style.cssText = 'width: 100%; height: 450px; border: none; border-radius: 12px;';
+  iframe.setAttribute('allow', 'clipboard-write');
   
-  // フォームタイプに応じて異なるフィールドを生成
-  switch(formType) {
-    case 'registration-trouble':
-      formHTML = `
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <select id="form-category" required>
-          <option value="">カテゴリを選択 *</option>
-          <option value="会員登録画面">会員登録画面</option>
-          <option value="予約画面">予約画面</option>
-          <option value="LINEアカウント引き継ぎ">LINEアカウント引き継ぎ</option>
-        </select>
-        <textarea id="form-detail" placeholder="詳しい状況を教えてください"></textarea>
-        <input type="file" id="form-file" accept="image/*" placeholder="スクリーンショット" />
-      `;
-      break;
-      
-    case 'payment-forgot':
-      formHTML = `
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="text" id="form-amount" placeholder="お支払い予定金額 *" required />
-      `;
-      break;
-      
-    case 'payment-short':
-      formHTML = `
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="text" id="form-amount" placeholder="不足金額 *" required />
-      `;
-      break;
-      
-    case 'payment-over':
-      formHTML = `
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="text" id="form-amount" placeholder="多く支払った金額 *" required />
-      `;
-      break;
-      
-    case 'payment-other':
-      formHTML = `
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <textarea id="form-detail" placeholder="内容をご記入ください *" required></textarea>
-      `;
-      break;
-      
-    case 'points-3':
-      formHTML = `
-        <input type="text" id="form-name" placeholder="お名前（予約者のみ対象）*" required />
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="file" id="form-file" accept="image/*" placeholder="ショップカードのスクリーンショット *" required />
-      `;
-      break;
-      
-    case 'points-15':
-      formHTML = `
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
-        <input type="text" id="form-name" placeholder="お名前（予約者のみ対象）*" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="file" id="form-file" accept="image/*" placeholder="ショップカードのスクリーンショット *" required />
-      `;
-      break;
-      
-    case 'campaign-review':
-      formHTML = `
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="file" id="form-file" accept="image/*" placeholder="投稿画面スクリーンショット *" required />
-      `;
-      break;
-      
-    case 'general-inquiry':
-      formHTML = `
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <input type="text" id="form-store" placeholder="店舗名 *" required />
-        <textarea id="form-detail" placeholder="お問い合わせ内容 *" required></textarea>
-        <input type="file" id="form-file" accept="image/*" placeholder="画像添付（任意）" />
-      `;
-      break;
-      
-    default:
-      formHTML = `
-        <input type="text" id="form-name" placeholder="お名前 *" required />
-        <input type="email" id="form-email" placeholder="メールアドレス *" required />
-        <textarea id="form-detail" placeholder="詳細 *" required></textarea>
-      `;
-  }
+  iframeContainer.appendChild(iframe);
+  lastBotContent.appendChild(iframeContainer);
   
-  formHTML += `
-    <button class="emergency-submit" style="background:#0ea5e9" onclick="submitCustomForm('${formType}', '${category.replace(/'/g, "\\'")}')">
-      <span class="material-symbols-outlined">send</span>
-      送信する
-    </button>
-  `;
+  window.addEventListener('message', function(event) {
+    if (event.data === 'formSubmitted') {
+      setTimeout(() => {
+        addBotMessage('他にご質問はございますか？');
+        currentPath = [];
+        updateBreadcrumb();
+        updateHeaderStatus();
+        renderOptions();
+      }, 1000);
+    }
+  });
   
-  form.innerHTML = formHTML;
-  lastBotContent.appendChild(form);
   smoothScrollToBottom();
 }
+
 
 function renderGeneralTicketForm(pathText) {
   const messages = document.getElementById('messages');
