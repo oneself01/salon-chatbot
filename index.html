@@ -1053,8 +1053,9 @@ function renderMedia(media) {
     const linkHTML = `<a href="${media.url.trim()}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;transition:background 0.2s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">🔗 ${media.text} →</a>`;
     addBotMessageWithHTML(linkHTML);
   } else if (type === 'form') {
-    // フォームを表示
-    renderGeneralTicketForm(media.text);
+    // フォームを表示（C列のURLでフォームタイプを判定）
+    const formType = media.url.trim();
+    renderCustomForm(formType, media.text);
   }
 }
 
@@ -1083,6 +1084,134 @@ function handleGoBack() {
   }, 300);
 }
 
+function renderCustomForm(formType, category) {
+  const messages = document.getElementById('messages');
+  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  if (!lastBotContent) return;
+
+  const form = document.createElement('div');
+  form.className = 'emergency-form';
+  form.style.background = '#f0f9ff';
+  form.style.borderColor = '#bae6fd';
+  
+  let formHTML = '';
+  
+  // フォームタイプに応じて異なるフィールドを生成
+  switch(formType) {
+    case 'registration-trouble':
+      formHTML = `
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <select id="form-category" required>
+          <option value="">カテゴリを選択 *</option>
+          <option value="会員登録画面">会員登録画面</option>
+          <option value="予約画面">予約画面</option>
+          <option value="LINEアカウント引き継ぎ">LINEアカウント引き継ぎ</option>
+        </select>
+        <textarea id="form-detail" placeholder="詳しい状況を教えてください"></textarea>
+        <input type="file" id="form-file" accept="image/*" placeholder="スクリーンショット" />
+      `;
+      break;
+      
+    case 'payment-forgot':
+      formHTML = `
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="text" id="form-amount" placeholder="お支払い予定金額 *" required />
+      `;
+      break;
+      
+    case 'payment-short':
+      formHTML = `
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="text" id="form-amount" placeholder="不足金額 *" required />
+      `;
+      break;
+      
+    case 'payment-over':
+      formHTML = `
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="text" id="form-amount" placeholder="多く支払った金額 *" required />
+      `;
+      break;
+      
+    case 'payment-other':
+      formHTML = `
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <textarea id="form-detail" placeholder="内容をご記入ください *" required></textarea>
+      `;
+      break;
+      
+    case 'points-3':
+      formHTML = `
+        <input type="text" id="form-name" placeholder="お名前（予約者のみ対象）*" required />
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="file" id="form-file" accept="image/*" placeholder="ショップカードのスクリーンショット *" required />
+      `;
+      break;
+      
+    case 'points-15':
+      formHTML = `
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-reservation" placeholder="予約番号 *" required />
+        <input type="text" id="form-name" placeholder="お名前（予約者のみ対象）*" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="file" id="form-file" accept="image/*" placeholder="ショップカードのスクリーンショット *" required />
+      `;
+      break;
+      
+    case 'campaign-review':
+      formHTML = `
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="file" id="form-file" accept="image/*" placeholder="投稿画面スクリーンショット *" required />
+      `;
+      break;
+      
+    case 'general-inquiry':
+      formHTML = `
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <input type="text" id="form-store" placeholder="店舗名 *" required />
+        <textarea id="form-detail" placeholder="お問い合わせ内容 *" required></textarea>
+        <input type="file" id="form-file" accept="image/*" placeholder="画像添付（任意）" />
+      `;
+      break;
+      
+    default:
+      formHTML = `
+        <input type="text" id="form-name" placeholder="お名前 *" required />
+        <input type="email" id="form-email" placeholder="メールアドレス *" required />
+        <textarea id="form-detail" placeholder="詳細 *" required></textarea>
+      `;
+  }
+  
+  formHTML += `
+    <button class="emergency-submit" style="background:#0ea5e9" onclick="submitCustomForm('${formType}', '${category.replace(/'/g, "\\'")}')">
+      <span class="material-symbols-outlined">send</span>
+      送信する
+    </button>
+  `;
+  
+  form.innerHTML = formHTML;
+  lastBotContent.appendChild(form);
+  smoothScrollToBottom();
+}
+
 function renderGeneralTicketForm(pathText) {
   const messages = document.getElementById('messages');
   const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
@@ -1107,6 +1236,106 @@ function renderGeneralTicketForm(pathText) {
 
   lastBotContent.appendChild(form);
   smoothScrollToBottom();
+}
+
+function submitCustomForm(formType, category) {
+  // 共通フィールド
+  const name = document.getElementById('form-name')?.value || '';
+  const email = document.getElementById('form-email')?.value || '';
+  const store = document.getElementById('form-store')?.value || '';
+  const reservation = document.getElementById('form-reservation')?.value || '';
+  const amount = document.getElementById('form-amount')?.value || '';
+  const detail = document.getElementById('form-detail')?.value || '';
+  const categorySelect = document.getElementById('form-category')?.value || '';
+  const file = document.getElementById('form-file')?.files[0];
+  
+  // 必須チェック
+  const requiredFields = document.querySelectorAll('#form-name[required], #form-email[required], #form-store[required], #form-reservation[required], #form-amount[required], #form-detail[required], #form-category[required]');
+  for (let field of requiredFields) {
+    if (!field.value.trim()) {
+      alert('必須項目をすべて入力してください');
+      return;
+    }
+  }
+  
+  // 送信ボタンを無効化
+  const submitBtn = event.target;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '送信中...';
+  
+  // 状況文を作成
+  let situation = '';
+  switch(formType) {
+    case 'registration-trouble':
+      situation = `カテゴリ: ${categorySelect}\n詳細: ${detail}`;
+      break;
+    case 'payment-forgot':
+    case 'payment-short':
+    case 'payment-over':
+      situation = `予約番号: ${reservation}\n店舗: ${store}\n金額: ${amount}`;
+      break;
+    case 'payment-other':
+      situation = `予約番号: ${reservation}\n店舗: ${store}\n内容: ${detail}`;
+      break;
+    case 'points-3':
+    case 'points-15':
+      situation = `予約番号: ${reservation}\n店舗: ${store}`;
+      break;
+    case 'campaign-review':
+      situation = `店舗: ${store}`;
+      break;
+    case 'general-inquiry':
+      situation = `店舗: ${store}\nお問い合わせ: ${detail}`;
+      break;
+  }
+  
+  // 画像がある場合は別途処理（今回はスキップ）
+  if (file) {
+    situation += `\n画像添付: ${file.name}`;
+  }
+  
+  // GASに送信
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'saveGeneralTicket',
+      name: name,
+      email: email,
+      category: category,
+      situation: situation
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      addUserMessage(`お名前: ${name}\nメール: ${email}\n${situation}`);
+      
+      setTimeout(() => {
+        addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
+        currentPath = [];
+        updateBreadcrumb();
+        updateHeaderStatus();
+        
+        setTimeout(() => {
+          addBotMessage('他にご質問はございますか？');
+          renderOptions();
+        }, 1000);
+      }, 500);
+    } else {
+      alert('送信に失敗しました。もう一度お試しください。');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する';
+    }
+  })
+  .catch(error => {
+    console.error('送信エラー:', error);
+    alert('送信に失敗しました。もう一度お試しください。');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する';
+  });
 }
 
 function submitGeneralTicketForm(pathText) {
