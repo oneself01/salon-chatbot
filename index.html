@@ -768,11 +768,6 @@ function getDefaultData() {
 
 // チャットは常に開いているので、開閉ボタンのロジックは不要
 
-function renderMediaLink(media) {
-  const linkHTML = `<a href="${media.url.trim()}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;transition:background 0.2s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">🔗 ${media.text} →</a>`;
-  addBotMessageWithHTML(linkHTML);
-}
-
 function formatTextWithLinks(text) {
   // URLを検出
   const urlRegex = /(https?:\/\/[^\s\]】]+)/g;
@@ -965,6 +960,18 @@ function handleOptionSelect(nodeId) {
     if (node.children && node.children.length > 0) {
       // 子がある場合
       console.log('✅ 子がある - 次の階層へ');
+      
+      // 子が1つだけで、その子が終端ノードの場合はスキップ
+      if (node.children.length === 1 && treeData) {
+        const onlyChild = treeData[node.children[0]];
+        if (onlyChild && (!onlyChild.children || onlyChild.children.length === 0)) {
+          console.log('🚀 子が1つだけで終端 - 直接表示');
+          // 直接その子の内容を表示
+          handleTerminalNode(onlyChild, newPath);
+          return;
+        }
+      }
+      
       currentPath = newPath;
       console.log('📍 currentPath更新:', currentPath);
       console.log('📍 配列確認:', Array.isArray(currentPath), 'length:', currentPath.length);
@@ -978,56 +985,74 @@ function handleOptionSelect(nodeId) {
       }, 150);
     } else {
       // 終端ノード
-      const pathText = getBreadcrumbText(newPath);
-      
-      // メディアがあるかチェック
-      const hasMedia = node.media && node.media.length > 0;
-      
-      // フォーム判定
-      if (node.value.includes('フォーム') && node.value.includes('一般チケット')) {
-        // 一般チケットフォーム
-        addBotMessage(`承知しました。\n\nお問い合わせ内容を承りました。\n詳細情報をご入力ください。`);
-        renderGeneralTicketForm(pathText);
-      } else if (node.value.includes('緊急対応') && node.value.includes('スタッフが直対応')) {
-        // 緊急フォーム
-        addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
-        renderEmergencyForm();
-      } else if (hasMedia) {
-        // メディアがある場合
-        // メディアIDを除いたテキストを表示
-        const cleanText = node.value.replace(/【[^】]+】/g, '').trim();
-        if (cleanText) {
-          addBotMessage(cleanText);
-        }
-        
-        // メディアを表示
-        node.media.forEach(mediaId => {
-          if (mediaData && mediaData[mediaId]) {
-            renderMediaLink(mediaData[mediaId]);
-          }
-        });
-        
-        setTimeout(() => {
-          addBotMessage('他にご質問はございますか？');
-          currentPath = [];
-          updateBreadcrumb();
-          updateHeaderStatus();
-          renderOptions();
-        }, 1500);
-      } else {
-        // 言葉で完結
-        addBotMessage(node.value);
-        
-        setTimeout(() => {
-          addBotMessage('他にご質問はございますか？');
-          currentPath = [];
-          updateBreadcrumb();
-          updateHeaderStatus();
-          renderOptions();
-        }, 1500);
-      }
+      handleTerminalNode(node, newPath);
     }
   }, 400);
+}
+
+function handleTerminalNode(node, path) {
+  const pathText = getBreadcrumbText(path);
+  
+  // メディアがあるかチェック
+  const hasMedia = node.media && node.media.length > 0;
+  
+  // フォーム判定
+  if (node.value.includes('フォーム') && node.value.includes('一般チケット')) {
+        // 一般チケットフォーム
+    addBotMessage(`承知しました。\n\nお問い合わせ内容を承りました。\n詳細情報をご入力ください。`);
+    renderGeneralTicketForm(pathText);
+  } else if (node.value.includes('緊急対応') && node.value.includes('スタッフが直対応')) {
+    // 緊急フォーム
+    addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
+    renderEmergencyForm();
+  } else if (hasMedia) {
+    // メディアがある場合
+    // メディアIDを除いたテキストを表示
+    const cleanText = node.value.replace(/【[^】]+】/g, '').trim();
+    if (cleanText) {
+      addBotMessage(cleanText);
+    }
+    
+    // メディアを表示
+    node.media.forEach(mediaId => {
+      if (mediaData && mediaData[mediaId]) {
+        renderMedia(mediaData[mediaId]);
+      }
+    });
+    
+    setTimeout(() => {
+      addBotMessage('他にご質問はございますか？');
+      currentPath = [];
+      updateBreadcrumb();
+      updateHeaderStatus();
+      renderOptions();
+    }, 1500);
+  } else {
+    // 言葉で完結
+    addBotMessage(node.value);
+    
+    setTimeout(() => {
+      addBotMessage('他にご質問はございますか？');
+      currentPath = [];
+      updateBreadcrumb();
+      updateHeaderStatus();
+      renderOptions();
+    }, 1500);
+  }
+}
+
+function renderMedia(media) {
+  const type = media.type || 'link';
+  
+  if (type === 'image') {
+    // 画像を表示
+    const imageHTML = `<img src="${media.url.trim()}" alt="${media.text}" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;" />`;
+    addBotMessageWithHTML(imageHTML);
+  } else if (type === 'link') {
+    // リンクボタンを表示
+    const linkHTML = `<a href="${media.url.trim()}" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;transition:background 0.2s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">🔗 ${media.text} →</a>`;
+    addBotMessageWithHTML(linkHTML);
+  }
 }
 
 function handleGoBack() {
