@@ -540,14 +540,6 @@ function bindEmergencySendButton_() {
   newBtn.disabled = false;
   newBtn.dataset.sending = '0';
 
-  // Enterキー送信（Shift+EnterはNG）
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      newBtn.click();
-    }
-  });
-
   newBtn.addEventListener('click', async () => {
     const ticketId = getEmergencyTicketId_();
     const text     = (input.value || '').trim();
