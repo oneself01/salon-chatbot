@@ -549,9 +549,7 @@ function bindEmergencySendButton_() {
     newBtn.dataset.sending = '1';
     newBtn.disabled        = true;
 
-    // ✅ フロントに即時表示（正しいID: emergencyMessages）
-appendEmergencyMessageToUI_({ ts: new Date().toISOString(), from: 'customer', message: text });
-emergencySeenKeys_.add(`${new Date().toISOString()}|customer|${text}`);
+   // 入力欄クリアのみ（表示はポーリングに任せる）
 input.value = '';
 
     try {
