@@ -556,9 +556,7 @@ function bindEmergencySendButton_() {
 
     try {
       await sendEmergencyCustomerMessage_(ticketId, text);
-      // ✅ 送信成功後、少し待ってからポーリング1回（差分確認）
-      setTimeout(() => fetchEmergencyChatOnce_().catch(() => {}), 1200);
-    } catch (e) {
+    
       console.error('送信エラー:', e);
       alert('送信に失敗しました: ' + (e?.message || e));
     } finally {
