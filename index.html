@@ -677,6 +677,9 @@ function startEmergencyChatPolling_() {
   stopEmergencyChatPolling_();
 
   if (!emergencyCurrentTicketId) return;
+  // ✅ 追加：チャットエリアが表示されていない場合はポーリングしない
+  const chatArea = document.getElementById('emergency-chat-area');
+  if (!chatArea || chatArea.classList.contains('hidden')) return;
 
   emergencyLastTs       = null;
   emergencyPollInterval = POLL_INTERVAL_NORMAL;
