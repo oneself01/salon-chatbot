@@ -550,9 +550,9 @@ function bindEmergencySendButton_() {
     newBtn.disabled        = true;
 
     // ✅ フロントに即時表示（正しいID: emergencyMessages）
-    appendEmergencyMessageToUI_({ ts: new Date().toISOString(), from: 'customer', message: text });
-    emergencySeenKeys_.add(`${new Date().toISOString()}|customer|${text}`);
-    input.value = '';
+appendEmergencyMessageToUI_({ ts: new Date().toISOString(), from: 'customer', message: text });
+emergencySeenKeys_.add(`${new Date().toISOString()}|customer|${text}`);
+input.value = '';
 
     try {
       await sendEmergencyCustomerMessage_(ticketId, text);
