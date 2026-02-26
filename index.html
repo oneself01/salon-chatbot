@@ -355,6 +355,34 @@
   .msg-row.staff    .msg-bubble { background:#fff7ed; }
   .msg-meta { font-size:11px; opacity:.6; margin-bottom:3px; }
   .msg-text { white-space:pre-wrap; word-break:break-word; }
+
+  /* オペレーターステータスアニメーション */
+  .operator-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #6b7280;
+    min-height: 28px;
+  }
+  .operator-status .dots {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .operator-status .dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #9ca3af;
+    animation: dotBounce 1.2s infinite ease-in-out;
+  }
+  .operator-status .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .operator-status .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40%           { transform: translateY(-5px); opacity: 1; }
+  }
 </style>
 </head>
 
@@ -403,7 +431,6 @@
       </button>
     </div>
 
-    <!-- ✅ ID統一：emergencyMessages（旧コードの emergency-chat-messages を廃止） -->
     <div id="emergencyMessages" style="
       max-height: 260px;
       overflow-y: auto;
@@ -411,8 +438,11 @@
       border: 1px solid #e5e7eb;
       border-radius: 12px;
       background: #f9fafb;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     "></div>
+
+    <!-- オペレーターステータス表示エリア -->
+    <div id="operator-status-area" style="min-height:28px; margin-bottom:4px;"></div>
 
     <div style="display:flex; gap:10px;">
       <textarea
@@ -448,23 +478,63 @@ const BEAR_IMG      = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwt
 // =============================================================
 //  緊急チャット ポーリング管理
 // =============================================================
-
-// ✅ 間隔設定（ミリ秒）
-const POLL_INTERVAL_NORMAL  = 8000;   // 通常：8秒
-const POLL_INTERVAL_MIN     = 8000;   // バックオフ下限
-const POLL_INTERVAL_MAX     = 60000;  // バックオフ上限（60秒）
-const POLL_BACKOFF_FACTOR   = 2;      // 失敗ごとに2倍
+const POLL_INTERVAL_NORMAL  = 8000;
+const POLL_INTERVAL_MIN     = 8000;
+const POLL_INTERVAL_MAX     = 60000;
+const POLL_BACKOFF_FACTOR   = 2;
 
 let emergencyCurrentTicketId = null;
 let emergencyLastTs          = null;
 let emergencyPollTimer       = null;
 let emergencyPollInterval    = POLL_INTERVAL_NORMAL;
-
-// ✅ inFlightガード（同時リクエスト1本に制限）
 let emergencyFetchInFlight   = false;
+const emergencySeenKeys_     = new Set();
 
-// 重複防止（表示済みキー）
-const emergencySeenKeys_ = new Set();
+// =============================================================
+//  オペレーターステータス管理
+// =============================================================
+let operatorStatusTimer_ = null;
+
+function showOperatorStatus_() {
+  const area = document.getElementById('operator-status-area');
+  if (!area) return;
+  clearOperatorStatus_();
+
+  // 0〜4秒：接続中
+  area.innerHTML = `
+    <div class="operator-status">
+      <div class="dots"><span></span><span></span><span></span></div>
+      オペレーターへ接続中
+    </div>`;
+
+  operatorStatusTimer_ = setTimeout(() => {
+    // 4〜15秒：確認中
+    area.innerHTML = `
+      <div class="operator-status">
+        <div class="dots"><span></span><span></span><span></span></div>
+        スタッフが確認中
+      </div>`;
+
+    operatorStatusTimer_ = setTimeout(() => {
+      // 15秒以降：入力中
+      area.innerHTML = `
+        <div class="operator-status">
+          <div class="dots"><span></span><span></span><span></span></div>
+          スタッフが入力中
+        </div>`;
+    }, 11000); // 4 + 11 = 15秒
+
+  }, 4000);
+}
+
+function clearOperatorStatus_() {
+  if (operatorStatusTimer_) {
+    clearTimeout(operatorStatusTimer_);
+    operatorStatusTimer_ = null;
+  }
+  const area = document.getElementById('operator-status-area');
+  if (area) area.innerHTML = '';
+}
 
 // =============================================================
 //  アプリ状態
@@ -534,7 +604,6 @@ function bindEmergencySendButton_() {
   const input = document.getElementById('emergencyInput');
   if (!btn || !input) return;
 
-  // 既存イベントをcloneで削除
   const newBtn = btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn, btn);
   newBtn.disabled = false;
@@ -548,13 +617,13 @@ function bindEmergencySendButton_() {
 
     newBtn.dataset.sending = '1';
     newBtn.disabled        = true;
-
-   // 入力欄クリアのみ（表示はポーリングに任せる）
-input.value = '';
+    clearOperatorStatus_();   // 送信中はステータス非表示
+    input.value = '';
 
     try {
       await sendEmergencyCustomerMessage_(ticketId, text);
-    
+      showOperatorStatus_();  // 送信完了後にアニメ開始
+    } catch (e) {
       console.error('送信エラー:', e);
       alert('送信に失敗しました: ' + (e?.message || e));
     } finally {
@@ -565,14 +634,18 @@ input.value = '';
 }
 
 // =============================================================
-//  緊急チャット：メッセージUI追加（正しいID使用）
+//  緊急チャット：メッセージUI追加
 // =============================================================
 function appendEmergencyMessageToUI_(m) {
   const listEl = document.getElementById('emergencyMessages');
   if (!listEl) return;
 
   const from = String(m.from || '').toLowerCase();
-  const text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));  // ← ここだけ変更
+
+  // スタッフ返信が届いたらアニメーション消去
+  if (from === 'staff') clearOperatorStatus_();
+
+  const text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));
 
   let tsDisplay = '';
   try {
@@ -601,16 +674,12 @@ function linkifyHtml_(html) {
     '<a href="$1" target="_blank" rel="noopener" style="color:#0284c7;word-break:break-all;">$1</a>'
   );
 }
-// =============================================================
-//  緊急チャット：ポーリング（差分取得・inFlightガード・バックオフ）
-// =============================================================
 
+// =============================================================
+//  緊急チャット：ポーリング
+// =============================================================
 async function fetchEmergencyChatOnce_() {
-  // ✅ inFlightガード：前のリクエストが終わっていなければスキップ
-  if (emergencyFetchInFlight) {
-    console.log('[poll] skip: inFlight');
-    return;
-  }
+  if (emergencyFetchInFlight) { console.log('[poll] skip: inFlight'); return; }
   if (!emergencyCurrentTicketId) return;
 
   emergencyFetchInFlight = true;
@@ -622,14 +691,12 @@ async function fetchEmergencyChatOnce_() {
     const j = await postToGAS_(body);
 
     if (!j || j.success !== true) {
-      // ✅ 失敗時：バックオフ
       emergencyPollInterval = Math.min(emergencyPollInterval * POLL_BACKOFF_FACTOR, POLL_INTERVAL_MAX);
       console.warn('[poll] failed, backoff to', emergencyPollInterval, 'ms', j);
       reschedulePolling_();
       return;
     }
 
-    // ✅ 成功時：通常間隔に戻す
     emergencyPollInterval = POLL_INTERVAL_NORMAL;
 
     const list = Array.isArray(j.messages) ? j.messages : [];
@@ -645,13 +712,10 @@ async function fetchEmergencyChatOnce_() {
       emergencySeenKeys_.add(key);
       appendEmergencyMessageToUI_(m);
 
-      if (!emergencyLastTs || (ts && ts > emergencyLastTs)) {
-        emergencyLastTs = ts;
-      }
+      if (!emergencyLastTs || (ts && ts > emergencyLastTs)) emergencyLastTs = ts;
     }
 
   } catch (e) {
-    // ✅ 例外時もバックオフ
     emergencyPollInterval = Math.min(emergencyPollInterval * POLL_BACKOFF_FACTOR, POLL_INTERVAL_MAX);
     console.warn('[poll] exception, backoff to', emergencyPollInterval, 'ms', e);
     reschedulePolling_();
@@ -661,60 +725,44 @@ async function fetchEmergencyChatOnce_() {
 }
 
 function reschedulePolling_() {
-  // タイマーを現在の interval で再設定
-  if (emergencyPollTimer) {
-    clearInterval(emergencyPollTimer);
-    emergencyPollTimer = null;
-  }
+  if (emergencyPollTimer) { clearInterval(emergencyPollTimer); emergencyPollTimer = null; }
   if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) return;
 
   emergencyPollTimer = setInterval(() => {
-    if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) {
-      stopEmergencyChatPolling_();
-      return;
-    }
+    if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
     fetchEmergencyChatOnce_().catch(() => {});
   }, emergencyPollInterval);
 }
 
 function startEmergencyChatPolling_() {
   stopEmergencyChatPolling_();
-
   if (!emergencyCurrentTicketId) return;
-  // ✅ 追加：チャットエリアが表示されていない場合はポーリングしない
+
   const chatArea = document.getElementById('emergency-chat-area');
   if (!chatArea || chatArea.classList.contains('hidden')) return;
 
-  emergencyLastTs       = null;
-  emergencyPollInterval = POLL_INTERVAL_NORMAL;
+  emergencyLastTs        = null;
+  emergencyPollInterval  = POLL_INTERVAL_NORMAL;
   emergencySeenKeys_.clear();
   emergencyFetchInFlight = false;
 
   const listEl = document.getElementById('emergencyMessages');
   if (listEl) listEl.innerHTML = '';
 
-  // 初回即時実行
   fetchEmergencyChatOnce_().catch(() => {});
 
-  // 定期実行
   emergencyPollTimer = setInterval(() => {
-    if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) {
-      stopEmergencyChatPolling_();
-      return;
-    }
+    if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
     fetchEmergencyChatOnce_().catch(() => {});
   }, POLL_INTERVAL_NORMAL);
 }
 
 function stopEmergencyChatPolling_() {
-  if (emergencyPollTimer) {
-    clearInterval(emergencyPollTimer);
-    emergencyPollTimer = null;
-  }
+  if (emergencyPollTimer) { clearInterval(emergencyPollTimer); emergencyPollTimer = null; }
 }
 
 // =============================================================
-//  緊急チャット：送信（GASへ）
+//  緊急チャット：送信
 // =============================================================
 async function sendEmergencyCustomerMessage_(ticketId, text) {
   const payload = {
@@ -736,9 +784,8 @@ async function sendEmergencyCustomerMessage_(ticketId, text) {
 //  緊急チャット：UI切り替え
 // =============================================================
 function enterEmergencyChat_(ticketId, meta = {}) {
-  EMERGENCY_CHAT.ticketId = ticketId;
-  EMERGENCY_CHAT.active   = true;
-
+  EMERGENCY_CHAT.ticketId  = ticketId;
+  EMERGENCY_CHAT.active    = true;
   emergencyCurrentTicketId = ticketId;
   emergencyLastTs          = null;
 
@@ -752,10 +799,14 @@ function enterEmergencyChat_(ticketId, meta = {}) {
 
   bindEmergencySendButton_();
   startEmergencyChatPolling_();
+
+  // チャット開始時もアニメ表示（スタッフが気づくまでの間）
+  showOperatorStatus_();
 }
 
 function exitEmergencyChat_() {
   stopEmergencyChatPolling_();
+  clearOperatorStatus_();
 
   EMERGENCY_CHAT.ticketId  = null;
   EMERGENCY_CHAT.active    = false;
@@ -767,7 +818,7 @@ function exitEmergencyChat_() {
   const formArea = document.getElementById('emergency-form-area');
   const chatArea = document.getElementById('emergency-chat-area');
   if (chatArea) chatArea.classList.add('hidden');
-  if (formArea) { formArea.classList.remove('hidden'); }
+  if (formArea) formArea.classList.remove('hidden');
 
   const idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = '';
@@ -1320,6 +1371,7 @@ function resetChat() {
   currentPath = [];
 
   stopEmergencyChatPolling_();
+  clearOperatorStatus_();
   EMERGENCY_CHAT.ticketId  = null;
   EMERGENCY_CHAT.active    = false;
   emergencyCurrentTicketId = null;
