@@ -568,14 +568,12 @@ input.value = '';
 //  緊急チャット：メッセージUI追加（正しいID使用）
 // =============================================================
 function appendEmergencyMessageToUI_(m) {
-  // ✅ 正しいID: emergencyMessages
   const listEl = document.getElementById('emergencyMessages');
   if (!listEl) return;
 
   const from = String(m.from || '').toLowerCase();
-  const text = escapeHtmlEmergency_(m.message || '');
+  const text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));  // ← ここだけ変更
 
-  // 日時を読みやすい形式に
   let tsDisplay = '';
   try {
     const d = new Date(m.ts || '');
@@ -597,6 +595,12 @@ function appendEmergencyMessageToUI_(m) {
   requestAnimationFrame(() => { listEl.scrollTop = listEl.scrollHeight; });
 }
 
+function linkifyHtml_(html) {
+  return html.replace(
+    /(https?:\/\/[^\s<>"'）]+)/g,
+    '<a href="$1" target="_blank" rel="noopener" style="color:#0284c7;word-break:break-all;">$1</a>'
+  );
+}
 // =============================================================
 //  緊急チャット：ポーリング（差分取得・inFlightガード・バックオフ）
 // =============================================================
