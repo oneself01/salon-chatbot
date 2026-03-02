@@ -1251,7 +1251,142 @@ function genEmergencyTicketId_() {
   return `E-${y}${m}${day}_${hh}${mm}${ss}-${rand}`;
 }
 
+// =============================================================
+//  シナリオ候補検索
+// =============================================================
+function findScenarioCandidates_(situation) {
+  if (!treeData || !situation) return [];
+  const input = situation.toLowerCase();
+  const seen = new Set();
+  const results = [];
+
+  Object.values(treeData).forEach(node => {
+    if (!node || !node.value || node.id === undefined) return;
+    const words = String(node.value)
+      .replace(/【[^】]+】/g, '')
+      .split(/[\s,、。　]+/)
+      .map(w => w.trim().toLowerCase())
+      .filter(w => w.length >= 2);
+
+    const hit = words.some(w => input.includes(w));
+    if (hit && !seen.has(node.id)) {
+      seen.add(node.id);
+      results.push(node);
+    }
+  });
+
+  return results.slice(0, 3);
+}
+
+// =============================================================
+//  シナリオ提案UI
+// =============================================================
+function showScenarioSuggestion_(candidates, onProceed) {
+  const area = document.getElementById('emergency-form-area');
+  if (!area) return;
+
+  const existingForm = area.querySelector('.emergency-form');
+  if (existingForm) existingForm.style.display = 'none';
+
+  // 既存のサジェストboxがあれば削除
+  document.getElementById('scenario-suggestion-box')?.remove();
+
+  const box = document.createElement('div');
+  box.id = 'scenario-suggestion-box';
+  box.style.cssText = [
+    'margin-top:12px',
+    'background:#fffbeb',
+    'border:2px solid #fcd34d',
+    'border-radius:12px',
+    'padding:16px',
+    'display:flex',
+    'flex-direction:column',
+    'gap:10px',
+  ].join(';');
+
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:13px;font-weight:700;color:#92400e;';
+  header.textContent = '💡 まずこちらをご確認ください';
+  box.appendChild(header);
+
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:12px;color:#78350f;line-height:1.6;';
+  desc.innerHTML = '入力内容に関連する案内が見つかりました。<br>解決する場合はそちらをご確認ください。';
+  box.appendChild(desc);
+
+  candidates.forEach(node => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.style.cssText = 'background:#fffbeb;border-color:#fcd34d;';
+    const label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
+    btn.innerHTML = \`
+      <div class="option-icon" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);"></div>
+      <span class="option-label">\${escapeHTML_(label)}</span>
+      <span class="material-symbols-outlined chevron">chevron_right</span>
+    \`;
+    btn.addEventListener('click', () => {
+      box.remove();
+      if (existingForm) existingForm.style.display = '';
+      const area2 = document.getElementById('emergency-form-area');
+      if (area2) { area2.classList.add('hidden'); area2.innerHTML = ''; }
+      currentPath = [];
+      handleOptionSelect(node.id);
+    });
+    box.appendChild(btn);
+  });
+
+  const proceedBtn = document.createElement('button');
+  proceedBtn.style.cssText = [
+    'display:flex','align-items:center','justify-content:center','gap:8px',
+    'width:100%','padding:12px',
+    'background:#ef4444','color:white',
+    'border:none','border-radius:10px',
+    'font-size:13px','font-weight:700',
+    'cursor:pointer','font-family:Noto Sans JP,sans-serif',
+  ].join(';');
+  proceedBtn.innerHTML = '<span class="material-symbols-outlined">priority_high</span> それでも解決しない場合は緊急依頼する';
+  proceedBtn.addEventListener('click', () => {
+    box.remove();
+    if (existingForm) existingForm.style.display = '';
+    // 送信ボタンを無効化して2重送信・2重サジェストを防ぐ
+    const submitBtn = document.getElementById('ef-submitBtn');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.onclick  = null;
+    }
+    onProceed();
+  });
+  box.appendChild(proceedBtn);
+
+  area.appendChild(box);
+  smoothScrollToBottom();
+}
+
+// =============================================================
+//  緊急フォーム送信（シナリオチェック付き）
+// =============================================================
 async function submitEmergencyForm() {
+  const name      = (document.getElementById('ef-name')?.value      || '').trim();
+  const email     = (document.getElementById('ef-email')?.value     || '').trim();
+  const store     = (document.getElementById('ef-store')?.value     || '').trim();
+  const situation = (document.getElementById('ef-situation')?.value || '').trim();
+
+  if (!name || !email || !store || !situation) {
+    alert('必須項目（お名前/メール/店舗/状況）をご入力ください');
+    return;
+  }
+
+  // シナリオ候補を探す
+  const candidates = findScenarioCandidates_(situation);
+  if (candidates.length > 0) {
+    showScenarioSuggestion_(candidates, () => doSubmitEmergencyForm_());
+    return;
+  }
+
+  doSubmitEmergencyForm_();
+}
+
+async function doSubmitEmergencyForm_() {
   const name      = (document.getElementById('ef-name')?.value      || '').trim();
   const email     = (document.getElementById('ef-email')?.value     || '').trim();
   const store     = (document.getElementById('ef-store')?.value     || '').trim();
@@ -1259,11 +1394,6 @@ async function submitEmergencyForm() {
   const videoUrl  = (document.getElementById('ef-videoUrl')?.value  || '').trim();
   const fileEl    = document.getElementById('ef-file');
   const file      = fileEl?.files?.[0] || null;
-
-  if (!name || !email || !store || !situation) {
-    alert('必須項目（お名前/メール/店舗/状況）をご入力ください');
-    return;
-  }
 
   const btn             = document.getElementById('ef-submitBtn');
   const btnOriginalHTML = btn ? btn.innerHTML : '';
