@@ -577,7 +577,7 @@ let EMERGENCY_CHAT = {
   ticketId: null,
   active:   false,
 };
-
+let emergencyFormSnapshot_ = null;
 // =============================================================
 //  起動
 // =============================================================
@@ -1010,7 +1010,21 @@ function renderOptions() {
     backBtn.addEventListener('click', handleGoBack);
     optionsDiv.appendChild(backBtn);
   }
-
+if (emergencyFormSnapshot_) {
+    var emergencyBackBtn = document.createElement('button');
+    emergencyBackBtn.className = 'scenario-proceed-btn';
+    emergencyBackBtn.style.marginTop = '4px';
+    var eIcon = document.createElement('span');
+    eIcon.className = 'material-symbols-outlined';
+    eIcon.textContent = 'priority_high';
+    emergencyBackBtn.appendChild(eIcon);
+    emergencyBackBtn.appendChild(document.createTextNode(' 解決しない場合は緊急依頼する'));
+    emergencyBackBtn.addEventListener('click', function() {
+      emergencyBackBtn.disabled = true;
+      doSubmitEmergencyFormFromSnapshot_();
+    });
+    optionsDiv.appendChild(emergencyBackBtn);
+  }
   lastBotContent.appendChild(optionsDiv);
   smoothScrollToBottom();
 }
@@ -1301,7 +1315,8 @@ function findScenarioCandidates_(situation) {
     var words = label.split(/[\s,、。　・]+/).map(function(w) {
       return w.trim().toLowerCase();
     }).filter(function(w) { return w.length >= 2; });
-
+// 子ノードを持つ分岐ノードのみ（末端の説明文は除外）
+    if (!node.children || node.children.length === 0) continue;
     // 入力テキストにいずれかの単語が含まれればヒット
     var hit = words.some(function(w) { return input.indexOf(w) !== -1; });
     if (hit && !seen[node.id]) {
@@ -1319,6 +1334,15 @@ function findScenarioCandidates_(situation) {
 function showScenarioSuggestion_(candidates, onProceed) {
   var area = document.getElementById('emergency-form-area');
   if (!area) return;
+
+  // スナップショット保存（ここで入力値を保持）
+  emergencyFormSnapshot_ = {
+    name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
+    email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
+    store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
+    situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
+    videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
+  };
 
   // フォームを一時的に隠す
   var existingForm = area.querySelector('.emergency-form');
@@ -1346,8 +1370,8 @@ function showScenarioSuggestion_(candidates, onProceed) {
   candidates.forEach(function(node) {
     var btn = document.createElement('button');
     btn.className = 'option-btn';
-    btn.style.background   = '#fffbeb';
-    btn.style.borderColor  = '#fcd34d';
+    btn.style.background  = '#fffbeb';
+    btn.style.borderColor = '#fcd34d';
 
     var label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
 
@@ -1367,7 +1391,6 @@ function showScenarioSuggestion_(candidates, onProceed) {
     btn.appendChild(labelEl);
     btn.appendChild(chevron);
 
-    // クロージャでnodeIdをキャプチャ
     (function(capturedId) {
       btn.addEventListener('click', function() {
         box.remove();
@@ -1390,20 +1413,14 @@ function showScenarioSuggestion_(candidates, onProceed) {
   icon.className = 'material-symbols-outlined';
   icon.textContent = 'priority_high';
 
-  var label2 = document.createTextNode(' それでも解決しない場合は緊急依頼する');
-
   proceedBtn.appendChild(icon);
-  proceedBtn.appendChild(label2);
+  proceedBtn.appendChild(document.createTextNode(' それでも解決しない場合は緊急依頼する'));
 
   proceedBtn.addEventListener('click', function() {
     box.remove();
     if (existingForm) existingForm.style.display = '';
-    // 送信ボタンを無効化して2重サジェストを防ぐ
     var submitBtn = document.getElementById('ef-submitBtn');
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.onclick  = null;
-    }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.onclick = null; }
     onProceed();
   });
 
@@ -1411,7 +1428,6 @@ function showScenarioSuggestion_(candidates, onProceed) {
   area.appendChild(box);
   smoothScrollToBottom();
 }
-
 // =============================================================
 //  緊急フォーム送信（シナリオチェック付き）
 // =============================================================
@@ -1435,7 +1451,25 @@ function submitEmergencyForm() {
 
   doSubmitEmergencyForm_();
 }
-
+async function doSubmitEmergencyFormFromSnapshot_() {
+  var snap = emergencyFormSnapshot_;
+  if (!snap) { alert('入力情報が見つかりません。緊急対応フォームから再入力してください。'); return; }
+  emergencyFormSnapshot_ = null;
+  if (!snap.name || !snap.email || !snap.store || !snap.situation) {
+    alert('入力情報が不足しています。'); resetChat(); return;
+  }
+  addUserMessage('お名前: ' + snap.name + '\nメール: ' + snap.email + '\n店舗: ' + snap.store + '\n状況: ' + snap.situation);
+  var ticketId = genEmergencyTicketId_();
+  try {
+    await postToGAS_({ action: 'createEmergencyTicket', ticketId: ticketId,
+      name: snap.name, email: snap.email, store: snap.store, situation: snap.situation, videoUrl: snap.videoUrl || '' });
+    addBotMessage('✅ 緊急対応チケットを作成しました。\n\nこのままチャットで状況を追記できます。');
+    enterEmergencyChat_(ticketId, { name: snap.name, email: snap.email, store: snap.store });
+  } catch(e) {
+    console.error(e);
+    alert('送信に失敗しました: ' + (e.message || e));
+  }
+}
 async function doSubmitEmergencyForm_() {
   var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
   var email     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
@@ -1568,6 +1602,7 @@ function resetChat() {
 
   stopEmergencyChatPolling_();
   clearOperatorStatus_();
+  emergencyFormSnapshot_ = null;
   EMERGENCY_CHAT.ticketId  = null;
   EMERGENCY_CHAT.active    = false;
   emergencyCurrentTicketId = null;
