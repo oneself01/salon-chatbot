@@ -383,6 +383,39 @@
     0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
     40%           { transform: translateY(-5px); opacity: 1; }
   }
+
+  /* シナリオサジェストボックス */
+  .scenario-suggestion-box {
+    margin-top: 12px;
+    background: #fffbeb;
+    border: 2px solid #fcd34d;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .scenario-suggestion-box .suggestion-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #92400e;
+  }
+  .scenario-suggestion-box .suggestion-desc {
+    font-size: 12px;
+    color: #78350f;
+    line-height: 1.6;
+  }
+  .scenario-proceed-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px;
+    background: #ef4444; color: white;
+    border: none; border-radius: 10px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: background 0.2s;
+  }
+  .scenario-proceed-btn:hover { background: #dc2626; }
 </style>
 </head>
 
@@ -471,17 +504,16 @@
 // =============================================================
 //  定数・設定
 // =============================================================
-const GAS_URL       = 'https://script.google.com/macros/s/AKfycbzibjrSDBt4BJVuXgX28LmkPvfthxsNolHjgpdajhlxzro2brT8ww3VgsKc5gbhdscYsw/exec';
-const WORKERS_URL   = 'https://oneselfchatbot.0618-fmp.workers.dev/api';
-const BEAR_IMG      = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg';
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbzibjrSDBt4BJVuXgX28LmkPvfthxsNolHjgpdajhlxzro2brT8ww3VgsKc5gbhdscYsw/exec';
+const WORKERS_URL = 'https://oneselfchatbot.0618-fmp.workers.dev/api';
+const BEAR_IMG    = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg';
 
 // =============================================================
 //  緊急チャット ポーリング管理
 // =============================================================
-const POLL_INTERVAL_NORMAL  = 8000;
-const POLL_INTERVAL_MIN     = 8000;
-const POLL_INTERVAL_MAX     = 60000;
-const POLL_BACKOFF_FACTOR   = 2;
+const POLL_INTERVAL_NORMAL = 8000;
+const POLL_INTERVAL_MAX    = 60000;
+const POLL_BACKOFF_FACTOR  = 2;
 
 let emergencyCurrentTicketId = null;
 let emergencyLastTs          = null;
@@ -500,30 +532,26 @@ function showOperatorStatus_() {
   if (!area) return;
   clearOperatorStatus_();
 
-  // 0〜4秒：接続中
-  area.innerHTML = `
-    <div class="operator-status">
-      <div class="dots"><span></span><span></span><span></span></div>
-      オペレーターへ接続中
-    </div>`;
+  area.innerHTML =
+    '<div class="operator-status">' +
+    '<div class="dots"><span></span><span></span><span></span></div>' +
+    'オペレーターへ接続中' +
+    '</div>';
 
-  operatorStatusTimer_ = setTimeout(() => {
-    // 4〜15秒：確認中
-    area.innerHTML = `
-      <div class="operator-status">
-        <div class="dots"><span></span><span></span><span></span></div>
-        スタッフが確認中
-      </div>`;
+  operatorStatusTimer_ = setTimeout(function() {
+    area.innerHTML =
+      '<div class="operator-status">' +
+      '<div class="dots"><span></span><span></span><span></span></div>' +
+      'スタッフが確認中' +
+      '</div>';
 
-    operatorStatusTimer_ = setTimeout(() => {
-      // 15秒以降：入力中
-      area.innerHTML = `
-        <div class="operator-status">
-          <div class="dots"><span></span><span></span><span></span></div>
-          スタッフが入力中
-        </div>`;
-    }, 11000); // 4 + 11 = 15秒
-
+    operatorStatusTimer_ = setTimeout(function() {
+      area.innerHTML =
+        '<div class="operator-status">' +
+        '<div class="dots"><span></span><span></span><span></span></div>' +
+        'スタッフが入力中' +
+        '</div>';
+    }, 11000);
   }, 4000);
 }
 
@@ -553,17 +581,17 @@ let EMERGENCY_CHAT = {
 // =============================================================
 //  起動
 // =============================================================
-window.addEventListener('DOMContentLoaded', () => {
-  const topIcon = document.getElementById('bearTopIcon');
+window.addEventListener('DOMContentLoaded', function() {
+  var topIcon = document.getElementById('bearTopIcon');
   if (topIcon) topIcon.src = BEAR_IMG;
 
   isOpen = true;
   addBotMessage('下記からご用件をお選びください！');
-  setTimeout(() => renderOptions(), 80);
+  setTimeout(function() { renderOptions(); }, 80);
 
-  loadTreeData().then(() => {
-    const messages = document.getElementById('messages');
-    const hasOptions = messages?.querySelector('.options');
+  loadTreeData().then(function() {
+    var messages = document.getElementById('messages');
+    var hasOptions = messages && messages.querySelector('.options');
     if (!hasOptions) renderOptions();
   });
 
@@ -575,57 +603,57 @@ window.addEventListener('DOMContentLoaded', () => {
 //  WorkerへPOST（共通）
 // =============================================================
 async function postToGAS_(payload) {
-  const res  = await fetch(WORKERS_URL, {
+  var res = await fetch(WORKERS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
   });
 
-  const text = await res.text();
-  let json = {};
+  var text = await res.text();
+  var json = {};
   try { json = text ? JSON.parse(text) : {}; } catch (e) {
     console.warn('Invalid JSON response:', text.slice(0, 300));
     json = { error: 'Invalid JSON response', raw: text };
   }
 
-  const success =
-    json?.success === true ||
-    json?.ok      === true ||
-    (res.ok && !json?.error);
+  var success =
+    json.success === true ||
+    json.ok      === true ||
+    (res.ok && !json.error);
 
-  return { ...json, success, __http: res.status };
+  return Object.assign({}, json, { success: success, __http: res.status });
 }
 
 // =============================================================
 //  緊急チャット：送信ボタンバインド
 // =============================================================
 function bindEmergencySendButton_() {
-  const btn   = document.getElementById('emergencySend');
-  const input = document.getElementById('emergencyInput');
+  var btn   = document.getElementById('emergencySend');
+  var input = document.getElementById('emergencyInput');
   if (!btn || !input) return;
 
-  const newBtn = btn.cloneNode(true);
+  var newBtn = btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn, btn);
   newBtn.disabled = false;
   newBtn.dataset.sending = '0';
 
-  newBtn.addEventListener('click', async () => {
-    const ticketId = getEmergencyTicketId_();
-    const text     = (input.value || '').trim();
-    if (!ticketId || !text)             return;
-    if (newBtn.dataset.sending === '1') return;
+  newBtn.addEventListener('click', async function() {
+    var ticketId = getEmergencyTicketId_();
+    var text     = (input.value || '').trim();
+    if (!ticketId || !text)              return;
+    if (newBtn.dataset.sending === '1')  return;
 
     newBtn.dataset.sending = '1';
     newBtn.disabled        = true;
-    clearOperatorStatus_();   // 送信中はステータス非表示
+    clearOperatorStatus_();
     input.value = '';
 
     try {
       await sendEmergencyCustomerMessage_(ticketId, text);
-      showOperatorStatus_();  // 送信完了後にアニメ開始
+      showOperatorStatus_();
     } catch (e) {
       console.error('送信エラー:', e);
-      alert('送信に失敗しました: ' + (e?.message || e));
+      alert('送信に失敗しました: ' + (e.message || e));
     } finally {
       newBtn.dataset.sending = '0';
       newBtn.disabled        = false;
@@ -637,35 +665,45 @@ function bindEmergencySendButton_() {
 //  緊急チャット：メッセージUI追加
 // =============================================================
 function appendEmergencyMessageToUI_(m) {
-  const listEl = document.getElementById('emergencyMessages');
+  var listEl = document.getElementById('emergencyMessages');
   if (!listEl) return;
 
-  const from = String(m.from || '').toLowerCase();
+  var from = String(m.from || '').toLowerCase();
 
-  // スタッフ返信が届いたらアニメーション消去
   if (from === 'staff') clearOperatorStatus_();
 
-  const text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));
+  var text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));
 
-  let tsDisplay = '';
+  var tsDisplay = '';
   try {
-    const d = new Date(m.ts || '');
+    var d = new Date(m.ts || '');
     if (!isNaN(d)) {
       tsDisplay = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     }
   } catch (e) {}
 
-  const row = document.createElement('div');
-  row.className = `msg-row ${from === 'staff' ? 'staff' : 'customer'}`;
-  row.innerHTML = `
-    <div class="msg-bubble">
-      <div class="msg-meta">${from === 'staff' ? 'スタッフ' : 'お客様'}${tsDisplay ? ' ・ ' + tsDisplay : ''}</div>
-      <div class="msg-text">${text}</div>
-    </div>
-  `;
+  var row = document.createElement('div');
+  row.className = 'msg-row ' + (from === 'staff' ? 'staff' : 'customer');
 
+  var metaText = (from === 'staff' ? 'スタッフ' : 'お客様') + (tsDisplay ? ' ・ ' + tsDisplay : '');
+
+  var bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+
+  var meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = metaText;
+
+  var msgText = document.createElement('div');
+  msgText.className = 'msg-text';
+  msgText.innerHTML = text;
+
+  bubble.appendChild(meta);
+  bubble.appendChild(msgText);
+  row.appendChild(bubble);
   listEl.appendChild(row);
-  requestAnimationFrame(() => { listEl.scrollTop = listEl.scrollHeight; });
+
+  requestAnimationFrame(function() { listEl.scrollTop = listEl.scrollHeight; });
 }
 
 function linkifyHtml_(html) {
@@ -685,10 +723,10 @@ async function fetchEmergencyChatOnce_() {
   emergencyFetchInFlight = true;
 
   try {
-    const body = { action: 'getEmergencyChat', ticketId: emergencyCurrentTicketId };
+    var body = { action: 'getEmergencyChat', ticketId: emergencyCurrentTicketId };
     if (emergencyLastTs) body.since = emergencyLastTs;
 
-    const j = await postToGAS_(body);
+    var j = await postToGAS_(body);
 
     if (!j || j.success !== true) {
       emergencyPollInterval = Math.min(emergencyPollInterval * POLL_BACKOFF_FACTOR, POLL_INTERVAL_MAX);
@@ -699,14 +737,15 @@ async function fetchEmergencyChatOnce_() {
 
     emergencyPollInterval = POLL_INTERVAL_NORMAL;
 
-    const list = Array.isArray(j.messages) ? j.messages : [];
-    list.sort((a, b) => String(a?.ts || '').localeCompare(String(b?.ts || '')));
+    var list = Array.isArray(j.messages) ? j.messages : [];
+    list.sort(function(a, b) { return String(a.ts || '').localeCompare(String(b.ts || '')); });
 
-    for (const m of list) {
-      const ts   = String(m?.ts      || '');
-      const from = String(m?.from    || '').toLowerCase();
-      const msg  = String(m?.message || '');
-      const key  = `${ts}|${from}|${msg}`;
+    for (var i = 0; i < list.length; i++) {
+      var m    = list[i];
+      var ts   = String(m.ts      || '');
+      var from = String(m.from    || '').toLowerCase();
+      var msg  = String(m.message || '');
+      var key  = ts + '|' + from + '|' + msg;
 
       if (emergencySeenKeys_.has(key)) continue;
       emergencySeenKeys_.add(key);
@@ -728,9 +767,9 @@ function reschedulePolling_() {
   if (emergencyPollTimer) { clearInterval(emergencyPollTimer); emergencyPollTimer = null; }
   if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) return;
 
-  emergencyPollTimer = setInterval(() => {
+  emergencyPollTimer = setInterval(function() {
     if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
-    fetchEmergencyChatOnce_().catch(() => {});
+    fetchEmergencyChatOnce_().catch(function() {});
   }, emergencyPollInterval);
 }
 
@@ -738,7 +777,7 @@ function startEmergencyChatPolling_() {
   stopEmergencyChatPolling_();
   if (!emergencyCurrentTicketId) return;
 
-  const chatArea = document.getElementById('emergency-chat-area');
+  var chatArea = document.getElementById('emergency-chat-area');
   if (!chatArea || chatArea.classList.contains('hidden')) return;
 
   emergencyLastTs        = null;
@@ -746,14 +785,14 @@ function startEmergencyChatPolling_() {
   emergencySeenKeys_.clear();
   emergencyFetchInFlight = false;
 
-  const listEl = document.getElementById('emergencyMessages');
+  var listEl = document.getElementById('emergencyMessages');
   if (listEl) listEl.innerHTML = '';
 
-  fetchEmergencyChatOnce_().catch(() => {});
+  fetchEmergencyChatOnce_().catch(function() {});
 
-  emergencyPollTimer = setInterval(() => {
+  emergencyPollTimer = setInterval(function() {
     if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
-    fetchEmergencyChatOnce_().catch(() => {});
+    fetchEmergencyChatOnce_().catch(function() {});
   }, POLL_INTERVAL_NORMAL);
 }
 
@@ -765,42 +804,40 @@ function stopEmergencyChatPolling_() {
 //  緊急チャット：送信
 // =============================================================
 async function sendEmergencyCustomerMessage_(ticketId, text) {
-  const payload = {
+  var payload = {
     action: 'appendEmergencyChat',
     data: {
-      ticketId,
-      message: text,
-      from:    'customer',
-      ua:      navigator.userAgent,
-      page:    location.href,
+      ticketId: ticketId,
+      message:  text,
+      from:     'customer',
+      ua:       navigator.userAgent,
+      page:     location.href,
     },
   };
 
-  const j = await postToGAS_(payload);
-  if (!j?.success) throw new Error(j?.error || 'appendEmergencyChat failed');
+  var j = await postToGAS_(payload);
+  if (!j || !j.success) throw new Error((j && j.error) || 'appendEmergencyChat failed');
 }
 
 // =============================================================
 //  緊急チャット：UI切り替え
 // =============================================================
-function enterEmergencyChat_(ticketId, meta = {}) {
+function enterEmergencyChat_(ticketId, meta) {
   EMERGENCY_CHAT.ticketId  = ticketId;
   EMERGENCY_CHAT.active    = true;
   emergencyCurrentTicketId = ticketId;
   emergencyLastTs          = null;
 
-  const formArea = document.getElementById('emergency-form-area');
-  const chatArea = document.getElementById('emergency-chat-area');
+  var formArea = document.getElementById('emergency-form-area');
+  var chatArea = document.getElementById('emergency-chat-area');
   if (formArea) formArea.classList.add('hidden');
   if (chatArea) chatArea.classList.remove('hidden');
 
-  const idEl = document.getElementById('emergency-ticket-id');
+  var idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = ticketId;
 
   bindEmergencySendButton_();
   startEmergencyChatPolling_();
-
-  // チャット開始時もアニメ表示（スタッフが気づくまでの間）
   showOperatorStatus_();
 }
 
@@ -815,12 +852,12 @@ function exitEmergencyChat_() {
   emergencySeenKeys_.clear();
   emergencyFetchInFlight   = false;
 
-  const formArea = document.getElementById('emergency-form-area');
-  const chatArea = document.getElementById('emergency-chat-area');
+  var formArea = document.getElementById('emergency-form-area');
+  var chatArea = document.getElementById('emergency-chat-area');
   if (chatArea) chatArea.classList.add('hidden');
   if (formArea) formArea.classList.remove('hidden');
 
-  const idEl = document.getElementById('emergency-ticket-id');
+  var idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = '';
 
   addBotMessage('緊急チャットを終了しました。必要なら再度「緊急対応」からお進みください。');
@@ -831,13 +868,13 @@ function exitEmergencyChat_() {
 }
 
 function getEmergencyTicketId_() {
-  return (EMERGENCY_CHAT?.ticketId || '').trim();
+  return ((EMERGENCY_CHAT && EMERGENCY_CHAT.ticketId) || '').trim();
 }
 
 function escapeHtmlEmergency_(s) {
-  return String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-  }[m]));
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(m) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'": '&#039;' }[m];
+  });
 }
 
 // =============================================================
@@ -845,15 +882,15 @@ function escapeHtmlEmergency_(s) {
 // =============================================================
 async function loadTreeData() {
   try {
-    const response = await fetch(GAS_URL);
-    const result   = await response.json();
+    var response = await fetch(GAS_URL);
+    var result   = await response.json();
     if (result.success) {
       treeData  = result.data;
       mediaData = result.media || {};
-      if (isOpen && document.getElementById('messages')?.children?.length > 0) renderOptions();
+      if (isOpen && document.getElementById('messages').children.length > 0) renderOptions();
     }
   } catch (e) {
-    console.error('❌ データ読み込みエラー', e);
+    console.error('データ読み込みエラー', e);
     treeData  = getDefaultData();
     mediaData = {};
   }
@@ -871,54 +908,49 @@ function getDefaultData() {
 //  メッセージUI
 // =============================================================
 function addBotMessageWithHTML(htmlContent) {
-  const messages = document.getElementById('messages');
-  const row = document.createElement('div');
+  var messages = document.getElementById('messages');
+  var row = document.createElement('div');
   row.className = 'message-row bot';
-  row.innerHTML = `
-    <div class="bot-icon"><img src="${BEAR_IMG}" alt="Bear"/></div>
-    <div class="message-content">
-      <div class="bubble bot">${htmlContent}</div>
-    </div>
-  `;
+  row.innerHTML =
+    '<div class="bot-icon"><img src="' + BEAR_IMG + '" alt="Bear"/></div>' +
+    '<div class="message-content"><div class="bubble bot">' + htmlContent + '</div></div>';
   messages.appendChild(row);
   smoothScrollToBottom();
   return row.querySelector('.message-content');
 }
 
 function addBotMessage(text) {
-  const messages = document.getElementById('messages');
-  const row = document.createElement('div');
+  var messages = document.getElementById('messages');
+  var row = document.createElement('div');
   row.className = 'message-row bot';
-  row.innerHTML = `
-    <div class="bot-icon"><img src="${BEAR_IMG}" alt="Bear"/></div>
-    <div class="message-content">
-      <div class="bubble bot">${String(text || '').replace(/\n/g, '<br/>')}</div>
-    </div>
-  `;
+  row.innerHTML =
+    '<div class="bot-icon"><img src="' + BEAR_IMG + '" alt="Bear"/></div>' +
+    '<div class="message-content"><div class="bubble bot">' +
+    String(text || '').replace(/\n/g, '<br/>') +
+    '</div></div>';
   messages.appendChild(row);
   smoothScrollToBottom();
   return row.querySelector('.message-content');
 }
 
 function addUserMessage(text) {
-  if (EMERGENCY_CHAT?.active) return;
-  const messages = document.getElementById('messages');
+  if (EMERGENCY_CHAT && EMERGENCY_CHAT.active) return;
+  var messages = document.getElementById('messages');
   if (!messages) return;
-  const row = document.createElement('div');
+  var row = document.createElement('div');
   row.className = 'message-row user';
-  row.innerHTML = `
-    <div class="message-content">
-      <div class="bubble user">${String(text || '').replace(/\n/g, '<br/>')}</div>
-    </div>
-  `;
+  row.innerHTML =
+    '<div class="message-content"><div class="bubble user">' +
+    String(text || '').replace(/\n/g, '<br/>') +
+    '</div></div>';
   messages.appendChild(row);
   smoothScrollToBottom();
 }
 
 function smoothScrollToBottom() {
-  const messages = document.getElementById('messages');
-  setTimeout(() => {
-    const last = messages.querySelector('.message-row:last-child');
+  var messages = document.getElementById('messages');
+  setTimeout(function() {
+    var last = messages.querySelector('.message-row:last-child');
     if (last) last.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 120);
 }
@@ -927,51 +959,54 @@ function smoothScrollToBottom() {
 //  選択肢
 // =============================================================
 function renderOptions() {
-  const messages = document.getElementById('messages');
-  let lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  var messages = document.getElementById('messages');
+  var lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) lastBotContent = addBotMessage('');
 
-  lastBotContent.querySelectorAll('.options').forEach(el => el.remove());
+  var oldOptions = lastBotContent.querySelectorAll('.options');
+  oldOptions.forEach(function(el) { el.remove(); });
 
-  const options = getCurrentOptions();
+  var options = getCurrentOptions();
   if (!options || options.length === 0) return;
 
-  const optionsDiv = document.createElement('div');
+  var optionsDiv = document.createElement('div');
   optionsDiv.className = 'options';
 
-  options.forEach(option => {
-    const btn = document.createElement('button');
+  options.forEach(function(option) {
+    var btn = document.createElement('button');
     btn.className = 'option-btn';
 
-    const hasChildren = option.children && option.children.length > 0;
-    const urlRegex    = /(https?:\/\/[^\s\]】]+)/;
-    const urlMatch    = String(option.value || '').match(urlRegex);
-    const hasUrl      = !!(urlMatch && urlMatch[0]);
-    const cleanText   = String(option.value || '').replace(urlRegex, '').replace(/【[^】]+】/g, '').trim();
+    var hasChildren = option.children && option.children.length > 0;
+    var urlRegex    = /(https?:\/\/[^\s\]】]+)/;
+    var urlMatch    = String(option.value || '').match(urlRegex);
+    var hasUrl      = !!(urlMatch && urlMatch[0]);
+    var cleanText   = String(option.value || '').replace(urlRegex, '').replace(/【[^】]+】/g, '').trim();
 
-    btn.innerHTML = `
-      <div class="option-icon"></div>
-      <span class="option-label">${escapeHTML_(cleanText || '（無題）')}</span>
-      ${hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : ''}
-      ${hasUrl && !hasChildren ? '<span class="material-symbols-outlined chevron">open_in_new</span>' : ''}
-    `;
+    btn.innerHTML =
+      '<div class="option-icon"></div>' +
+      '<span class="option-label">' + escapeHTML_(cleanText || '（無題）') + '</span>' +
+      (hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : '') +
+      (hasUrl && !hasChildren ? '<span class="material-symbols-outlined chevron">open_in_new</span>' : '');
 
     if (hasUrl && !hasChildren) {
-      btn.addEventListener('click', () => window.open(urlMatch[0], '_blank'));
+      (function(url) {
+        btn.addEventListener('click', function() { window.open(url, '_blank'); });
+      })(urlMatch[0]);
     } else {
-      btn.addEventListener('click', () => handleOptionSelect(option.id));
+      (function(id) {
+        btn.addEventListener('click', function() { handleOptionSelect(id); });
+      })(option.id);
     }
 
     optionsDiv.appendChild(btn);
   });
 
   if (currentPath.length > 0) {
-    const backBtn = document.createElement('button');
+    var backBtn = document.createElement('button');
     backBtn.className = 'back-btn';
-    backBtn.innerHTML = `
-      <span class="material-symbols-outlined" style="color:#6b7280;font-size:18px">arrow_back</span>
-      <span>一つ前に戻る</span>
-    `;
+    backBtn.innerHTML =
+      '<span class="material-symbols-outlined" style="color:#6b7280;font-size:18px">arrow_back</span>' +
+      '<span>一つ前に戻る</span>';
     backBtn.addEventListener('click', handleGoBack);
     optionsDiv.appendChild(backBtn);
   }
@@ -982,17 +1017,17 @@ function renderOptions() {
 
 function handleOptionSelect(nodeId) {
   if (!treeData) return;
-  const node    = treeData[nodeId];
+  var node = treeData[nodeId];
   if (!node) return;
 
-  const newPath     = nodeId.split('.');
-  const userMessage = String(node.value || '').replace(/【[^】]+】/g, '').trim();
+  var newPath     = nodeId.split('.');
+  var userMessage = String(node.value || '').replace(/【[^】]+】/g, '').trim();
   addUserMessage(userMessage);
 
-  setTimeout(() => {
+  setTimeout(function() {
     if (node.children && node.children.length > 0) {
       if (node.children.length === 1 && treeData) {
-        const onlyChild = treeData[node.children[0]];
+        var onlyChild = treeData[node.children[0]];
         if (onlyChild && (!onlyChild.children || onlyChild.children.length === 0)) {
           handleTerminalNode(onlyChild, newPath);
           return;
@@ -1001,7 +1036,7 @@ function handleOptionSelect(nodeId) {
       currentPath = newPath;
       updateBreadcrumb();
       updateHeaderStatus();
-      setTimeout(() => renderOptions(), 120);
+      setTimeout(function() { renderOptions(); }, 120);
     } else {
       handleTerminalNode(node, newPath);
     }
@@ -1009,28 +1044,28 @@ function handleOptionSelect(nodeId) {
 }
 
 function handleTerminalNode(node, path) {
-  const pathText = getBreadcrumbText(path);
-  const hasMedia = node.media && node.media.length > 0;
+  var pathText = getBreadcrumbText(path);
+  var hasMedia = node.media && node.media.length > 0;
 
-  if (String(node.value || '').includes('フォーム') && String(node.value || '').includes('一般チケット')) {
+  if (String(node.value || '').indexOf('フォーム') !== -1 && String(node.value || '').indexOf('一般チケット') !== -1) {
     addBotMessage('承知しました。\n\nお問い合わせ内容を承りました。\n詳細情報をご入力ください。');
     renderGeneralTicketForm(pathText);
     return;
   }
 
-  if (String(node.value || '').includes('緊急対応') && String(node.value || '').includes('スタッフが直対応')) {
+  if (String(node.value || '').indexOf('緊急対応') !== -1 && String(node.value || '').indexOf('スタッフが直対応') !== -1) {
     addBotMessage('⚠️ ご迷惑をおかけしており申し訳ございません。\n\nオペレーターが直接お伺いいたします。\n以下の情報をご入力ください。');
     renderEmergencyForm();
     return;
   }
 
   if (hasMedia) {
-    const cleanText = String(node.value || '').replace(/【[^】]+】/g, '').trim();
+    var cleanText = String(node.value || '').replace(/【[^】]+】/g, '').trim();
     if (cleanText) addBotMessage(cleanText);
-    node.media.forEach(mediaId => {
+    node.media.forEach(function(mediaId) {
       if (mediaData && mediaData[mediaId]) renderMedia(mediaData[mediaId]);
     });
-    setTimeout(() => {
+    setTimeout(function() {
       addBotMessage('他にご質問はございますか？');
       currentPath = [];
       updateBreadcrumb();
@@ -1041,7 +1076,7 @@ function handleTerminalNode(node, path) {
   }
 
   addBotMessage(String(node.value || ''));
-  setTimeout(() => {
+  setTimeout(function() {
     addBotMessage('他にご質問はございますか？');
     currentPath = [];
     updateBreadcrumb();
@@ -1051,21 +1086,25 @@ function handleTerminalNode(node, path) {
 }
 
 function renderMedia(media) {
-  const type = media.type || 'link';
+  var type = media.type || 'link';
 
   if (type === 'image') {
-    addBotMessageWithHTML(`<img src="${escapeAttr_(String(media.url || '').trim())}" alt="${escapeAttr_(String(media.text || ''))}" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;" />`);
+    addBotMessageWithHTML(
+      '<img src="' + escapeAttr_(String(media.url || '').trim()) + '" alt="' +
+      escapeAttr_(String(media.text || '')) +
+      '" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;" />'
+    );
     return;
   }
 
   if (type === 'link') {
-    const url  = String(media.url  || '').trim();
-    const text = String(media.text || 'リンクを開く').trim();
-    addBotMessageWithHTML(`
-      <a href="${escapeAttr_(url)}" target="_blank"
-         style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;"
-      >🔗 ${escapeHTML_(text)} →</a>
-    `);
+    var url  = String(media.url  || '').trim();
+    var text = String(media.text || 'リンクを開く').trim();
+    addBotMessageWithHTML(
+      '<a href="' + escapeAttr_(url) + '" target="_blank" ' +
+      'style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;">' +
+      '🔗 ' + escapeHTML_(text) + ' →</a>'
+    );
     return;
   }
 
@@ -1080,9 +1119,9 @@ function handleGoBack() {
   updateBreadcrumb();
   updateHeaderStatus();
   addUserMessage('一つ前に戻る');
-  setTimeout(() => {
+  setTimeout(function() {
     if (currentPath.length === 0) addBotMessage('最初の選択に戻ります。');
-    setTimeout(() => renderOptions(), 90);
+    setTimeout(function() { renderOptions(); }, 90);
   }, 220);
 }
 
@@ -1090,15 +1129,15 @@ function handleGoBack() {
 //  iframeフォーム
 // =============================================================
 function renderCustomForm(formType, category) {
-  const messages       = document.getElementById('messages');
-  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  var messages       = document.getElementById('messages');
+  var lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) return;
 
-  const iframeContainer = document.createElement('div');
+  var iframeContainer = document.createElement('div');
   iframeContainer.style.cssText = 'margin-top:12px;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);';
 
-  const iframe = document.createElement('iframe');
-  iframe.src   = `${GAS_URL}?page=form&type=${encodeURIComponent(formType)}&category=${encodeURIComponent(category)}&v=${Date.now()}`;
+  var iframe = document.createElement('iframe');
+  iframe.src = GAS_URL + '?page=form&type=' + encodeURIComponent(formType) + '&category=' + encodeURIComponent(category) + '&v=' + Date.now();
   iframe.style.cssText = 'width:100%;height:450px;border:none;border-radius:12px;';
   iframe.setAttribute('allow', 'clipboard-write');
 
@@ -1107,7 +1146,7 @@ function renderCustomForm(formType, category) {
 
   window.addEventListener('message', function(event) {
     if (event.data === 'formSubmitted') {
-      setTimeout(() => {
+      setTimeout(function() {
         addBotMessage('他にご質問はございますか？');
         currentPath = [];
         updateBreadcrumb();
@@ -1124,81 +1163,81 @@ function renderCustomForm(formType, category) {
 //  一般チケットフォーム
 // =============================================================
 function renderGeneralTicketForm(pathText) {
-  const messages       = document.getElementById('messages');
-  const lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
+  var messages       = document.getElementById('messages');
+  var lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) return;
 
-  const form = document.createElement('div');
+  var form = document.createElement('div');
   form.className = 'emergency-form';
-  form.style.background    = '#f0f9ff';
-  form.style.borderColor   = '#bae6fd';
+  form.style.background  = '#f0f9ff';
+  form.style.borderColor = '#bae6fd';
 
-  const safePath        = String(pathText ?? '');
-  const escapedForAttr  = safePath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  var safePath       = String(pathText == null ? '' : pathText);
+  var escapedForAttr = safePath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-  form.innerHTML = `
-    <input type="text"  id="gt-reservation" placeholder="予約番号（わかる場合）" />
-    <input type="text"  id="gt-store"       placeholder="店舗名 *" />
-    <input type="text"  id="gt-name"        placeholder="お名前 *" />
-    <input type="email" id="gt-email"       placeholder="メールアドレス *" />
-    <input type="text"  id="gt-amount"      placeholder="お支払い予定金額（わかる場合）" />
-    <textarea id="gt-inquiry" placeholder="お問い合わせ内容 *" readonly style="background:#f9fafb">${escapeHTML_(safePath)}</textarea>
-    <button class="emergency-submit" style="background:#0ea5e9" onclick="submitGeneralTicketForm('${escapedForAttr}', event)">
-      <span class="material-symbols-outlined">send</span>
-      送信する
-    </button>
-  `;
+  form.innerHTML =
+    '<input type="text"  id="gt-reservation" placeholder="予約番号（わかる場合）" />' +
+    '<input type="text"  id="gt-store"       placeholder="店舗名 *" />' +
+    '<input type="text"  id="gt-name"        placeholder="お名前 *" />' +
+    '<input type="email" id="gt-email"       placeholder="メールアドレス *" />' +
+    '<input type="text"  id="gt-amount"      placeholder="お支払い予定金額（わかる場合）" />' +
+    '<textarea id="gt-inquiry" placeholder="お問い合わせ内容 *" readonly style="background:#f9fafb">' + escapeHTML_(safePath) + '</textarea>' +
+    '<button class="emergency-submit" style="background:#0ea5e9" onclick="submitGeneralTicketForm(\'' + escapedForAttr + '\', event)">' +
+    '<span class="material-symbols-outlined">send</span>送信する</button>';
 
   lastBotContent.appendChild(form);
   smoothScrollToBottom();
 }
 
 function submitGeneralTicketForm(pathText, ev) {
-  const reservation = document.getElementById('gt-reservation')?.value || '';
-  const store       = document.getElementById('gt-store')?.value       || '';
-  const name        = document.getElementById('gt-name')?.value        || '';
-  const email       = document.getElementById('gt-email')?.value       || '';
-  const amount      = document.getElementById('gt-amount')?.value      || '';
-  const inquiry     = String(pathText || '');
+  var reservation = (document.getElementById('gt-reservation') && document.getElementById('gt-reservation').value) || '';
+  var store       = (document.getElementById('gt-store')       && document.getElementById('gt-store').value)       || '';
+  var name        = (document.getElementById('gt-name')        && document.getElementById('gt-name').value)        || '';
+  var email       = (document.getElementById('gt-email')       && document.getElementById('gt-email').value)       || '';
+  var amount      = (document.getElementById('gt-amount')      && document.getElementById('gt-amount').value)      || '';
+  var inquiry     = String(pathText || '');
 
   if (!store || !name || !email) {
     alert('必須項目（店舗名、お名前、メールアドレス）をご入力ください');
     return;
   }
 
-  const submitBtn = ev?.currentTarget || ev?.target;
+  var submitBtn = (ev && (ev.currentTarget || ev.target)) || null;
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '送信中...'; }
 
   fetch(GAS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
-      action: 'saveGeneralTicket', name, email, category: inquiry,
-      situation: `予約番号: ${reservation || 'なし'}\n店舗: ${store}\nお支払い予定金額: ${amount || 'なし'}`
+      action:    'saveGeneralTicket',
+      name:      name,
+      email:     email,
+      category:  inquiry,
+      situation: '予約番号: ' + (reservation || 'なし') + '\n店舗: ' + store + '\nお支払い予定金額: ' + (amount || 'なし')
     })
   })
-  .then(r => r.json())
-  .then(result => {
+  .then(function(r) { return r.json(); })
+  .then(function(result) {
     if (result.success) {
-      let summary = `店舗: ${store}\nお名前: ${name}\nメール: ${email}`;
-      if (reservation) summary += `\n予約番号: ${reservation}`;
-      if (amount)      summary += `\nお支払い予定金額: ${amount}`;
-      summary += `\nお問い合わせ: ${inquiry}`;
+      var summary = '店舗: ' + store + '\nお名前: ' + name + '\nメール: ' + email;
+      if (reservation) summary += '\n予約番号: ' + reservation;
+      if (amount)      summary += '\nお支払い予定金額: ' + amount;
+      summary += '\nお問い合わせ: ' + inquiry;
       addUserMessage(summary);
 
-      setTimeout(() => {
+      setTimeout(function() {
         addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
         currentPath = [];
         updateBreadcrumb();
         updateHeaderStatus();
-        setTimeout(() => { addBotMessage('他にご質問はございますか？'); renderOptions(); }, 900);
+        setTimeout(function() { addBotMessage('他にご質問はございますか？'); renderOptions(); }, 900);
       }, 350);
     } else {
       alert('送信に失敗しました。もう一度お試しください。');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する'; }
     }
   })
-  .catch(err => {
+  .catch(function(err) {
     console.error('送信エラー:', err);
     alert('送信に失敗しました。もう一度お試しください。');
     if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined">send</span> 送信する'; }
@@ -1209,71 +1248,67 @@ function submitGeneralTicketForm(pathText, ev) {
 //  緊急フォーム
 // =============================================================
 function renderEmergencyForm() {
-  const area = document.getElementById('emergency-form-area');
+  var area = document.getElementById('emergency-form-area');
   if (!area) return;
 
   area.classList.remove('hidden');
-  document.getElementById('emergency-chat-area')?.classList.add('hidden');
+  var chatArea = document.getElementById('emergency-chat-area');
+  if (chatArea) chatArea.classList.add('hidden');
   area.innerHTML = '';
 
-  const form = document.createElement('div');
+  var form = document.createElement('div');
   form.className = 'emergency-form';
-  form.innerHTML = `
-    <input type="text"  id="ef-name"     placeholder="お名前 *" />
-    <input type="email" id="ef-email"    placeholder="メールアドレス *" />
-    <input type="text"  id="ef-store"    placeholder="ご予約店舗名 *" />
-    <textarea id="ef-situation" placeholder="状況を詳しく教えてください *"></textarea>
-    <div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6;">
-      画像/動画がある場合は添付してください（任意）※最大20MB
-    </div>
-    <input type="file"  id="ef-file"     accept="image/*,video/*" />
-    <input type="url"   id="ef-videoUrl" placeholder="動画URL（任意）https://..." />
-    <button class="emergency-submit" id="ef-submitBtn" onclick="submitEmergencyForm()">
-      <span class="material-symbols-outlined">priority_high</span>
-      緊急対応を依頼
-    </button>
-  `;
+  form.innerHTML =
+    '<input type="text"  id="ef-name"      placeholder="お名前 *" />' +
+    '<input type="email" id="ef-email"     placeholder="メールアドレス *" />' +
+    '<input type="text"  id="ef-store"     placeholder="ご予約店舗名 *" />' +
+    '<textarea id="ef-situation"           placeholder="状況を詳しく教えてください *"></textarea>' +
+    '<div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6;">画像/動画がある場合は添付してください（任意）※最大20MB</div>' +
+    '<input type="file"  id="ef-file"      accept="image/*,video/*" />' +
+    '<input type="url"   id="ef-videoUrl"  placeholder="動画URL（任意）https://..." />' +
+    '<button class="emergency-submit" id="ef-submitBtn" onclick="submitEmergencyForm()">' +
+    '<span class="material-symbols-outlined">priority_high</span>緊急対応を依頼</button>';
 
   area.appendChild(form);
   smoothScrollToBottom();
 }
 
 function genEmergencyTicketId_() {
-  const d   = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const y   = d.getFullYear();
-  const m   = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hh  = pad(d.getHours());
-  const mm  = pad(d.getMinutes());
-  const ss  = pad(d.getSeconds());
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `E-${y}${m}${day}_${hh}${mm}${ss}-${rand}`;
+  var d   = new Date();
+  var pad = function(n) { return String(n).padStart(2, '0'); };
+  var rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return 'E-' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) +
+         '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) +
+         '-' + rand;
 }
 
 // =============================================================
-//  シナリオ候補検索
+//  シナリオ候補検索（treeDataのvalueをキーワードとして照合）
 // =============================================================
 function findScenarioCandidates_(situation) {
   if (!treeData || !situation) return [];
-  const input = situation.toLowerCase();
-  const seen = new Set();
-  const results = [];
+  var input = situation.toLowerCase();
+  var seen  = {};
+  var results = [];
 
-  Object.values(treeData).forEach(node => {
-    if (!node || !node.value || node.id === undefined) return;
-    const words = String(node.value)
-      .replace(/【[^】]+】/g, '')
-      .split(/[\s,、。　]+/)
-      .map(w => w.trim().toLowerCase())
-      .filter(w => w.length >= 2);
+  var nodes = Object.values(treeData);
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    if (!node || !node.value || node.id === undefined) continue;
 
-    const hit = words.some(w => input.includes(w));
-    if (hit && !seen.has(node.id)) {
-      seen.add(node.id);
+    // valueのラベルをスペース・読点・句点などで分割して2文字以上の単語を取得
+    var label = String(node.value).replace(/【[^】]+】/g, '');
+    var words = label.split(/[\s,、。　・]+/).map(function(w) {
+      return w.trim().toLowerCase();
+    }).filter(function(w) { return w.length >= 2; });
+
+    // 入力テキストにいずれかの単語が含まれればヒット
+    var hit = words.some(function(w) { return input.indexOf(w) !== -1; });
+    if (hit && !seen[node.id]) {
+      seen[node.id] = true;
       results.push(node);
     }
-  });
+  }
 
   return results.slice(0, 3);
 }
@@ -1282,82 +1317,97 @@ function findScenarioCandidates_(situation) {
 //  シナリオ提案UI
 // =============================================================
 function showScenarioSuggestion_(candidates, onProceed) {
-  const area = document.getElementById('emergency-form-area');
+  var area = document.getElementById('emergency-form-area');
   if (!area) return;
 
-  const existingForm = area.querySelector('.emergency-form');
+  // フォームを一時的に隠す
+  var existingForm = area.querySelector('.emergency-form');
   if (existingForm) existingForm.style.display = 'none';
 
-  // 既存のサジェストboxがあれば削除
-  document.getElementById('scenario-suggestion-box')?.remove();
+  // 既存のboxがあれば削除
+  var oldBox = document.getElementById('scenario-suggestion-box');
+  if (oldBox) oldBox.remove();
 
-  const box = document.createElement('div');
+  var box = document.createElement('div');
   box.id = 'scenario-suggestion-box';
-  box.style.cssText = [
-    'margin-top:12px',
-    'background:#fffbeb',
-    'border:2px solid #fcd34d',
-    'border-radius:12px',
-    'padding:16px',
-    'display:flex',
-    'flex-direction:column',
-    'gap:10px',
-  ].join(';');
+  box.className = 'scenario-suggestion-box';
 
-  const header = document.createElement('div');
-  header.style.cssText = 'font-size:13px;font-weight:700;color:#92400e;';
-  header.textContent = '💡 まずこちらをご確認ください';
-  box.appendChild(header);
+  var title = document.createElement('div');
+  title.className = 'suggestion-title';
+  title.textContent = '💡 まずこちらをご確認ください';
+  box.appendChild(title);
 
-  const desc = document.createElement('div');
-  desc.style.cssText = 'font-size:12px;color:#78350f;line-height:1.6;';
+  var desc = document.createElement('div');
+  desc.className = 'suggestion-desc';
   desc.innerHTML = '入力内容に関連する案内が見つかりました。<br>解決する場合はそちらをご確認ください。';
   box.appendChild(desc);
 
-  candidates.forEach(node => {
-    const btn = document.createElement('button');
+  // シナリオ選択肢ボタン
+  candidates.forEach(function(node) {
+    var btn = document.createElement('button');
     btn.className = 'option-btn';
-    btn.style.cssText = 'background:#fffbeb;border-color:#fcd34d;';
-    const label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
-    btn.innerHTML = \`
-      <div class="option-icon" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);"></div>
-      <span class="option-label">\${escapeHTML_(label)}</span>
-      <span class="material-symbols-outlined chevron">chevron_right</span>
-    \`;
-    btn.addEventListener('click', () => {
-      box.remove();
-      if (existingForm) existingForm.style.display = '';
-      const area2 = document.getElementById('emergency-form-area');
-      if (area2) { area2.classList.add('hidden'); area2.innerHTML = ''; }
-      currentPath = [];
-      handleOptionSelect(node.id);
-    });
+    btn.style.background   = '#fffbeb';
+    btn.style.borderColor  = '#fcd34d';
+
+    var label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
+
+    var dot = document.createElement('div');
+    dot.className = 'option-icon';
+    dot.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'option-label';
+    labelEl.textContent = label;
+
+    var chevron = document.createElement('span');
+    chevron.className = 'material-symbols-outlined chevron';
+    chevron.textContent = 'chevron_right';
+
+    btn.appendChild(dot);
+    btn.appendChild(labelEl);
+    btn.appendChild(chevron);
+
+    // クロージャでnodeIdをキャプチャ
+    (function(capturedId) {
+      btn.addEventListener('click', function() {
+        box.remove();
+        if (existingForm) existingForm.style.display = '';
+        var area2 = document.getElementById('emergency-form-area');
+        if (area2) { area2.classList.add('hidden'); area2.innerHTML = ''; }
+        currentPath = [];
+        handleOptionSelect(capturedId);
+      });
+    })(node.id);
+
     box.appendChild(btn);
   });
 
-  const proceedBtn = document.createElement('button');
-  proceedBtn.style.cssText = [
-    'display:flex','align-items:center','justify-content:center','gap:8px',
-    'width:100%','padding:12px',
-    'background:#ef4444','color:white',
-    'border:none','border-radius:10px',
-    'font-size:13px','font-weight:700',
-    'cursor:pointer','font-family:Noto Sans JP,sans-serif',
-  ].join(';');
-  proceedBtn.innerHTML = '<span class="material-symbols-outlined">priority_high</span> それでも解決しない場合は緊急依頼する';
-  proceedBtn.addEventListener('click', () => {
+  // それでも解決しない場合は緊急依頼するボタン
+  var proceedBtn = document.createElement('button');
+  proceedBtn.className = 'scenario-proceed-btn';
+
+  var icon = document.createElement('span');
+  icon.className = 'material-symbols-outlined';
+  icon.textContent = 'priority_high';
+
+  var label2 = document.createTextNode(' それでも解決しない場合は緊急依頼する');
+
+  proceedBtn.appendChild(icon);
+  proceedBtn.appendChild(label2);
+
+  proceedBtn.addEventListener('click', function() {
     box.remove();
     if (existingForm) existingForm.style.display = '';
-    // 送信ボタンを無効化して2重送信・2重サジェストを防ぐ
-    const submitBtn = document.getElementById('ef-submitBtn');
+    // 送信ボタンを無効化して2重サジェストを防ぐ
+    var submitBtn = document.getElementById('ef-submitBtn');
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.onclick  = null;
     }
     onProceed();
   });
-  box.appendChild(proceedBtn);
 
+  box.appendChild(proceedBtn);
   area.appendChild(box);
   smoothScrollToBottom();
 }
@@ -1365,11 +1415,11 @@ function showScenarioSuggestion_(candidates, onProceed) {
 // =============================================================
 //  緊急フォーム送信（シナリオチェック付き）
 // =============================================================
-async function submitEmergencyForm() {
-  const name      = (document.getElementById('ef-name')?.value      || '').trim();
-  const email     = (document.getElementById('ef-email')?.value     || '').trim();
-  const store     = (document.getElementById('ef-store')?.value     || '').trim();
-  const situation = (document.getElementById('ef-situation')?.value || '').trim();
+function submitEmergencyForm() {
+  var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
+  var email     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
+  var store     = ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim();
+  var situation = ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim();
 
   if (!name || !email || !store || !situation) {
     alert('必須項目（お名前/メール/店舗/状況）をご入力ください');
@@ -1377,9 +1427,9 @@ async function submitEmergencyForm() {
   }
 
   // シナリオ候補を探す
-  const candidates = findScenarioCandidates_(situation);
+  var candidates = findScenarioCandidates_(situation);
   if (candidates.length > 0) {
-    showScenarioSuggestion_(candidates, () => doSubmitEmergencyForm_());
+    showScenarioSuggestion_(candidates, function() { doSubmitEmergencyForm_(); });
     return;
   }
 
@@ -1387,31 +1437,35 @@ async function submitEmergencyForm() {
 }
 
 async function doSubmitEmergencyForm_() {
-  const name      = (document.getElementById('ef-name')?.value      || '').trim();
-  const email     = (document.getElementById('ef-email')?.value     || '').trim();
-  const store     = (document.getElementById('ef-store')?.value     || '').trim();
-  const situation = (document.getElementById('ef-situation')?.value || '').trim();
-  const videoUrl  = (document.getElementById('ef-videoUrl')?.value  || '').trim();
-  const fileEl    = document.getElementById('ef-file');
-  const file      = fileEl?.files?.[0] || null;
+  var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
+  var email     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
+  var store     = ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim();
+  var situation = ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim();
+  var videoUrl  = ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim();
+  var fileEl    = document.getElementById('ef-file');
+  var file      = (fileEl && fileEl.files && fileEl.files[0]) || null;
 
-  const btn             = document.getElementById('ef-submitBtn');
-  const btnOriginalHTML = btn ? btn.innerHTML : '';
+  var btn             = document.getElementById('ef-submitBtn');
+  var btnOriginalHTML = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
 
-  const ticketId = genEmergencyTicketId_();
+  var ticketId = genEmergencyTicketId_();
 
   addUserMessage(
-    `お名前: ${name}\nメール: ${email}\n店舗: ${store}\n状況: ${situation}` +
-    (videoUrl ? `\n動画URL: ${videoUrl}` : '') +
-    (file      ? `\n添付: ${file.name}`  : '') +
-    `\nチケットID: ${ticketId}`
+    'お名前: ' + name + '\nメール: ' + email + '\n店舗: ' + store + '\n状況: ' + situation +
+    (videoUrl ? '\n動画URL: ' + videoUrl : '') +
+    (file      ? '\n添付: ' + file.name  : '') +
+    '\nチケットID: ' + ticketId
   );
 
-  const payloadBase = {
-    action: 'createEmergencyTicket',
-    ticketId, name, email, store, situation,
-    videoUrl: videoUrl || ''
+  var payloadBase = {
+    action:   'createEmergencyTicket',
+    ticketId: ticketId,
+    name:     name,
+    email:    email,
+    store:    store,
+    situation: situation,
+    videoUrl:  videoUrl || ''
   };
 
   try {
@@ -1420,27 +1474,30 @@ async function doSubmitEmergencyForm_() {
         alert('動画/画像が大きすぎます（20MBまで）。圧縮するかURLで送ってください。');
         return;
       }
-      const base64 = await readFileAsBase64_(file);
-      await postToGAS_({ ...payloadBase, fileName: file.name, mimeType: file.type || 'application/octet-stream', fileData: base64 });
+      var base64 = await readFileAsBase64_(file);
+      await postToGAS_(Object.assign({}, payloadBase, { fileName: file.name, mimeType: file.type || 'application/octet-stream', fileData: base64 }));
     } else {
       await postToGAS_(payloadBase);
     }
 
     addBotMessage('✅ 緊急対応チケットを作成しました。\n\nこのままチャットで状況を追記できます。');
-    enterEmergencyChat_(ticketId, { name, email, store });
+    enterEmergencyChat_(ticketId, { name: name, email: email, store: store });
 
   } catch (e) {
     console.error(e);
-    alert('送信に失敗しました: ' + (e?.message || e));
+    alert('送信に失敗しました: ' + (e.message || e));
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalHTML || '<span class="material-symbols-outlined">priority_high</span> 緊急対応を依頼'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = btnOriginalHTML || '<span class="material-symbols-outlined">priority_high</span> 緊急対応を依頼';
+    }
   }
 }
 
 function readFileAsBase64_(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload  = () => resolve(String(r.result || '').split(',')[1] || '');
+  return new Promise(function(resolve, reject) {
+    var r = new FileReader();
+    r.onload  = function() { resolve(String(r.result || '').split(',')[1] || ''); };
     r.onerror = reject;
     r.readAsDataURL(file);
   });
@@ -1451,45 +1508,54 @@ function readFileAsBase64_(file) {
 // =============================================================
 function getCurrentOptions() {
   if (!treeData) return [];
-  if (currentPath.length === 0) return (treeData.level0 || []).map(id => treeData[id]).filter(Boolean);
-  const nodeId = currentPath.join('.');
-  const node   = treeData[nodeId];
-  if (node && node.children) return node.children.map(id => treeData[id]).filter(Boolean);
+  if (currentPath.length === 0) {
+    return (treeData.level0 || []).map(function(id) { return treeData[id]; }).filter(Boolean);
+  }
+  var nodeId = currentPath.join('.');
+  var node   = treeData[nodeId];
+  if (node && node.children) {
+    return node.children.map(function(id) { return treeData[id]; }).filter(Boolean);
+  }
   return [];
 }
 
-function getBreadcrumbText(path = currentPath) {
+function getBreadcrumbText(path) {
+  if (!path) path = currentPath;
   if (!treeData) return '';
-  return path.map((p, i) => {
-    const id = path.slice(0, i + 1).join('.');
+  return path.map(function(p, i) {
+    var id = path.slice(0, i + 1).join('.');
     return treeData[id] ? treeData[id].value : p;
   }).join(' > ');
 }
 
 function updateBreadcrumb() {
-  const el   = document.getElementById('breadcrumb');
-  const text = document.getElementById('breadcrumbText');
+  var el   = document.getElementById('breadcrumb');
+  var text = document.getElementById('breadcrumbText');
   if (!el || !text) return;
-  if (currentPath.length === 0) el.classList.add('hidden');
-  else { el.classList.remove('hidden'); text.textContent = getBreadcrumbText(); }
+  if (currentPath.length === 0) {
+    el.classList.add('hidden');
+  } else {
+    el.classList.remove('hidden');
+    text.textContent = getBreadcrumbText();
+  }
 }
 
 function updateHeaderStatus() {
-  const el = document.getElementById('headerStatus');
+  var el = document.getElementById('headerStatus');
   if (!el) return;
-  el.textContent = currentPath.length === 0 ? 'トップ' : `階層: ${currentPath.length + 1}`;
+  el.textContent = currentPath.length === 0 ? 'トップ' : '階層: ' + (currentPath.length + 1);
 }
 
 // =============================================================
 //  チケットバッジ
 // =============================================================
 function updateTicketBadge() {
-  const badge = document.getElementById('ticketBadge');
+  var badge = document.getElementById('ticketBadge');
   if (!badge) return;
   if (tickets.length > 0) {
     badge.classList.remove('hidden');
-    document.getElementById('emergencyCount').textContent = `🚨 緊急: ${tickets.filter(t => t.type === 'emergency').length}件`;
-    document.getElementById('generalCount').textContent   = `📋 一般: ${tickets.filter(t => t.type === 'general').length}件`;
+    document.getElementById('emergencyCount').textContent = '🚨 緊急: ' + tickets.filter(function(t) { return t.type === 'emergency'; }).length + '件';
+    document.getElementById('generalCount').textContent   = '📋 一般: ' + tickets.filter(function(t) { return t.type === 'general'; }).length + '件';
   }
 }
 
@@ -1509,8 +1575,9 @@ function resetChat() {
   emergencySeenKeys_.clear();
   emergencyFetchInFlight   = false;
 
-  document.getElementById('emergency-chat-area')?.classList.add('hidden');
-  const formArea = document.getElementById('emergency-form-area');
+  var chatArea = document.getElementById('emergency-chat-area');
+  if (chatArea) chatArea.classList.add('hidden');
+  var formArea = document.getElementById('emergency-form-area');
   if (formArea) { formArea.classList.add('hidden'); formArea.innerHTML = ''; }
 
   updateBreadcrumb();
@@ -1529,9 +1596,12 @@ async function reloadData() {
 //  エスケープ
 // =============================================================
 function escapeHTML_(str) {
-  return String(str ?? '')
-    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 function escapeAttr_(str) { return escapeHTML_(str); }
 </script>
