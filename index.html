@@ -1335,14 +1335,37 @@ function showScenarioSuggestion_(candidates, onProceed) {
   var area = document.getElementById('emergency-form-area');
   if (!area) return;
 
-  // スナップショット保存（ここで入力値を保持）
-  emergencyFormSnapshot_ = {
-    name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
-    email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
-    store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
-    situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
-    videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
-  };
+// スナップショット保存（ファイルもBase64で保持）
+  var efFile = document.getElementById('ef-file');
+  var snapFile = (efFile && efFile.files && efFile.files[0]) || null;
+
+  if (snapFile) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      emergencyFormSnapshot_ = {
+        name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
+        email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
+        store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
+        situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
+        videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
+        fileName:  snapFile.name,
+        mimeType:  snapFile.type || 'application/octet-stream',
+        fileData:  String(reader.result || '').split(',')[1] || '',
+      };
+    };
+    reader.readAsDataURL(snapFile);
+  } else {
+    emergencyFormSnapshot_ = {
+      name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
+      email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
+      store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
+      situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
+      videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
+      fileName:  null,
+      mimeType:  null,
+      fileData:  null,
+    };
+  }
 
   // フォームを一時的に隠す
   var existingForm = area.querySelector('.emergency-form');
@@ -1405,26 +1428,6 @@ function showScenarioSuggestion_(candidates, onProceed) {
     box.appendChild(btn);
   });
 
-  // それでも解決しない場合は緊急依頼するボタン
-  var proceedBtn = document.createElement('button');
-  proceedBtn.className = 'scenario-proceed-btn';
-
-  var icon = document.createElement('span');
-  icon.className = 'material-symbols-outlined';
-  icon.textContent = 'priority_high';
-
-  proceedBtn.appendChild(icon);
-  proceedBtn.appendChild(document.createTextNode(' それでも解決しない場合は緊急依頼する'));
-
-  proceedBtn.addEventListener('click', function() {
-    box.remove();
-    if (existingForm) existingForm.style.display = '';
-    var submitBtn = document.getElementById('ef-submitBtn');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.onclick = null; }
-    onProceed();
-  });
-
-  box.appendChild(proceedBtn);
   area.appendChild(box);
   smoothScrollToBottom();
 }
