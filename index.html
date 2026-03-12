@@ -343,7 +343,6 @@
 
   .hidden { display: none; }
 
-  /* 緊急チャットの吹き出し */
   .msg-row { display:flex; margin:6px 0; }
   .msg-row.customer { justify-content:flex-end; }
   .msg-row.staff    { justify-content:flex-start; }
@@ -356,7 +355,6 @@
   .msg-meta { font-size:11px; opacity:.6; margin-bottom:3px; }
   .msg-text { white-space:pre-wrap; word-break:break-word; }
 
-  /* オペレーターステータスアニメーション */
   .operator-status {
     display: flex;
     align-items: center;
@@ -366,13 +364,9 @@
     color: #6b7280;
     min-height: 28px;
   }
-  .operator-status .dots {
-    display: inline-flex;
-    gap: 3px;
-  }
+  .operator-status .dots { display: inline-flex; gap: 3px; }
   .operator-status .dots span {
-    width: 5px;
-    height: 5px;
+    width: 5px; height: 5px;
     border-radius: 50%;
     background: #9ca3af;
     animation: dotBounce 1.2s infinite ease-in-out;
@@ -384,7 +378,6 @@
     40%           { transform: translateY(-5px); opacity: 1; }
   }
 
-  /* シナリオサジェストボックス */
   .scenario-suggestion-box {
     margin-top: 12px;
     background: #fffbeb;
@@ -396,14 +389,10 @@
     gap: 10px;
   }
   .scenario-suggestion-box .suggestion-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #92400e;
+    font-size: 13px; font-weight: 700; color: #92400e;
   }
   .scenario-suggestion-box .suggestion-desc {
-    font-size: 12px;
-    color: #78350f;
-    line-height: 1.6;
+    font-size: 12px; color: #78350f; line-height: 1.6;
   }
   .scenario-proceed-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -416,6 +405,18 @@
     transition: background 0.2s;
   }
   .scenario-proceed-btn:hover { background: #dc2626; }
+  .scenario-proceed-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  .kw-reply-box {
+    background: white;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #374151;
+    white-space: pre-line;
+  }
 </style>
 </head>
 
@@ -426,12 +427,10 @@
     <div class="chat-header-icon">
       <img id="bearTopIcon" src="" alt="Bear"/>
     </div>
-
     <div class="chat-header-info">
       <h3>クマのコンシェルジュ</h3>
       <p id="headerStatus">トップ</p>
     </div>
-
     <div class="chat-header-btns">
       <button onclick="reloadData()" title="データ再読み込み">
         <span class="material-symbols-outlined">sync</span>
@@ -465,16 +464,11 @@
     </div>
 
     <div id="emergencyMessages" style="
-      max-height: 260px;
-      overflow-y: auto;
-      padding: 10px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      background: #f9fafb;
-      margin-bottom: 6px;
+      max-height: 260px; overflow-y: auto;
+      padding: 10px 8px; border: 1px solid #e5e7eb;
+      border-radius: 12px; background: #f9fafb; margin-bottom: 6px;
     "></div>
 
-    <!-- オペレーターステータス表示エリア -->
     <div id="operator-status-area" style="min-height:28px; margin-bottom:4px;"></div>
 
     <div style="display:flex; gap:10px;">
@@ -483,7 +477,6 @@
         placeholder="状況を追記してください（例：入室できない、決済が…）"
         style="flex:1; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:13px; outline:none; resize:none; height:44px; line-height:1.6;"
       ></textarea>
-
       <button type="button" id="emergencySend" class="emergency-submit" style="width:auto; padding:12px 14px;">
         <span class="material-symbols-outlined">send</span>
         送信
@@ -509,7 +502,7 @@ const WORKERS_URL = 'https://oneselfchatbot.0618-fmp.workers.dev/api';
 const BEAR_IMG    = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAwUwtICfp5-z5algJ-FBAaUFq0Kf50VhZHenQ4CAvA_rNlNc4bclYo5zIMaiGBhDxQsLg5zU8_AZboqcg3dI1QXi5kKDkcdMokbLppTc7TDI8tDwq99e2A0EERFwknjrG2fIZ2HGskUrXG350j4oGpZHpm824Kh2a0C1mcR2Jfm13Cfk9UHoDueLAf9Wfjk0q55tlI_Lg7ldLPW-pDMJXZ3gXXXy412Ycqk7fh0K78PpfZPY_GgUwJi8FcTUdW7GLVYCHllxoFgvg';
 
 // =============================================================
-//  緊急チャット ポーリング管理
+//  ポーリング管理
 // =============================================================
 const POLL_INTERVAL_NORMAL = 5000;
 const POLL_INTERVAL_MAX    = 60000;
@@ -523,7 +516,7 @@ let emergencyFetchInFlight   = false;
 const emergencySeenKeys_     = new Set();
 
 // =============================================================
-//  オペレーターステータス管理
+//  オペレーターステータス
 // =============================================================
 let operatorStatusTimer_ = null;
 
@@ -531,35 +524,20 @@ function showOperatorStatus_() {
   const area = document.getElementById('operator-status-area');
   if (!area) return;
   clearOperatorStatus_();
-
   area.innerHTML =
-    '<div class="operator-status">' +
-    '<div class="dots"><span></span><span></span><span></span></div>' +
-    'オペレーターへ接続中' +
-    '</div>';
-
+    '<div class="operator-status"><div class="dots"><span></span><span></span><span></span></div>オペレーターへ接続中</div>';
   operatorStatusTimer_ = setTimeout(function() {
     area.innerHTML =
-      '<div class="operator-status">' +
-      '<div class="dots"><span></span><span></span><span></span></div>' +
-      'スタッフが確認中' +
-      '</div>';
-
+      '<div class="operator-status"><div class="dots"><span></span><span></span><span></span></div>スタッフが確認中</div>';
     operatorStatusTimer_ = setTimeout(function() {
       area.innerHTML =
-        '<div class="operator-status">' +
-        '<div class="dots"><span></span><span></span><span></span></div>' +
-        'スタッフが入力中' +
-        '</div>';
+        '<div class="operator-status"><div class="dots"><span></span><span></span><span></span></div>スタッフが入力中</div>';
     }, 11000);
   }, 4000);
 }
 
 function clearOperatorStatus_() {
-  if (operatorStatusTimer_) {
-    clearTimeout(operatorStatusTimer_);
-    operatorStatusTimer_ = null;
-  }
+  if (operatorStatusTimer_) { clearTimeout(operatorStatusTimer_); operatorStatusTimer_ = null; }
   const area = document.getElementById('operator-status-area');
   if (area) area.innerHTML = '';
 }
@@ -567,60 +545,49 @@ function clearOperatorStatus_() {
 // =============================================================
 //  アプリ状態
 // =============================================================
-let treeData    = null;
-let mediaData   = null;
-let currentPath = [];
-let tickets     = JSON.parse(localStorage.getItem('salon_tickets') || '[]');
-let isOpen      = false;
+let treeData          = null;
+let mediaData         = null;
+let emergencyKeywords_ = [];
+let currentPath       = [];
+let tickets           = JSON.parse(localStorage.getItem('salon_tickets') || '[]');
+let isOpen            = false;
 
-let EMERGENCY_CHAT = {
-  ticketId: null,
-  active:   false,
-};
+let EMERGENCY_CHAT = { ticketId: null, active: false };
 let emergencyFormSnapshot_ = null;
+
 // =============================================================
 //  起動
 // =============================================================
 window.addEventListener('DOMContentLoaded', function() {
   var topIcon = document.getElementById('bearTopIcon');
   if (topIcon) topIcon.src = BEAR_IMG;
-
   isOpen = true;
   addBotMessage('下記からご用件をお選びください！');
   setTimeout(function() { renderOptions(); }, 80);
-
   loadTreeData().then(function() {
     var messages = document.getElementById('messages');
     var hasOptions = messages && messages.querySelector('.options');
     if (!hasOptions) renderOptions();
   });
-
   updateTicketBadge();
   bindEmergencySendButton_();
 });
 
 // =============================================================
-//  WorkerへPOST（共通）
+//  WorkerへPOST
 // =============================================================
 async function postToGAS_(payload) {
   var res = await fetch(WORKERS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(payload),
+    body: JSON.stringify(payload),
   });
-
   var text = await res.text();
   var json = {};
   try { json = text ? JSON.parse(text) : {}; } catch (e) {
-    console.warn('Invalid JSON response:', text.slice(0, 300));
     json = { error: 'Invalid JSON response', raw: text };
   }
-
-  var success =
-    json.success === true ||
-    json.ok      === true ||
-    (res.ok && !json.error);
-
+  var success = json.success === true || json.ok === true || (res.ok && !json.error);
   return Object.assign({}, json, { success: success, __http: res.status });
 }
 
@@ -631,23 +598,19 @@ function bindEmergencySendButton_() {
   var btn   = document.getElementById('emergencySend');
   var input = document.getElementById('emergencyInput');
   if (!btn || !input) return;
-
   var newBtn = btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn, btn);
   newBtn.disabled = false;
   newBtn.dataset.sending = '0';
-
   newBtn.addEventListener('click', async function() {
     var ticketId = getEmergencyTicketId_();
-    var text     = (input.value || '').trim();
-    if (!ticketId || !text)              return;
-    if (newBtn.dataset.sending === '1')  return;
-
+    var text = (input.value || '').trim();
+    if (!ticketId || !text) return;
+    if (newBtn.dataset.sending === '1') return;
     newBtn.dataset.sending = '1';
-    newBtn.disabled        = true;
+    newBtn.disabled = true;
     clearOperatorStatus_();
     input.value = '';
-
     try {
       await sendEmergencyCustomerMessage_(ticketId, text);
       showOperatorStatus_();
@@ -656,107 +619,79 @@ function bindEmergencySendButton_() {
       alert('送信に失敗しました: ' + (e.message || e));
     } finally {
       newBtn.dataset.sending = '0';
-      newBtn.disabled        = false;
+      newBtn.disabled = false;
     }
   });
 }
 
 // =============================================================
-//  緊急チャット：メッセージUI追加
+//  緊急チャット：メッセージUI
 // =============================================================
 function appendEmergencyMessageToUI_(m) {
   var listEl = document.getElementById('emergencyMessages');
   if (!listEl) return;
-
   var from = String(m.from || '').toLowerCase();
-
   if (from === 'staff') clearOperatorStatus_();
-
   var text = linkifyHtml_(escapeHtmlEmergency_(m.message || ''));
-
   var tsDisplay = '';
   try {
     var d = new Date(m.ts || '');
-    if (!isNaN(d)) {
-      tsDisplay = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-    }
+    if (!isNaN(d)) tsDisplay = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {}
-
   var row = document.createElement('div');
   row.className = 'msg-row ' + (from === 'staff' ? 'staff' : 'customer');
-
-  var metaText = (from === 'staff' ? 'スタッフ' : 'お客様') + (tsDisplay ? ' ・ ' + tsDisplay : '');
-
   var bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-
   var meta = document.createElement('div');
   meta.className = 'msg-meta';
-  meta.textContent = metaText;
-
+  meta.textContent = (from === 'staff' ? 'スタッフ' : 'お客様') + (tsDisplay ? ' ・ ' + tsDisplay : '');
   var msgText = document.createElement('div');
   msgText.className = 'msg-text';
   msgText.innerHTML = text;
-
   bubble.appendChild(meta);
   bubble.appendChild(msgText);
   row.appendChild(bubble);
   listEl.appendChild(row);
-
   requestAnimationFrame(function() { listEl.scrollTop = listEl.scrollHeight; });
 }
 
 function linkifyHtml_(html) {
-  return html.replace(
-    /(https?:\/\/[^\s<>"'）]+)/g,
-    '<a href="$1" target="_blank" rel="noopener" style="color:#0284c7;word-break:break-all;">$1</a>'
-  );
+  return html.replace(/(https?:\/\/[^\s<>"'）]+)/g,
+    '<a href="$1" target="_blank" rel="noopener" style="color:#0284c7;word-break:break-all;">$1</a>');
 }
 
 // =============================================================
 //  緊急チャット：ポーリング
 // =============================================================
 async function fetchEmergencyChatOnce_() {
-  if (emergencyFetchInFlight) { console.log('[poll] skip: inFlight'); return; }
+  if (emergencyFetchInFlight) return;
   if (!emergencyCurrentTicketId) return;
-
   emergencyFetchInFlight = true;
-
   try {
     var body = { action: 'getEmergencyChat', ticketId: emergencyCurrentTicketId };
     if (emergencyLastTs) body.since = emergencyLastTs;
-
     var j = await postToGAS_(body);
-
     if (!j || j.success !== true) {
       emergencyPollInterval = Math.min(emergencyPollInterval * POLL_BACKOFF_FACTOR, POLL_INTERVAL_MAX);
-      console.warn('[poll] failed, backoff to', emergencyPollInterval, 'ms', j);
       reschedulePolling_();
       return;
     }
-
     emergencyPollInterval = POLL_INTERVAL_NORMAL;
-
     var list = Array.isArray(j.messages) ? j.messages : [];
     list.sort(function(a, b) { return String(a.ts || '').localeCompare(String(b.ts || '')); });
-
     for (var i = 0; i < list.length; i++) {
       var m    = list[i];
       var ts   = String(m.ts      || '');
       var from = String(m.from    || '').toLowerCase();
       var msg  = String(m.message || '');
       var key  = ts + '|' + from + '|' + msg;
-
       if (emergencySeenKeys_.has(key)) continue;
       emergencySeenKeys_.add(key);
       appendEmergencyMessageToUI_(m);
-
       if (!emergencyLastTs || (ts && ts > emergencyLastTs)) emergencyLastTs = ts;
     }
-
   } catch (e) {
     emergencyPollInterval = Math.min(emergencyPollInterval * POLL_BACKOFF_FACTOR, POLL_INTERVAL_MAX);
-    console.warn('[poll] exception, backoff to', emergencyPollInterval, 'ms', e);
     reschedulePolling_();
   } finally {
     emergencyFetchInFlight = false;
@@ -766,7 +701,6 @@ async function fetchEmergencyChatOnce_() {
 function reschedulePolling_() {
   if (emergencyPollTimer) { clearInterval(emergencyPollTimer); emergencyPollTimer = null; }
   if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) return;
-
   emergencyPollTimer = setInterval(function() {
     if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
     fetchEmergencyChatOnce_().catch(function() {});
@@ -776,20 +710,15 @@ function reschedulePolling_() {
 function startEmergencyChatPolling_() {
   stopEmergencyChatPolling_();
   if (!emergencyCurrentTicketId) return;
-
   var chatArea = document.getElementById('emergency-chat-area');
   if (!chatArea || chatArea.classList.contains('hidden')) return;
-
   emergencyLastTs        = null;
   emergencyPollInterval  = POLL_INTERVAL_NORMAL;
   emergencySeenKeys_.clear();
   emergencyFetchInFlight = false;
-
   var listEl = document.getElementById('emergencyMessages');
   if (listEl) listEl.innerHTML = '';
-
   fetchEmergencyChatOnce_().catch(function() {});
-
   emergencyPollTimer = setInterval(function() {
     if (!EMERGENCY_CHAT.active || !emergencyCurrentTicketId) { stopEmergencyChatPolling_(); return; }
     fetchEmergencyChatOnce_().catch(function() {});
@@ -800,22 +729,11 @@ function stopEmergencyChatPolling_() {
   if (emergencyPollTimer) { clearInterval(emergencyPollTimer); emergencyPollTimer = null; }
 }
 
-// =============================================================
-//  緊急チャット：送信
-// =============================================================
 async function sendEmergencyCustomerMessage_(ticketId, text) {
-  var payload = {
+  var j = await postToGAS_({
     action: 'appendEmergencyChat',
-    data: {
-      ticketId: ticketId,
-      message:  text,
-      from:     'customer',
-      ua:       navigator.userAgent,
-      page:     location.href,
-    },
-  };
-
-  var j = await postToGAS_(payload);
+    data: { ticketId: ticketId, message: text, from: 'customer', ua: navigator.userAgent, page: location.href }
+  });
   if (!j || !j.success) throw new Error((j && j.error) || 'appendEmergencyChat failed');
 }
 
@@ -827,15 +745,12 @@ function enterEmergencyChat_(ticketId, meta) {
   EMERGENCY_CHAT.active    = true;
   emergencyCurrentTicketId = ticketId;
   emergencyLastTs          = null;
-
   var formArea = document.getElementById('emergency-form-area');
   var chatArea = document.getElementById('emergency-chat-area');
   if (formArea) formArea.classList.add('hidden');
   if (chatArea) chatArea.classList.remove('hidden');
-
   var idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = ticketId;
-
   bindEmergencySendButton_();
   startEmergencyChatPolling_();
   showOperatorStatus_();
@@ -844,22 +759,18 @@ function enterEmergencyChat_(ticketId, meta) {
 function exitEmergencyChat_() {
   stopEmergencyChatPolling_();
   clearOperatorStatus_();
-
   EMERGENCY_CHAT.ticketId  = null;
   EMERGENCY_CHAT.active    = false;
   emergencyCurrentTicketId = null;
   emergencyLastTs          = null;
   emergencySeenKeys_.clear();
   emergencyFetchInFlight   = false;
-
   var formArea = document.getElementById('emergency-form-area');
   var chatArea = document.getElementById('emergency-chat-area');
   if (chatArea) chatArea.classList.add('hidden');
   if (formArea) formArea.classList.remove('hidden');
-
   var idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = '';
-
   addBotMessage('緊急チャットを終了しました。必要なら再度「緊急対応」からお進みください。');
   currentPath = [];
   updateBreadcrumb();
@@ -873,7 +784,7 @@ function getEmergencyTicketId_() {
 
 function escapeHtmlEmergency_(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function(m) {
-    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'": '&#039;' }[m];
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m];
   });
 }
 
@@ -885,14 +796,16 @@ async function loadTreeData() {
     var response = await fetch(GAS_URL);
     var result   = await response.json();
     if (result.success) {
-      treeData  = result.data;
-      mediaData = result.media || {};
+      treeData           = result.data;
+      mediaData          = result.media || {};
+      emergencyKeywords_ = result.emergencyKeywords || [];
       if (isOpen && document.getElementById('messages').children.length > 0) renderOptions();
     }
   } catch (e) {
     console.error('データ読み込みエラー', e);
     treeData  = getDefaultData();
     mediaData = {};
+    emergencyKeywords_ = [];
   }
 }
 
@@ -956,7 +869,7 @@ function smoothScrollToBottom() {
 }
 
 // =============================================================
-//  選択肢
+//  選択肢レンダリング
 // =============================================================
 function renderOptions() {
   var messages = document.getElementById('messages');
@@ -975,29 +888,21 @@ function renderOptions() {
   options.forEach(function(option) {
     var btn = document.createElement('button');
     btn.className = 'option-btn';
-
     var hasChildren = option.children && option.children.length > 0;
-    var urlRegex    = /(https?:\/\/[^\s\]】]+)/;
-    var urlMatch    = String(option.value || '').match(urlRegex);
-    var hasUrl      = !!(urlMatch && urlMatch[0]);
-    var cleanText   = String(option.value || '').replace(urlRegex, '').replace(/【[^】]+】/g, '').trim();
-
+    var urlRegex = /(https?:\/\/[^\s\]】]+)/;
+    var urlMatch = String(option.value || '').match(urlRegex);
+    var hasUrl   = !!(urlMatch && urlMatch[0]);
+    var cleanText = String(option.value || '').replace(urlRegex, '').replace(/【[^】]+】/g, '').trim();
     btn.innerHTML =
       '<div class="option-icon"></div>' +
       '<span class="option-label">' + escapeHTML_(cleanText || '（無題）') + '</span>' +
       (hasChildren ? '<span class="material-symbols-outlined chevron">chevron_right</span>' : '') +
       (hasUrl && !hasChildren ? '<span class="material-symbols-outlined chevron">open_in_new</span>' : '');
-
     if (hasUrl && !hasChildren) {
-      (function(url) {
-        btn.addEventListener('click', function() { window.open(url, '_blank'); });
-      })(urlMatch[0]);
+      (function(url) { btn.addEventListener('click', function() { window.open(url, '_blank'); }); })(urlMatch[0]);
     } else {
-      (function(id) {
-        btn.addEventListener('click', function() { handleOptionSelect(id); });
-      })(option.id);
+      (function(id) { btn.addEventListener('click', function() { handleOptionSelect(id); }); })(option.id);
     }
-
     optionsDiv.appendChild(btn);
   });
 
@@ -1010,7 +915,8 @@ function renderOptions() {
     backBtn.addEventListener('click', handleGoBack);
     optionsDiv.appendChild(backBtn);
   }
-if (emergencyFormSnapshot_) {
+
+  if (emergencyFormSnapshot_) {
     var emergencyBackBtn = document.createElement('button');
     emergencyBackBtn.className = 'scenario-proceed-btn';
     emergencyBackBtn.style.marginTop = '4px';
@@ -1025,6 +931,7 @@ if (emergencyFormSnapshot_) {
     });
     optionsDiv.appendChild(emergencyBackBtn);
   }
+
   lastBotContent.appendChild(optionsDiv);
   smoothScrollToBottom();
 }
@@ -1033,11 +940,9 @@ function handleOptionSelect(nodeId) {
   if (!treeData) return;
   var node = treeData[nodeId];
   if (!node) return;
-
   var newPath     = nodeId.split('.');
   var userMessage = String(node.value || '').replace(/【[^】]+】/g, '').trim();
   addUserMessage(userMessage);
-
   setTimeout(function() {
     if (node.children && node.children.length > 0) {
       if (node.children.length === 1 && treeData) {
@@ -1101,30 +1006,17 @@ function handleTerminalNode(node, path) {
 
 function renderMedia(media) {
   var type = media.type || 'link';
-
   if (type === 'image') {
-    addBotMessageWithHTML(
-      '<img src="' + escapeAttr_(String(media.url || '').trim()) + '" alt="' +
-      escapeAttr_(String(media.text || '')) +
-      '" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;" />'
-    );
+    addBotMessageWithHTML('<img src="' + escapeAttr_(String(media.url || '').trim()) + '" alt="' + escapeAttr_(String(media.text || '')) + '" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;" />');
     return;
   }
-
   if (type === 'link') {
     var url  = String(media.url  || '').trim();
     var text = String(media.text || 'リンクを開く').trim();
-    addBotMessageWithHTML(
-      '<a href="' + escapeAttr_(url) + '" target="_blank" ' +
-      'style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;">' +
-      '🔗 ' + escapeHTML_(text) + ' →</a>'
-    );
+    addBotMessageWithHTML('<a href="' + escapeAttr_(url) + '" target="_blank" style="display:inline-block;margin-top:8px;padding:12px 20px;background:#0ea5e9;color:white;text-decoration:none;border-radius:8px;font-weight:500;">🔗 ' + escapeHTML_(text) + ' →</a>');
     return;
   }
-
-  if (type === 'form') {
-    renderCustomForm(String(media.url || '').trim(), media.text);
-  }
+  if (type === 'form') renderCustomForm(String(media.url || '').trim(), media.text);
 }
 
 function handleGoBack() {
@@ -1146,18 +1038,14 @@ function renderCustomForm(formType, category) {
   var messages       = document.getElementById('messages');
   var lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) return;
-
   var iframeContainer = document.createElement('div');
   iframeContainer.style.cssText = 'margin-top:12px;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);';
-
   var iframe = document.createElement('iframe');
   iframe.src = GAS_URL + '?page=form&type=' + encodeURIComponent(formType) + '&category=' + encodeURIComponent(category) + '&v=' + Date.now();
   iframe.style.cssText = 'width:100%;height:450px;border:none;border-radius:12px;';
   iframe.setAttribute('allow', 'clipboard-write');
-
   iframeContainer.appendChild(iframe);
   lastBotContent.appendChild(iframeContainer);
-
   window.addEventListener('message', function(event) {
     if (event.data === 'formSubmitted') {
       setTimeout(function() {
@@ -1169,7 +1057,6 @@ function renderCustomForm(formType, category) {
       }, 900);
     }
   });
-
   smoothScrollToBottom();
 }
 
@@ -1180,15 +1067,12 @@ function renderGeneralTicketForm(pathText) {
   var messages       = document.getElementById('messages');
   var lastBotContent = messages.querySelector('.message-row.bot:last-child .message-content');
   if (!lastBotContent) return;
-
   var form = document.createElement('div');
   form.className = 'emergency-form';
   form.style.background  = '#f0f9ff';
   form.style.borderColor = '#bae6fd';
-
   var safePath       = String(pathText == null ? '' : pathText);
   var escapedForAttr = safePath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
   form.innerHTML =
     '<input type="text"  id="gt-reservation" placeholder="予約番号（わかる場合）" />' +
     '<input type="text"  id="gt-store"       placeholder="店舗名 *" />' +
@@ -1198,7 +1082,6 @@ function renderGeneralTicketForm(pathText) {
     '<textarea id="gt-inquiry" placeholder="お問い合わせ内容 *" readonly style="background:#f9fafb">' + escapeHTML_(safePath) + '</textarea>' +
     '<button class="emergency-submit" style="background:#0ea5e9" onclick="submitGeneralTicketForm(\'' + escapedForAttr + '\', event)">' +
     '<span class="material-symbols-outlined">send</span>送信する</button>';
-
   lastBotContent.appendChild(form);
   smoothScrollToBottom();
 }
@@ -1210,25 +1093,13 @@ function submitGeneralTicketForm(pathText, ev) {
   var email       = (document.getElementById('gt-email')       && document.getElementById('gt-email').value)       || '';
   var amount      = (document.getElementById('gt-amount')      && document.getElementById('gt-amount').value)      || '';
   var inquiry     = String(pathText || '');
-
-  if (!store || !name || !email) {
-    alert('必須項目（店舗名、お名前、メールアドレス）をご入力ください');
-    return;
-  }
-
+  if (!store || !name || !email) { alert('必須項目（店舗名、お名前、メールアドレス）をご入力ください'); return; }
   var submitBtn = (ev && (ev.currentTarget || ev.target)) || null;
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '送信中...'; }
-
   fetch(GAS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      action:    'saveGeneralTicket',
-      name:      name,
-      email:     email,
-      category:  inquiry,
-      situation: '予約番号: ' + (reservation || 'なし') + '\n店舗: ' + store + '\nお支払い予定金額: ' + (amount || 'なし')
-    })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'saveGeneralTicket', name: name, email: email, category: inquiry,
+      situation: '予約番号: ' + (reservation || 'なし') + '\n店舗: ' + store + '\nお支払い予定金額: ' + (amount || 'なし') })
   })
   .then(function(r) { return r.json(); })
   .then(function(result) {
@@ -1238,12 +1109,9 @@ function submitGeneralTicketForm(pathText, ev) {
       if (amount)      summary += '\nお支払い予定金額: ' + amount;
       summary += '\nお問い合わせ: ' + inquiry;
       addUserMessage(summary);
-
       setTimeout(function() {
         addBotMessage('✅ お問い合わせを承りました。\n\nスタッフより1営業日以内にご連絡いたします。');
-        currentPath = [];
-        updateBreadcrumb();
-        updateHeaderStatus();
+        currentPath = []; updateBreadcrumb(); updateHeaderStatus();
         setTimeout(function() { addBotMessage('他にご質問はございますか？'); renderOptions(); }, 900);
       }, 350);
     } else {
@@ -1302,55 +1170,69 @@ function renderEmergencyForm() {
 }
 
 function genEmergencyTicketId_() {
-  var d   = new Date();
+  var d = new Date();
   var pad = function(n) { return String(n).padStart(2, '0'); };
-  var rand = Math.random().toString(36).slice(2, 8).toUpperCase();
   return 'E-' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) +
          '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) +
-         '-' + rand;
+         '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 // =============================================================
-//  シナリオ候補検索（treeDataのvalueをキーワードとして照合）
+//  シナリオ候補検索（子ノードありのみ）
 // =============================================================
 function findScenarioCandidates_(situation) {
   if (!treeData || !situation) return [];
   var input = situation.toLowerCase();
   var seen  = {};
   var results = [];
-
   var nodes = Object.values(treeData);
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i];
     if (!node || !node.value || node.id === undefined) continue;
-
-    // valueのラベルをスペース・読点・句点などで分割して2文字以上の単語を取得
+    if (!node.children || node.children.length === 0) continue;
     var label = String(node.value).replace(/【[^】]+】/g, '');
     var words = label.split(/[\s,、。　・]+/).map(function(w) {
       return w.trim().toLowerCase();
     }).filter(function(w) { return w.length >= 2; });
-// 子ノードを持つ分岐ノードのみ（末端の説明文は除外）
-    if (!node.children || node.children.length === 0) continue;
-    // 入力テキストにいずれかの単語が含まれればヒット
     var hit = words.some(function(w) { return input.indexOf(w) !== -1; });
     if (hit && !seen[node.id]) {
       seen[node.id] = true;
       results.push(node);
     }
   }
-
   return results.slice(0, 3);
+}
+
+// =============================================================
+//  キーワード返答検索（スプレッドシート由来・2ワードマッチ・店舗名込み）
+// =============================================================
+function findKeywordReplies_(situation, store) {
+  if (!emergencyKeywords_ || emergencyKeywords_.length === 0) return [];
+  var input   = situation.toLowerCase();
+  var results = [];
+  for (var i = 0; i < emergencyKeywords_.length; i++) {
+    var entry    = emergencyKeywords_[i];
+    var keywords = entry.keywords || [];
+    var matchCount = 0;
+    for (var j = 0; j < keywords.length; j++) {
+      if (input.indexOf(keywords[j].toLowerCase()) !== -1) matchCount++;
+    }
+    // 店舗名が含まれていれば1カウント追加
+    if (store && store.trim() && input.indexOf(store.trim().toLowerCase()) !== -1) matchCount++;
+    if (matchCount >= 2) results.push(entry);
+  }
+  return results;
 }
 
 // =============================================================
 //  シナリオ提案UI
 // =============================================================
-function showScenarioSuggestion_(candidates, onProceed) {
+function showScenarioSuggestion_(candidates, kwMatches, onProceed) {
   var area = document.getElementById('emergency-form-area');
   if (!area) return;
 
-// スナップショット保存（ファイルもBase64で保持）
-  var efFile = document.getElementById('ef-file');
+  // スナップショット保存（ファイルもBase64で保持）
+  var efFile   = document.getElementById('ef-file');
   var snapFile = (efFile && efFile.files && efFile.files[0]) || null;
 
   if (snapFile) {
@@ -1385,7 +1267,6 @@ function showScenarioSuggestion_(candidates, onProceed) {
   var existingForm = area.querySelector('.emergency-form');
   if (existingForm) existingForm.style.display = 'none';
 
-  // 既存のboxがあれば削除
   var oldBox = document.getElementById('scenario-suggestion-box');
   if (oldBox) oldBox.remove();
 
@@ -1403,31 +1284,35 @@ function showScenarioSuggestion_(candidates, onProceed) {
   desc.innerHTML = '入力内容に関連する案内が見つかりました。<br>解決する場合はそちらをご確認ください。';
   box.appendChild(desc);
 
+  // キーワード返答テキスト表示
+  if (kwMatches && kwMatches.length > 0) {
+    kwMatches.forEach(function(entry) {
+      var replyBox = document.createElement('div');
+      replyBox.className = 'kw-reply-box';
+      replyBox.textContent = entry.reply;
+      box.appendChild(replyBox);
+    });
+  }
+
   // シナリオ選択肢ボタン
   candidates.forEach(function(node) {
     var btn = document.createElement('button');
     btn.className = 'option-btn';
     btn.style.background  = '#fffbeb';
     btn.style.borderColor = '#fcd34d';
-
     var label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
-
     var dot = document.createElement('div');
     dot.className = 'option-icon';
     dot.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
-
     var labelEl = document.createElement('span');
     labelEl.className = 'option-label';
     labelEl.textContent = label;
-
     var chevron = document.createElement('span');
     chevron.className = 'material-symbols-outlined chevron';
     chevron.textContent = 'chevron_right';
-
     btn.appendChild(dot);
     btn.appendChild(labelEl);
     btn.appendChild(chevron);
-
     (function(capturedId) {
       btn.addEventListener('click', function() {
         box.remove();
@@ -1438,15 +1323,15 @@ function showScenarioSuggestion_(candidates, onProceed) {
         handleOptionSelect(capturedId);
       });
     })(node.id);
-
     box.appendChild(btn);
   });
 
   area.appendChild(box);
   smoothScrollToBottom();
 }
+
 // =============================================================
-//  緊急フォーム送信（シナリオチェック付き）
+//  緊急フォーム送信（サジェストチェック付き）
 // =============================================================
 function submitEmergencyForm() {
   var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
@@ -1459,15 +1344,20 @@ function submitEmergencyForm() {
     return;
   }
 
-  // シナリオ候補を探す
   var candidates = findScenarioCandidates_(situation);
-  if (candidates.length > 0) {
-    showScenarioSuggestion_(candidates, function() { doSubmitEmergencyForm_(); });
+  var kwMatches  = findKeywordReplies_(situation, store);
+
+  if (candidates.length > 0 || kwMatches.length > 0) {
+    showScenarioSuggestion_(candidates, kwMatches, function() { doSubmitEmergencyForm_(); });
     return;
   }
 
   doSubmitEmergencyForm_();
 }
+
+// =============================================================
+//  スナップショットから緊急依頼送信
+// =============================================================
 async function doSubmitEmergencyFormFromSnapshot_() {
   var snap = emergencyFormSnapshot_;
   if (!snap) { alert('入力情報が見つかりません。緊急対応フォームから再入力してください。'); return; }
@@ -1498,6 +1388,7 @@ async function doSubmitEmergencyFormFromSnapshot_() {
     alert('送信に失敗しました: ' + (e.message || e));
   }
 }
+
 async function doSubmitEmergencyForm_() {
   var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
   var email     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
@@ -1512,22 +1403,16 @@ async function doSubmitEmergencyForm_() {
   if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
 
   var ticketId = genEmergencyTicketId_();
-
   addUserMessage(
     'お名前: ' + name + '\nメール: ' + email + '\n店舗: ' + store + '\n状況: ' + situation +
     (videoUrl ? '\n動画URL: ' + videoUrl : '') +
-    (file      ? '\n添付: ' + file.name  : '') +
+    (file ? '\n添付: ' + file.name : '') +
     '\nチケットID: ' + ticketId
   );
 
   var payloadBase = {
-    action:   'createEmergencyTicket',
-    ticketId: ticketId,
-    name:     name,
-    email:    email,
-    store:    store,
-    situation: situation,
-    videoUrl:  videoUrl || ''
+    action: 'createEmergencyTicket', ticketId: ticketId,
+    name: name, email: email, store: store, situation: situation, videoUrl: videoUrl || ''
   };
 
   try {
@@ -1541,10 +1426,8 @@ async function doSubmitEmergencyForm_() {
     } else {
       await postToGAS_(payloadBase);
     }
-
     addBotMessage('✅ 緊急対応チケットを作成しました。\n\nこのままチャットで状況を追記できます。');
     enterEmergencyChat_(ticketId, { name: name, email: email, store: store });
-
   } catch (e) {
     console.error(e);
     alert('送信に失敗しました: ' + (e.message || e));
@@ -1575,9 +1458,7 @@ function getCurrentOptions() {
   }
   var nodeId = currentPath.join('.');
   var node   = treeData[nodeId];
-  if (node && node.children) {
-    return node.children.map(function(id) { return treeData[id]; }).filter(Boolean);
-  }
+  if (node && node.children) return node.children.map(function(id) { return treeData[id]; }).filter(Boolean);
   return [];
 }
 
@@ -1594,12 +1475,8 @@ function updateBreadcrumb() {
   var el   = document.getElementById('breadcrumb');
   var text = document.getElementById('breadcrumbText');
   if (!el || !text) return;
-  if (currentPath.length === 0) {
-    el.classList.add('hidden');
-  } else {
-    el.classList.remove('hidden');
-    text.textContent = getBreadcrumbText();
-  }
+  if (currentPath.length === 0) { el.classList.add('hidden'); }
+  else { el.classList.remove('hidden'); text.textContent = getBreadcrumbText(); }
 }
 
 function updateHeaderStatus() {
@@ -1627,22 +1504,19 @@ function updateTicketBadge() {
 function resetChat() {
   document.getElementById('messages').innerHTML = '';
   currentPath = [];
-
   stopEmergencyChatPolling_();
   clearOperatorStatus_();
-  emergencyFormSnapshot_ = null;
+  emergencyFormSnapshot_   = null;
   EMERGENCY_CHAT.ticketId  = null;
   EMERGENCY_CHAT.active    = false;
   emergencyCurrentTicketId = null;
   emergencyLastTs          = null;
   emergencySeenKeys_.clear();
   emergencyFetchInFlight   = false;
-
   var chatArea = document.getElementById('emergency-chat-area');
   if (chatArea) chatArea.classList.add('hidden');
   var formArea = document.getElementById('emergency-form-area');
   if (formArea) { formArea.classList.add('hidden'); formArea.innerHTML = ''; }
-
   updateBreadcrumb();
   updateHeaderStatus();
   addBotMessage('下記からご用件をお選びください！');
@@ -1660,11 +1534,8 @@ async function reloadData() {
 // =============================================================
 function escapeHTML_(str) {
   return String(str == null ? '' : str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escapeAttr_(str) { return escapeHTML_(str); }
 </script>
