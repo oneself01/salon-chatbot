@@ -1262,9 +1262,23 @@ function submitGeneralTicketForm(pathText, ev) {
 //  緊急フォーム
 // =============================================================
 function renderEmergencyForm() {
+  var now = new Date();
+  var hour = now.getHours();
+
+  // 23:00〜7:59は時間外
+  if (hour >= 23 || hour < 8) {
+    var area = document.getElementById('emergency-form-area');
+    if (area) { area.classList.add('hidden'); area.innerHTML = ''; }
+    addBotMessage('ただいま受付時間外（23:00〜翌8:00）のため、大変恐れ入りますが、翌朝8:00以降に再度お問い合わせいただくか、下記をご確認ください🙇‍♀️');
+    currentPath = [];
+    updateBreadcrumb();
+    updateHeaderStatus();
+    setTimeout(function() { renderOptions(); }, 400);
+    return;
+  }
+
   var area = document.getElementById('emergency-form-area');
   if (!area) return;
-
   area.classList.remove('hidden');
   var chatArea = document.getElementById('emergency-chat-area');
   if (chatArea) chatArea.classList.add('hidden');
