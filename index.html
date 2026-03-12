@@ -1231,62 +1231,71 @@ function showScenarioSuggestion_(candidates, kwMatches, onProceed) {
   var area = document.getElementById('emergency-form-area');
   if (!area) return;
 
-  // スナップショット保存（ファイルもBase64で保持）
-  var efFile   = document.getElementById('ef-file');
-  var snapFile = (efFile && efFile.files && efFile.files[0]) || null;
+  // フォーム値を先に読み取る（DOM消去前に）
+  var nameVal      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
+  var emailVal     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
+  var storeVal     = ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim();
+  var situationVal = ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim();
+  var videoUrlVal  = ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim();
+  var efFile       = document.getElementById('ef-file');
+  var snapFile     = (efFile && efFile.files && efFile.files[0]) || null;
 
+  function proceedWithSnapshot_() {
+    // フォームエリアを完全に隠す
+    area.classList.add('hidden');
+    area.innerHTML = '';
+
+    // キーワード返答テキストを黄色ボックスで表示
+    if (kwMatches && kwMatches.length > 0) {
+      kwMatches.forEach(function(entry) {
+        var replyText = entry.reply.replace(/\\n/g, '\n');
+        var msgRow = document.createElement('div');
+        msgRow.className = 'message-row bot';
+        var msgContent = document.createElement('div');
+        msgContent.className = 'message-content';
+        var kwBox = document.createElement('div');
+        kwBox.style.cssText = 'background:#fffbeb;border:1.5px solid #fcd34d;border-radius:12px;padding:14px 16px;white-space:pre-wrap;font-size:14px;line-height:1.7;color:#78350f;';
+        kwBox.innerHTML = '<div style="font-weight:700;color:#b45309;margin-bottom:8px;">💡 まずこちらをご確認ください</div>' + escapeHTML_(replyText).replace(/\n/g, '<br>');
+        msgContent.appendChild(kwBox);
+        msgRow.appendChild(msgContent);
+        document.getElementById('messages').appendChild(msgRow);
+      });
+    }
+
+    // currentPathをリセットしてTOPシナリオ表示（自動スクロールなし）
+    currentPath = [];
+    setTimeout(function() {
+      addBotMessage('他にご質問はございますか？');
+      // smoothScrollToBottomを一時的に無効化してシナリオ表示
+      var origScroll = window.smoothScrollToBottom;
+      window.smoothScrollToBottom = function() {};
+      renderOptions();
+      window.smoothScrollToBottom = origScroll;
+    }, 400);
+  }
+
+  // スナップショット保存
   if (snapFile) {
     var reader = new FileReader();
     reader.onload = function() {
       emergencyFormSnapshot_ = {
-        name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
-        email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
-        store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
-        situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
-        videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
-        fileName:  snapFile.name,
-        mimeType:  snapFile.type || 'application/octet-stream',
-        fileData:  String(reader.result || '').split(',')[1] || '',
+        name: nameVal, email: emailVal, store: storeVal,
+        situation: situationVal, videoUrl: videoUrlVal,
+        fileName: snapFile.name,
+        mimeType: snapFile.type || 'application/octet-stream',
+        fileData: String(reader.result || '').split(',')[1] || '',
       };
+      proceedWithSnapshot_();
     };
     reader.readAsDataURL(snapFile);
   } else {
     emergencyFormSnapshot_ = {
-      name:      ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim(),
-      email:     ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim(),
-      store:     ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim(),
-      situation: ((document.getElementById('ef-situation') && document.getElementById('ef-situation').value) || '').trim(),
-      videoUrl:  ((document.getElementById('ef-videoUrl')  && document.getElementById('ef-videoUrl').value)  || '').trim(),
-      fileName:  null,
-      mimeType:  null,
-      fileData:  null,
+      name: nameVal, email: emailVal, store: storeVal,
+      situation: situationVal, videoUrl: videoUrlVal,
+      fileName: null, mimeType: null, fileData: null,
     };
+    proceedWithSnapshot_();
   }
-
-  // フォームエリアを隠す
-  var existingForm = area.querySelector('.emergency-form');
-  if (existingForm) existingForm.style.display = 'none';
-  var oldBox = document.getElementById('scenario-suggestion-box');
-  if (oldBox) oldBox.remove();
-
-  // キーワード返答テキストをチャットに表示
-  if (kwMatches && kwMatches.length > 0) {
-    kwMatches.forEach(function(entry) {
-      var replyText = entry.reply.replace(/\\n/g, '\n');
-      addBotMessage(replyText);
-    });
-  }
-
-  // フォームエリアを完全に隠してチャット側でシナリオ表示
-  area.classList.add('hidden');
-  area.innerHTML = '';
-
-  // currentPathをリセットしてTOPシナリオ表示
-  currentPath = [];
-  setTimeout(function() {
-    addBotMessage('他にご質問はございますか？');
-    renderOptions();
-  }, 400);
 }
 
 // =============================================================
