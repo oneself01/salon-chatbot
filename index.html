@@ -1214,11 +1214,11 @@ function findKeywordReplies_(situation, store) {
     var entry    = emergencyKeywords_[i];
     var keywords = entry.keywords || [];
     var matchCount = 0;
+    var storeLower = store ? store.trim().toLowerCase() : '';
     for (var j = 0; j < keywords.length; j++) {
-      if (input.indexOf(keywords[j].toLowerCase()) !== -1) matchCount++;
+      var kw = keywords[j].toLowerCase();
+      if (input.indexOf(kw) !== -1 || (storeLower && storeLower.indexOf(kw) !== -1)) matchCount++;
     }
-    // 店舗名が含まれていれば1カウント追加
-    if (store && store.trim() && input.indexOf(store.trim().toLowerCase()) !== -1) matchCount++;
     if (matchCount >= 2) results.push(entry);
   }
   return results;
@@ -1263,71 +1263,30 @@ function showScenarioSuggestion_(candidates, kwMatches, onProceed) {
     };
   }
 
-  // フォームを一時的に隠す
+  // フォームエリアを隠す
   var existingForm = area.querySelector('.emergency-form');
   if (existingForm) existingForm.style.display = 'none';
-
   var oldBox = document.getElementById('scenario-suggestion-box');
   if (oldBox) oldBox.remove();
 
-  var box = document.createElement('div');
-  box.id = 'scenario-suggestion-box';
-  box.className = 'scenario-suggestion-box';
-
-  var title = document.createElement('div');
-  title.className = 'suggestion-title';
-  title.textContent = '💡 まずこちらをご確認ください';
-  box.appendChild(title);
-
-  var desc = document.createElement('div');
-  desc.className = 'suggestion-desc';
-  desc.innerHTML = '入力内容に関連する案内が見つかりました。<br>解決する場合はそちらをご確認ください。';
-  box.appendChild(desc);
-
-  // キーワード返答テキスト表示
+  // キーワード返答テキストをチャットに表示
   if (kwMatches && kwMatches.length > 0) {
     kwMatches.forEach(function(entry) {
-      var replyBox = document.createElement('div');
-      replyBox.className = 'kw-reply-box';
-      replyBox.textContent = entry.reply;
-      box.appendChild(replyBox);
+      var replyText = entry.reply.replace(/\\n/g, '\n');
+      addBotMessage(replyText);
     });
   }
 
-  // シナリオ選択肢ボタン
-  candidates.forEach(function(node) {
-    var btn = document.createElement('button');
-    btn.className = 'option-btn';
-    btn.style.background  = '#fffbeb';
-    btn.style.borderColor = '#fcd34d';
-    var label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
-    var dot = document.createElement('div');
-    dot.className = 'option-icon';
-    dot.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
-    var labelEl = document.createElement('span');
-    labelEl.className = 'option-label';
-    labelEl.textContent = label;
-    var chevron = document.createElement('span');
-    chevron.className = 'material-symbols-outlined chevron';
-    chevron.textContent = 'chevron_right';
-    btn.appendChild(dot);
-    btn.appendChild(labelEl);
-    btn.appendChild(chevron);
-    (function(capturedId) {
-      btn.addEventListener('click', function() {
-        box.remove();
-        if (existingForm) existingForm.style.display = '';
-        var area2 = document.getElementById('emergency-form-area');
-        if (area2) { area2.classList.add('hidden'); area2.innerHTML = ''; }
-        currentPath = [];
-        handleOptionSelect(capturedId);
-      });
-    })(node.id);
-    box.appendChild(btn);
-  });
+  // フォームエリアを完全に隠してチャット側でシナリオ表示
+  area.classList.add('hidden');
+  area.innerHTML = '';
 
-  area.appendChild(box);
-  smoothScrollToBottom();
+  // currentPathをリセットしてTOPシナリオ表示
+  currentPath = [];
+  setTimeout(function() {
+    addBotMessage('他にご質問はございますか？');
+    renderOptions();
+  }, 400);
 }
 
 // =============================================================
