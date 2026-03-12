@@ -1464,8 +1464,19 @@ async function doSubmitEmergencyFormFromSnapshot_() {
   addUserMessage('お名前: ' + snap.name + '\nメール: ' + snap.email + '\n店舗: ' + snap.store + '\n状況: ' + snap.situation);
   var ticketId = genEmergencyTicketId_();
   try {
-    await postToGAS_({ action: 'createEmergencyTicket', ticketId: ticketId,
-      name: snap.name, email: snap.email, store: snap.store, situation: snap.situation, videoUrl: snap.videoUrl || '' });
+    var payload = {
+      action: 'createEmergencyTicket',
+      ticketId: ticketId,
+      name: snap.name, email: snap.email,
+      store: snap.store, situation: snap.situation,
+      videoUrl: snap.videoUrl || ''
+    };
+    if (snap.fileData) {
+      payload.fileName = snap.fileName;
+      payload.mimeType = snap.mimeType;
+      payload.fileData = snap.fileData;
+    }
+    await postToGAS_(payload);
     addBotMessage('✅ 緊急対応チケットを作成しました。\n\nこのままチャットで状況を追記できます。');
     enterEmergencyChat_(ticketId, { name: snap.name, email: snap.email, store: snap.store });
   } catch(e) {
