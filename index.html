@@ -1191,9 +1191,20 @@ function findScenarioCandidates_(situation) {
     if (!node || !node.value || node.id === undefined) continue;
     if (!node.children || node.children.length === 0) continue;
     var label = String(node.value).replace(/【[^】]+】/g, '');
-    var words = label.split(/[\s,、。　・]+/).map(function(w) {
-      return w.trim().toLowerCase();
-    }).filter(function(w) { return w.length >= 2; });
+    // 区切り文字＋日本語助詞・助動詞で分割してサブワードも生成
+    var rawWords = label.split(/[\s,、。　・・\/／]+/).filter(function(w) { return w.length >= 2; });
+    var words = [];
+    rawWords.forEach(function(w) {
+      words.push(w.toLowerCase());
+      // 助詞・助動詞を取り除いたコア部分も追加（2文字以上）
+      var core = w.replace(/[にはをがでもとのへからまでについてより]$/g, '').replace(/(そう|たい|です|ます|ない|れる|られる|させる|てる|でる)$/g, '');
+      if (core.length >= 2 && core !== w) words.push(core.toLowerCase());
+      // 先頭2〜4文字のプレフィックスも追加
+      for (var l = 2; l <= Math.min(4, w.length - 1); l++) {
+        words.push(w.slice(0, l).toLowerCase());
+      }
+    });
+    words = words.filter(function(w, idx) { return w.length >= 2 && words.indexOf(w) === idx; });
     var hit = words.some(function(w) { return input.indexOf(w) !== -1; });
     if (hit && !seen[node.id]) {
       seen[node.id] = true;
@@ -1353,7 +1364,7 @@ function showScenarioSuggestion_(candidates, kwMatches, onProceed) {
 // =============================================================
 //  緊急フォーム送信（サジェストチェック付き）
 // =============================================================
-function submitEmergencyForm() {
+async function submitEmergencyForm() {
   var name      = ((document.getElementById('ef-name')      && document.getElementById('ef-name').value)      || '').trim();
   var email     = ((document.getElementById('ef-email')     && document.getElementById('ef-email').value)     || '').trim();
   var store     = ((document.getElementById('ef-store')     && document.getElementById('ef-store').value)     || '').trim();
@@ -1364,8 +1375,22 @@ function submitEmergencyForm() {
     return;
   }
 
-  var candidates = findScenarioCandidates_(situation);
-  var kwMatches  = findKeywordReplies_(situation, store);
+  // キーワード返答は従来通り
+  var kwMatches = findKeywordReplies_(situation, store);
+
+  // シナリオ候補はAI判定
+  var btn = document.getElementById('ef-submitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '確認中...'; }
+
+  var candidates = [];
+  try {
+    candidates = await findScenarioCandidatesAI_(situation, store);
+  } catch(e) {
+    console.warn('AI候補取得失敗、キーワードマッチにフォールバック:', e);
+    candidates = findScenarioCandidates_(situation);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '緊急対応を依頼'; }
+  }
 
   if (candidates.length > 0 || kwMatches.length > 0) {
     showScenarioSuggestion_(candidates, kwMatches, function() { doSubmitEmergencyForm_(); });
@@ -1373,6 +1398,73 @@ function submitEmergencyForm() {
   }
 
   doSubmitEmergencyForm_();
+}
+
+// =============================================================
+//  AI によるシナリオ候補マッチ
+// =============================================================
+async function findScenarioCandidatesAI_(situation, store) {
+  if (!treeData) return [];
+
+  // 子ノードを持つ分岐ノードのみ対象（末端除外）
+  var nodes = Object.values(treeData).filter(function(n) {
+    return n && n.value && n.children && n.children.length > 0;
+  });
+  if (nodes.length === 0) return [];
+
+  // シナリオ一覧をAIに渡す用に整形
+  var scenarioList = nodes.map(function(n) {
+    var label = String(n.value).replace(/【[^】]+】/g, '').trim();
+    return { id: n.id, label: label };
+  });
+
+  var prompt = 'あなたはサロン向けサポートチャットボットのアシスタントです。
+' +
+    'ユーザーが緊急問い合わせフォームに以下の状況を入力しました。
+
+' +
+    '店舗: ' + store + '
+' +
+    '状況: ' + situation + '
+
+' +
+    '以下のシナリオ一覧の中から、この状況と関連しそうなものを最大3件選んでください。
+' +
+    '関連するものがなければ空配列を返してください。
+
+' +
+    'シナリオ一覧:
+' +
+    JSON.stringify(scenarioList, null, 2) + '
+
+' +
+    '返答はJSON配列のみで返してください。例: ["id_001", "id_002"]
+' +
+    '説明文や他のテキストは一切不要です。IDの配列だけ返してください。';
+
+  var response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 200,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) throw new Error('AI API error: ' + response.status);
+  var data = await response.json();
+  var text = (data.content || []).map(function(c) { return c.text || ''; }).join('').trim();
+
+  // JSON配列をパース
+  var clean = text.replace(/```json|```/g, '').trim();
+  var ids = JSON.parse(clean);
+  if (!Array.isArray(ids)) return [];
+
+  // IDからノードを復元（最大3件）
+  var idMap = {};
+  nodes.forEach(function(n) { idMap[n.id] = n; });
+  return ids.slice(0, 3).map(function(id) { return idMap[id]; }).filter(Boolean);
 }
 
 // =============================================================
