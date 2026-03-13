@@ -1245,32 +1245,84 @@ function showScenarioSuggestion_(candidates, kwMatches, onProceed) {
     area.classList.add('hidden');
     area.innerHTML = '';
 
-    // キーワード返答テキストを黄色ボックスで表示
-    if (kwMatches && kwMatches.length > 0) {
-      kwMatches.forEach(function(entry) {
-        var replyText = entry.reply.replace(/\\n/g, '\n');
-        var msgRow = document.createElement('div');
-        msgRow.className = 'message-row bot';
-        var msgContent = document.createElement('div');
-        msgContent.className = 'message-content';
-        var kwBox = document.createElement('div');
-        kwBox.style.cssText = 'background:#fffbeb;border:1.5px solid #fcd34d;border-radius:12px;padding:14px 16px;white-space:pre-wrap;font-size:14px;line-height:1.7;color:#78350f;';
-        kwBox.innerHTML = '<div style="font-weight:700;color:#b45309;margin-bottom:8px;">💡 まずこちらをご確認ください</div>' + escapeHTML_(replyText).replace(/\n/g, '<br>');
-        msgContent.appendChild(kwBox);
-        msgRow.appendChild(msgContent);
-        document.getElementById('messages').appendChild(msgRow);
-      });
+    // キーワード返答 or シナリオ候補を黄色ボックスで表示
+    var hasSuggestion = (kwMatches && kwMatches.length > 0) || (candidates && candidates.length > 0);
+    if (hasSuggestion) {
+      var msgRow = document.createElement('div');
+      msgRow.className = 'message-row bot';
+      var msgContent = document.createElement('div');
+      msgContent.className = 'message-content';
+      var kwBox = document.createElement('div');
+      kwBox.style.cssText = 'background:#fffbeb;border:1.5px solid #fcd34d;border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.7;color:#78350f;';
+
+      var titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight:700;color:#b45309;margin-bottom:8px;';
+      titleEl.textContent = '💡 まずこちらをご確認ください';
+      kwBox.appendChild(titleEl);
+
+      // キーワード返答テキスト
+      if (kwMatches && kwMatches.length > 0) {
+        kwMatches.forEach(function(entry) {
+          var replyText = entry.reply.replace(/\\n/g, '\n');
+          var replyEl = document.createElement('div');
+          replyEl.style.cssText = 'white-space:pre-wrap;margin-bottom:10px;';
+          replyEl.innerHTML = escapeHTML_(replyText).replace(/\n/g, '<br>');
+          kwBox.appendChild(replyEl);
+        });
+      }
+
+      // シナリオ候補ボタン
+      if (candidates && candidates.length > 0) {
+        var candLabel = document.createElement('div');
+        candLabel.style.cssText = 'font-size:13px;color:#92400e;margin-bottom:6px;margin-top:4px;';
+        candLabel.textContent = '関連するシナリオをご確認ください：';
+        kwBox.appendChild(candLabel);
+        candidates.forEach(function(node) {
+          var btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.style.cssText = 'background:#fffbeb;border-color:#fcd34d;margin-bottom:6px;';
+          var label = String(node.value || '').replace(/【[^】]+】/g, '').trim();
+          btn.innerHTML =
+            '<div class="option-icon" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)"></div>' +
+            '<span class="option-label">' + escapeHTML_(label) + '</span>' +
+            '<span class="material-symbols-outlined chevron">chevron_right</span>';
+          (function(capturedId) {
+            btn.addEventListener('click', function() {
+              currentPath = [];
+              handleOptionSelect(capturedId);
+            });
+          })(node.id);
+          kwBox.appendChild(btn);
+        });
+      }
+
+      msgContent.appendChild(kwBox);
+      msgRow.appendChild(msgContent);
+      document.getElementById('messages').appendChild(msgRow);
     }
 
-    // currentPathをリセットしてTOPシナリオ表示（自動スクロールなし）
+    // currentPathをリセットしてTOPシナリオ表示
     currentPath = [];
+
+    // 黄色ボックスの先頭にスクロールして止める
+    var messages = document.getElementById('messages');
+    var kwRows = messages ? messages.querySelectorAll('.message-row.bot') : [];
+    var kwTargetRow = kwRows.length > 0 ? kwRows[kwRows.length - 1] : null;
+    if (kwTargetRow) {
+      setTimeout(function() {
+        kwTargetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    }
+
+    // シナリオは描画するがスクロールは上書きしない
     setTimeout(function() {
+      var skipScroll = true;
+      var origScroll = smoothScrollToBottom;
+      smoothScrollToBottom = function() { if (!skipScroll) origScroll(); };
       addBotMessage('他にご質問はございますか？');
-      // smoothScrollToBottomを一時的に無効化してシナリオ表示
-      var origScroll = window.smoothScrollToBottom;
-      window.smoothScrollToBottom = function() {};
       renderOptions();
-      window.smoothScrollToBottom = origScroll;
+      skipScroll = false;
+      smoothScrollToBottom = origScroll;
     }, 400);
   }
 
