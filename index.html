@@ -284,6 +284,8 @@
     border-radius: 12px;
     padding: 16px;
     display: flex; flex-direction: column; gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .emergency-form input,
@@ -327,19 +329,7 @@
     font-size: 11px; color: var(--gray-500);
   }
 
-  .ticket-badge {
-    position: fixed;
-    top: 16px; right: 16px;
-    z-index: 200;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    padding: 10px 14px;
-    font-size: 11px;
-  }
-  .ticket-badge .title { font-weight: 700; margin-bottom: 4px; }
-  .ticket-badge .emergency { color: var(--red-500); }
-  .ticket-badge .general { color: var(--blue-500); }
+  .ticket-badge { display: none !important; }
 
   .hidden { display: none; }
 
@@ -448,7 +438,7 @@
 
   <div class="messages" id="messages"></div>
 
-  <div id="emergency-form-area" class="hidden" style="padding:0 16px 10px;"></div>
+  <div id="emergency-form-area" class="hidden" style="padding:0 16px 10px;box-sizing:border-box;width:100%;overflow:hidden;"></div>
 
   <div id="emergency-chat-area" class="hidden" style="padding:12px 16px; background:#fff; border-top:1px solid #e5e7eb;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
