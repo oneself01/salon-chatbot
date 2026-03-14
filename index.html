@@ -1418,34 +1418,16 @@ async function findScenarioCandidatesAI_(situation, store) {
     return { id: n.id, label: label };
   });
 
-  var prompt = 'あなたはサロン向けサポートチャットボットのアシスタントです。\n' +
-    'ユーザーが緊急問い合わせフォームに以下の状況を入力しました。\n\n' +
-    '店舗: ' + store + '\n' +
-    '状況: ' + situation + '\n\n' +
-    '以下のシナリオ一覧の中から、この状況と関連しそうなものを最大3件選んでください。\n' +
-    '関連するものがなければ空配列を返してください。\n\n' +
-    'シナリオ一覧:\n' +
-    JSON.stringify(scenarioList, null, 2) + '\n\n' +
-    '返答はJSON配列のみで返してください。例: ["id_001", "id_002"]\n' +
-    '説明文や他のテキストは一切不要です。IDの配列だけ返してください。';
-
-  var response = await fetch('https://api.anthropic.com/v1/messages', {
+  // WorkerのプロキシエンドポイントからAI判定
+  var response = await fetch(WORKERS_URL.replace('/api', '/api/ai-suggest'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    body: JSON.stringify({ situation: situation, store: store, scenarioList: scenarioList })
   });
 
-  if (!response.ok) throw new Error('AI API error: ' + response.status);
+  if (!response.ok) throw new Error('AI suggest error: ' + response.status);
   var data = await response.json();
-  var text = (data.content || []).map(function(c) { return c.text || ''; }).join('').trim();
-
-  // JSON配列をパース
-  var clean = text.replace(/```json|```/g, '').trim();
-  var ids = JSON.parse(clean);
+  var ids = data.ids || [];
   if (!Array.isArray(ids)) return [];
 
   // IDからノードを復元（最大3件）
