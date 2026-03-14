@@ -582,6 +582,69 @@ async function postToGAS_(payload) {
 }
 
 // =============================================================
+//  プレゼンス追跡
+// =============================================================
+var presenceTicketId_ = null;
+var presenceMeta_     = null;
+var presenceActive_   = false;
+
+function startPresenceTracking_(ticketId, meta) {
+  presenceTicketId_ = ticketId;
+  presenceMeta_     = meta || {};
+  presenceActive_   = true;
+  sendPresence_('open');
+
+  document.removeEventListener('visibilitychange', onVisibilityChange_);
+  document.addEventListener('visibilitychange', onVisibilityChange_);
+  window.removeEventListener('beforeunload', onBeforeUnload_);
+  window.addEventListener('beforeunload', onBeforeUnload_);
+}
+
+function stopPresenceTracking_(status) {
+  if (!presenceActive_) return;
+  presenceActive_ = false;
+  if (status) sendPresence_(status);
+  document.removeEventListener('visibilitychange', onVisibilityChange_);
+  window.removeEventListener('beforeunload', onBeforeUnload_);
+  presenceTicketId_ = null;
+  presenceMeta_     = null;
+}
+
+function onVisibilityChange_() {
+  if (!presenceActive_ || !presenceTicketId_) return;
+  sendPresence_(document.hidden ? 'hidden' : 'open');
+}
+
+function onBeforeUnload_() {
+  if (!presenceActive_ || !presenceTicketId_) return;
+  // sendBeacon はページ閉じ時でも送信できる
+  var payload = JSON.stringify({
+    ticketId: presenceTicketId_,
+    status:   'leave',
+    name:     (presenceMeta_ && presenceMeta_.name)  || '',
+    store:    (presenceMeta_ && presenceMeta_.store) || '',
+  });
+  var url = WORKERS_URL.replace('/api', '/slack/presence');
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+  }
+}
+
+function sendPresence_(status) {
+  if (!presenceTicketId_) return;
+  fetch(WORKERS_URL.replace('/api', '/slack/presence'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ticketId: presenceTicketId_,
+      status:   status,
+      name:     (presenceMeta_ && presenceMeta_.name)  || '',
+      store:    (presenceMeta_ && presenceMeta_.store) || '',
+    }),
+  }).catch(function() {});
+}
+
+// =============================================================
 //  緊急チャット：送信ボタンバインド
 // =============================================================
 function bindEmergencySendButton_() {
@@ -744,6 +807,7 @@ function enterEmergencyChat_(ticketId, meta) {
   bindEmergencySendButton_();
   startEmergencyChatPolling_();
   showOperatorStatus_();
+  startPresenceTracking_(ticketId, meta);
 }
 
 function exitEmergencyChat_() {
@@ -761,6 +825,7 @@ function exitEmergencyChat_() {
   if (formArea) formArea.classList.remove('hidden');
   var idEl = document.getElementById('emergency-ticket-id');
   if (idEl) idEl.textContent = '';
+  stopPresenceTracking_('leave');
   addBotMessage('緊急チャットを終了しました。必要なら再度「緊急対応」からお進みください。');
   currentPath = [];
   updateBreadcrumb();
