@@ -592,7 +592,8 @@ function startPresenceTracking_(ticketId, meta) {
   presenceTicketId_ = ticketId;
   presenceMeta_     = meta || {};
   presenceActive_   = true;
-  sendPresence_('open');
+  // Slackスレッド作成完了を待って3秒後に送信
+  setTimeout(function() { sendPresence_('open'); }, 3000);
 
   document.removeEventListener('visibilitychange', onVisibilityChange_);
   document.addEventListener('visibilitychange', onVisibilityChange_);
