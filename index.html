@@ -45,14 +45,15 @@
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: 100;
     width: 100%;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     background: white;
     border-radius: 0;
     box-shadow: none;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    touch-action: manipulation;
   }
 
   .chat-btn { display: none; }
@@ -105,6 +106,7 @@
   .messages {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 16px;
     background: var(--gray-50);
     display: flex; flex-direction: column; gap: 16px;
