@@ -281,12 +281,12 @@
   .back-btn:hover .material-symbols-outlined { transform: translateX(-4px); }
 
   .emergency-form {
-    margin-top: 12px;
+    margin-top: 8px;
     background: #fff1f2;
     border: 2px solid #fecdd3;
     border-radius: 12px;
-    padding: 16px;
-    display: flex; flex-direction: column; gap: 10px;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 7px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -294,9 +294,9 @@
   .emergency-form input,
   .emergency-form textarea {
     width: 100%;
-    padding: 10px 14px;
-    border: 2px solid var(--gray-200);
-    border-radius: 10px;
+    padding: 7px 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
     font-size: 16px;
     font-family: 'Noto Sans JP', sans-serif;
     outline: none;
@@ -306,12 +306,12 @@
   .emergency-form input:focus,
   .emergency-form textarea:focus { border-color: var(--red-500); }
 
-  .emergency-form textarea { resize: none; height: 90px; }
+  .emergency-form textarea { resize: none; height: 70px; }
 
   .emergency-submit {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%;
-    padding: 12px;
+    padding: 10px;
     background: var(--red-500);
     color: white;
     border: none;
@@ -1318,7 +1318,7 @@ function renderEmergencyForm() {
     '<input type="email" id="ef-email"     placeholder="メールアドレス *" autocomplete="email" />' +
     '<input type="text"  id="ef-store"     placeholder="ご予約店舗名 *" autocomplete="off" />' +
     '<textarea id="ef-situation"           placeholder="状況を詳しく教えてください *"></textarea>' +
-    '<div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6;">画像/動画がある場合は添付してください（任意）※最大20MB</div>' +
+    '<div style="font-size:11px;color:#7f1d1d;margin-top:2px;line-height:1.5;">画像/動画がある場合は添付してください（任意）※最大20MB</div>' +
     '<input type="file"  id="ef-file"      accept="image/*,video/*" />' +
     '<input type="url"   id="ef-videoUrl"  placeholder="動画URL（任意）https://..." />' +
     '<button class="emergency-submit" id="ef-submitBtn" onclick="submitEmergencyForm()">' +
