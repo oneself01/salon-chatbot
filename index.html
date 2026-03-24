@@ -296,7 +296,7 @@
     padding: 10px 14px;
     border: 2px solid var(--gray-200);
     border-radius: 10px;
-    font-size: 13px;
+    font-size: 16px;
     font-family: 'Noto Sans JP', sans-serif;
     outline: none;
     transition: border-color 0.2s;
@@ -424,11 +424,13 @@
       <p id="headerStatus">トップ</p>
     </div>
     <div class="chat-header-btns">
-      <button onclick="reloadData()" title="データ再読み込み">
+      <button onclick="reloadData()" title="データ再読み込み" style="display:flex;flex-direction:column;align-items:center;gap:2px;">
         <span class="material-symbols-outlined">sync</span>
+        <span style="font-size:9px;color:rgba(255,255,255,0.8);">更新</span>
       </button>
-      <button onclick="resetChat()" title="最初から">
+      <button onclick="resetChat()" title="最初から" style="display:flex;flex-direction:column;align-items:center;gap:2px;">
         <span class="material-symbols-outlined">refresh</span>
+        <span style="font-size:9px;color:rgba(255,255,255,0.8);">最初から</span>
       </button>
     </div>
   </div>
@@ -467,7 +469,7 @@
       <textarea
         id="emergencyInput"
         placeholder="状況を追記してください（例：入室できない、決済が…）"
-        style="flex:1; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:13px; outline:none; resize:none; height:44px; line-height:1.6;"
+        style="flex:1; padding:12px 14px; border:2px solid #e5e7eb; border-radius:12px; font-size:16px; outline:none; resize:none; height:44px; line-height:1.6;"
       ></textarea>
       <button type="button" id="emergencySend" class="emergency-submit" style="width:auto; padding:12px 14px;">
         <span class="material-symbols-outlined">send</span>
@@ -476,7 +478,7 @@
     </div>
   </div>
 
-  <div class="chat-footer">💬 スプレッドシートから自動読み込み</div>
+  <div class="chat-footer"></div>
 </div>
 
 <div class="ticket-badge hidden" id="ticketBadge">
