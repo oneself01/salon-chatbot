@@ -335,6 +335,62 @@
 
   .hidden { display: none; }
 
+  /* ローディング画面 */
+  #loading-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: linear-gradient(135deg, #bae6fd 0%, #38bdf8 50%, #0284c7 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    transition: opacity 0.6s ease;
+  }
+  #loading-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .loading-ring {
+    position: relative;
+    width: 160px;
+    height: 160px;
+  }
+  .loading-ring svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    animation: rotateSvg 2.5s linear infinite;
+  }
+  @keyframes rotateSvg {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .loading-ring-inner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .loading-ring-inner img {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    object-fit: contain;
+    background: rgba(255,255,255,0.9);
+    padding: 6px;
+  }
+  .loading-text {
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+  }
+
   .msg-row { display:flex; margin:6px 0; }
   .msg-row.customer { justify-content:flex-end; }
   .msg-row.staff    { justify-content:flex-start; }
@@ -413,6 +469,33 @@
 </head>
 
 <body>
+
+<!-- ローディング画面 -->
+<div id="loading-screen">
+  <div class="loading-ring">
+    <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.2"/>
+          <stop offset="40%"  stop-color="#7dd3fc" stop-opacity="0.8"/>
+          <stop offset="70%"  stop-color="#ffffff" stop-opacity="1"/>
+          <stop offset="100%" stop-color="#bae6fd" stop-opacity="0.3"/>
+        </linearGradient>
+      </defs>
+      <circle cx="80" cy="80" r="70"
+        fill="none"
+        stroke="url(#ringGrad)"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-dasharray="340"
+        stroke-dashoffset="80"/>
+    </svg>
+    <div class="loading-ring-inner">
+      <img id="loadingBearIcon" src="" alt=""/>
+    </div>
+  </div>
+  <div class="loading-text">読み込み中...</div>
+</div>
 
 <div class="chat-window" id="chatWindow">
   <div class="chat-header">
@@ -553,18 +636,34 @@ let emergencyFormSnapshot_ = null;
 //  起動
 // =============================================================
 window.addEventListener('DOMContentLoaded', function() {
+  // アイコン設定
   var topIcon = document.getElementById('bearTopIcon');
   if (topIcon) topIcon.src = BEAR_IMG;
+  var loadingIcon = document.getElementById('loadingBearIcon');
+  if (loadingIcon) loadingIcon.src = BEAR_IMG;
+
   isOpen = true;
-  addBotMessage('下記からご用件をお選びください！');
-  setTimeout(function() { renderOptions(); }, 80);
-  loadTreeData().then(function() {
-    var messages = document.getElementById('messages');
-    var hasOptions = messages && messages.querySelector('.options');
-    if (!hasOptions) renderOptions();
-  });
   updateTicketBadge();
   bindEmergencySendButton_();
+
+  // データ読み込み完了後にローディングを消してチャット表示
+  loadTreeData().then(function() {
+    var screen = document.getElementById('loading-screen');
+    if (screen) {
+      screen.classList.add('fade-out');
+      setTimeout(function() { screen.style.display = 'none'; }, 600);
+    }
+    addBotMessage('下記からご用件をお選びください！');
+    setTimeout(function() { renderOptions(); }, 80);
+  }).catch(function() {
+    var screen = document.getElementById('loading-screen');
+    if (screen) {
+      screen.classList.add('fade-out');
+      setTimeout(function() { screen.style.display = 'none'; }, 600);
+    }
+    addBotMessage('下記からご用件をお選びください！');
+    setTimeout(function() { renderOptions(); }, 80);
+  });
 });
 
 // =============================================================
@@ -984,7 +1083,7 @@ function renderOptions() {
     eIcon.className = 'material-symbols-outlined';
     eIcon.textContent = 'priority_high';
     emergencyBackBtn.appendChild(eIcon);
-    emergencyBackBtn.appendChild(document.createTextNode(' 解決しない場合は緊急依頼する'));
+    emergencyBackBtn.appendChild(document.createTextNode(' それでも解決しない場合は'));
     emergencyBackBtn.addEventListener('click', function() {
       emergencyBackBtn.disabled = true;
       doSubmitEmergencyFormFromSnapshot_();
@@ -1223,7 +1322,7 @@ function renderEmergencyForm() {
     '<input type="file"  id="ef-file"      accept="image/*,video/*" />' +
     '<input type="url"   id="ef-videoUrl"  placeholder="動画URL（任意）https://..." />' +
     '<button class="emergency-submit" id="ef-submitBtn" onclick="submitEmergencyForm()">' +
-    '<span class="material-symbols-outlined">priority_high</span>緊急対応を依頼</button>';
+    '<span class="material-symbols-outlined">search</span>確認する</button>';
 
   area.appendChild(form);
   smoothScrollToBottom();
@@ -1449,7 +1548,7 @@ async function submitEmergencyForm() {
     console.warn('AI候補取得失敗、キーワードマッチにフォールバック:', e);
     candidates = findScenarioCandidates_(situation);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '緊急対応を依頼'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">search</span>確認する'; }
   }
 
   if (candidates.length > 0 || kwMatches.length > 0) {
@@ -1575,7 +1674,7 @@ async function doSubmitEmergencyForm_() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = btnOriginalHTML || '<span class="material-symbols-outlined">priority_high</span> 緊急対応を依頼';
+      btn.innerHTML = btnOriginalHTML || '<span class="material-symbols-outlined">search</span> 確認する';
     }
   }
 }
