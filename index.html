@@ -1314,9 +1314,9 @@ function renderEmergencyForm() {
   var form = document.createElement('div');
   form.className = 'emergency-form';
   form.innerHTML =
-    '<input type="text"  id="ef-name"      placeholder="お名前 *" />' +
-    '<input type="email" id="ef-email"     placeholder="メールアドレス *" />' +
-    '<input type="text"  id="ef-store"     placeholder="ご予約店舗名 *" />' +
+    '<input type="text"  id="ef-name"      placeholder="お名前 *" autocomplete="name" />' +
+    '<input type="email" id="ef-email"     placeholder="メールアドレス *" autocomplete="email" />' +
+    '<input type="text"  id="ef-store"     placeholder="ご予約店舗名 *" autocomplete="off" />' +
     '<textarea id="ef-situation"           placeholder="状況を詳しく教えてください *"></textarea>' +
     '<div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6;">画像/動画がある場合は添付してください（任意）※最大20MB</div>' +
     '<input type="file"  id="ef-file"      accept="image/*,video/*" />' +
