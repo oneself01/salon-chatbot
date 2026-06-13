@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openVisitors_()">👀 訪問者</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -124,18 +124,6 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
-  </div>
-</div>
-
-<!-- 訪問者モニターパネル -->
-<div id="monitorPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
-  <div class="sc-modal">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <strong style="font-size:16px;">👀 訪問者モニター（<span id="monCount">0</span>）</strong>
-      <button class="sc-btn" onclick="closeVisitors_()">閉じる</button>
-    </div>
-    <p style="font-size:12px;color:#64748b;margin-bottom:6px;">いまLIFFを開いているお客様の状況をライブ表示します。</p>
-    <div id="monList"></div>
   </div>
 </div>
 
@@ -218,25 +206,24 @@ function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} idTok
 /* =========================================================
  *  訪問者モニター
  * ========================================================= */
-var monWs=null;
-function openVisitors_(){
-  document.getElementById("monitorPanel").style.display="flex";
+var monWs=null, visitors=[], prevChatIds={};
+function openMonitorFeed_(){
   if (monWs){ try{ monWs.close(); }catch(e){} }
   monWs=new WebSocket(WS_BASE+"/v2/monitor?role=staff&token="+encodeURIComponent(idToken));
-  monWs.onmessage=function(ev){ var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } if (d.type==="list") renderVisitors_(d.visitors||[]); };
-}
-function closeVisitors_(){ document.getElementById("monitorPanel").style.display="none"; if (monWs){ try{ monWs.close(); }catch(e){} monWs=null; } }
-function renderVisitors_(list){
-  document.getElementById("monCount").textContent=list.length;
-  var box=document.getElementById("monList");
-  if (!list.length){ box.innerHTML='<div style="padding:18px;text-align:center;color:#94a3b8;font-size:13px;">現在オンラインのお客様はいません</div>'; return; }
-  box.innerHTML=list.map(function(v){
-    var dot = v.status==="hidden" ? "#cbd5e1" : "#22c55e";
-    var st  = v.status==="hidden" ? "離席中" : "閲覧中";
-    var where = v.chat ? "💬 緊急チャット中" : ((v.path&&v.path.length) ? v.path.join(" › ") : "🏠 トップ（FAQ）");
-    return '<div class="sc-row"><span style="width:10px;height:10px;border-radius:50%;background:'+dot+';flex-shrink:0;margin-top:6px;"></span>'
-      +'<span class="lbl" style="white-space:normal;"><strong>'+esc_(v.name||"お客様")+'</strong> <span style="color:#94a3b8;font-size:12px;">'+st+'</span><br><span style="color:#475569;font-size:12px;">'+esc_(where)+'</span></span></div>';
-  }).join("");
+  monWs.onmessage=function(ev){
+    var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+    if (d.type!=="list") return;
+    var all=d.visitors||[];
+    // 緊急チャットに入った人は会話一覧側に出るので、ここでは閲覧中の人だけ表示
+    visitors = all.filter(function(v){ return !v.chat; });
+    // 新たにチャットへ繋がった人がいたら会話一覧を更新
+    var chatIds={}; all.forEach(function(v){ if (v.chat) chatIds[v.id]=1; });
+    var isNew=Object.keys(chatIds).some(function(id){ return !prevChatIds[id]; });
+    prevChatIds=chatIds;
+    renderConvs_();
+    if (isNew) fetchConvs_();
+  };
+  monWs.onclose=function(){ if (idToken) setTimeout(openMonitorFeed_, 5000); };
 }
 
 /* =========================================================
@@ -411,7 +398,7 @@ function handle401_(){
 /* =========================================================
  *  会話一覧（D1）
  * ========================================================= */
-function startList_(){ fetchConvs_(); listTimer=setInterval(fetchConvs_, 10000); }
+function startList_(){ fetchConvs_(); listTimer=setInterval(fetchConvs_, 10000); openMonitorFeed_(); }
 function fetchConvs_(){
   httpPost_("/v2/staff/conversations", {}).then(function(r){
     if (!r || r.ok!==true) return;
@@ -438,8 +425,22 @@ function renderConvs_(){
     if (filter==="done") return c.status==="完了";
     return c.status!=="完了";
   });
-  if (!rows.length){ box.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">該当する会話はありません</div>'; return; }
-  box.innerHTML=rows.map(function(c){
+  var vis = (filter==="done") ? [] : visitors;
+  var html="";
+  // 閲覧中のお客様（未問い合わせ・繋がらなければ自動で消える）
+  if (vis.length){
+    html += '<div style="padding:6px 14px;font-size:11px;color:#16a34a;background:#f0fdf4;border-bottom:1px solid #f1f5f9;">🟢 閲覧中のお客様（未問い合わせ）'+vis.length+'人</div>';
+    html += vis.map(function(v){
+      var dot=v.status==="hidden"?"#cbd5e1":"#22c55e";
+      var where=(v.path&&v.path.length)?v.path.join(" › "):"🏠 トップ（FAQ）";
+      return '<div class="ticket" style="cursor:default;background:#fcfefb;">'
+        +'<div class="top"><div class="nm"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dot+';margin-right:6px;vertical-align:middle;"></span>'+esc_(v.name||"お客様")+'</div>'
+        +'<span class="badge" style="background:#dcfce7;color:#16a34a;">'+(v.status==="hidden"?"離席中":"閲覧中")+'</span></div>'
+        +'<div class="sit">'+esc_(where)+'</div></div>';
+    }).join("");
+  }
+  if (!rows.length && !vis.length){ box.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">該当するお客様はいません</div>'; return; }
+  html += rows.map(function(c){
     var sel=(current&&current.id===c.id)?" sel":"";
     var st=c.status||"未対応";
     return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')">'
@@ -449,6 +450,7 @@ function renderConvs_(){
       +'<div class="meta"><span>'+esc_(c.assigned_staff||"")+'</span><span>'+fmtTime_(c.last_message_at)+'</span></div>'
       +'</div>';
   }).join("");
+  box.innerHTML=html;
 }
 
 /* =========================================================
@@ -631,7 +633,7 @@ document.addEventListener("DOMContentLoaded", function(){
 /* =========================================================
  *  ユーティリティ
  * ========================================================= */
-function stopAll_(){ if (listTimer){clearInterval(listTimer); listTimer=null;} closeWs_(); }
+function stopAll_(){ if (listTimer){clearInterval(listTimer); listTimer=null;} closeWs_(); if (monWs){ try{ monWs.close(); }catch(e){} monWs=null; } }
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function fmtTime_(ms){
   if (!ms) return "";
