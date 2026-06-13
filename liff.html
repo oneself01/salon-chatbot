@@ -302,8 +302,13 @@ function renderStoreSug_(){
   });
 }
 
-function fileToBase64_(f){
-  return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result||"")); }; rd.onerror=rej; rd.readAsDataURL(f); });
+// ファイルをR2へ直接ストリームアップロード（base64不要・高速）
+function uploadFile_(f){
+  return fetch(WORKER_BASE+"/v2/upload?name="+encodeURIComponent(f.name), {
+    method:"POST",
+    headers:{ "content-type": f.type||"application/octet-stream", "authorization":"Bearer "+idToken },
+    body: f
+  }).then(function(x){ return x.json(); }).catch(function(){ return null; });
 }
 async function submitEmergency_(){
   var name=v_("ef_name").trim(), email=v_("ef_email").trim(), store=v_("ef_store").trim();
@@ -311,8 +316,8 @@ async function submitEmergency_(){
   if (!name || !email || !store || !situation){ alert("予約者名・メール・店舗・状況は必須です。"); return; }
   var btn=document.getElementById("ef_submit"); if (btn){ btn.disabled=true; btn.textContent="送信中…"; }
 
-  // 添付（画像・動画／複数可）をDriveへアップロード
-  var attachUrls=[];
+  // 添付（画像・動画／複数可）をR2へアップロード
+  var attachments=[];
   var fi=document.getElementById("ef_file");
   if (fi && fi.files && fi.files.length){
     for (var i=0;i<fi.files.length;i++){
@@ -323,18 +328,12 @@ async function submitEmergency_(){
     }
     if (btn) btn.textContent="アップロード中…";
     for (var j=0;j<fi.files.length;j++){
-      try{
-        var b64=await fileToBase64_(fi.files[j]);
-        var up=await httpPost_("/v2/upload", { fileData:b64, fileName:fi.files[j].name, mimeType:fi.files[j].type });
-        if (up && up.success){ attachUrls.push(up.fileUrl||up.ucUrl||""); }
-      }catch(e){}
+      var up=await uploadFile_(fi.files[j]);
+      if (up && up.success){ attachments.push({ url:up.fileUrl, type:up.type, name:up.name }); }
     }
   }
 
-  var full=situation;
-  attachUrls.forEach(function(u){ if (u) full += "\n📎 添付: "+u; });
-
-  var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, situation:full });
+  var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, situation:situation, attachments:attachments });
   if (!r || !r.ok){ if (btn){ btn.disabled=false; btn.textContent="確認する"; } alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
   convId=r.conversationId;
   showChat_(); setSt_("接続中…");
@@ -371,7 +370,7 @@ async function loadHistory_(){
     if (r && r.ok && Array.isArray(r.messages) && r.messages.length){
       r.messages.forEach(function(m){
         seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||""));
-        append_(m.sender_type, m.body, m.created_at);
+        append_(m.sender_type, m.body, m.created_at, m.attachments);
       });
     } else {
       append_("system","お困りごとを入力してください。スタッフが順次対応します。",Date.now());
@@ -413,11 +412,24 @@ function onEnded_(){
   if (ws){ try{ ws.close(); }catch(e){} ws=null; }
   setSt_("対応終了");
 }
-function append_(senderType, body, createdAt){
+function attachHtml_(attachments){
+  if (!attachments) return "";
+  var arr=attachments;
+  if (typeof attachments==="string"){ try{ arr=JSON.parse(attachments); }catch(e){ return ""; } }
+  if (!arr || !arr.length) return "";
+  return arr.map(function(a){
+    var u=esc_(a.url||"");
+    if (a.type==="image") return '<img src="'+u+'" style="max-width:100%;border-radius:8px;margin-top:6px;display:block;">';
+    if (a.type==="video") return '<video src="'+u+'" controls playsinline style="max-width:100%;border-radius:8px;margin-top:6px;display:block;"></video>';
+    return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:underline;">📎 '+esc_(a.name||"ファイル")+'</a>';
+  }).join("");
+}
+function append_(senderType, body, createdAt, attachments){
   var side=senderType==="customer"?"customer":(senderType==="system"?"system":"staff");
   var who=senderType==="customer"?"":(senderType==="system"?"":"スタッフ");
+  var media=attachHtml_(attachments);
   var row=document.createElement("div"); row.className="row "+side;
-  row.innerHTML='<div class="bubble">'+esc_(body||"")+'</div>'
+  row.innerHTML='<div class="bubble">'+esc_(body||"")+media+'</div>'
     + (who||createdAt ? '<div class="meta">'+(who||"")+(who&&createdAt?" ・ ":"")+(createdAt?fmt_(createdAt):"")+'</div>' : '');
   document.getElementById("msgs").appendChild(row);
 }

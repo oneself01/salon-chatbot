@@ -288,7 +288,7 @@ function openConv_(id){
       r.messages.forEach(function(m){
         var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
         seenKeys.add(key);
-        appendMsg_(m.sender_type, m.body, m.created_at);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments);
       });
       scrollBottom_();
     }
@@ -332,12 +332,25 @@ function setConn_(on){
 /* =========================================================
  *  メッセージ描画
  * ========================================================= */
-function appendMsg_(senderType, body, createdAt){
+function attachHtml_(attachments){
+  if (!attachments) return "";
+  var arr=attachments;
+  if (typeof attachments==="string"){ try{ arr=JSON.parse(attachments); }catch(e){ return ""; } }
+  if (!arr || !arr.length) return "";
+  return arr.map(function(a){
+    var u=esc_(a.url||"");
+    if (a.type==="image") return '<img src="'+u+'" style="max-width:100%;border-radius:8px;margin-top:6px;display:block;">';
+    if (a.type==="video") return '<video src="'+u+'" controls playsinline style="max-width:100%;border-radius:8px;margin-top:6px;display:block;"></video>';
+    return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:underline;">📎 '+esc_(a.name||"ファイル")+'</a>';
+  }).join("");
+}
+function appendMsg_(senderType, body, createdAt, attachments){
   var side = senderType==="staff" ? "staff" : (senderType==="system" ? "system" : "customer");
   var who  = senderType==="staff" ? "スタッフ" : (senderType==="system" ? "" : "お客様");
+  var media=attachHtml_(attachments);
   var row=document.createElement("div");
   row.className="row "+side;
-  row.innerHTML='<div class="bubble">'+esc_(body||"")+'</div>'
+  row.innerHTML='<div class="bubble">'+esc_(body||"")+media+'</div>'
     +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
   document.getElementById("msgs").appendChild(row);
 }
