@@ -135,6 +135,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong style="font-size:16px;">📚 ナレッジ</strong>
       <div style="display:flex; gap:6px;">
+        <button class="sc-btn" onclick="importStoreKnowledge_()" title="スプレッドシートの店舗情報（鍵・ブレーカー）を取り込み/更新">店舗情報を取り込む</button>
         <button class="sc-btn" onclick="knowAdd_()">＋ 追加</button>
         <button class="sc-btn" onclick="closeKnowledge_()">閉じる</button>
       </div>
@@ -285,6 +286,14 @@ function renderKnow_(){
   }).join("");
   Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ knowEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
   Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ knowDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
+}
+function importStoreKnowledge_(){
+  if (!confirm("スプレッドシートの「店舗情報」から、鍵・ブレーカーの場所をナレッジに取り込みます（店舗情報由来の既存分は最新で上書き、手動追加分は残ります）。よろしいですか？")) return;
+  toast_("取り込み中…");
+  httpPost_("/v2/admin/import-store-knowledge", {}).then(function(r){
+    if (r && r.ok){ toast_("✓ "+r.count+"店舗を取り込みました"); loadKnowledge_(); }
+    else toast_("取り込みに失敗（"+((r&&(r.detail||r.error))||"")+"）");
+  }).catch(function(){ toast_("通信エラー"); });
 }
 function knowAdd_(){ knowForm_({ id:0, store:"", keywords:"", title:"", body:"" }); }
 function knowEdit_(id){ var k=knowItems.find(function(x){return x.id===id;}); if (k) knowForm_(k); }
