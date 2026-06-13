@@ -278,6 +278,7 @@ function openWs_(id){
   ws.onmessage=function(ev){
     var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
     if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
+    if (d.type==="draft"){ showDraft_(d.body); return; }
     if (d.type==="message"){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seenKeys.has(key)) return;
@@ -310,11 +311,22 @@ function appendMsg_(senderType, body, createdAt){
 function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
 
 function showTyping_(){
-  document.getElementById("typing").textContent="お客様が入力中…";
+  var el=document.getElementById("typing");
+  if (el.dataset.draft==="1") return; // 下書き表示中は上書きしない
+  el.textContent="お客様が入力中…";
   if (typingHideTimer) clearTimeout(typingHideTimer);
   typingHideTimer=setTimeout(clearTyping_, 3000);
 }
-function clearTyping_(){ document.getElementById("typing").textContent=""; }
+// お客様が送信前に入力しているテキストをリアルタイム表示
+function showDraft_(text){
+  var el=document.getElementById("typing");
+  if (!text){ clearTyping_(); return; }
+  el.dataset.draft="1";
+  el.textContent="✍️ お客様が入力中: "+text;
+  if (typingHideTimer) clearTimeout(typingHideTimer);
+  typingHideTimer=setTimeout(clearTyping_, 6000);
+}
+function clearTyping_(){ var el=document.getElementById("typing"); el.textContent=""; el.dataset.draft=""; }
 
 /* =========================================================
  *  ステータス
@@ -350,6 +362,8 @@ document.addEventListener("DOMContentLoaded", function(){
   var ta=document.getElementById("reply");
   if (!ta) return;
   ta.addEventListener("keydown", function(e){
+    // 日本語入力の変換中（下線あり）のEnterは送信しない＝変換確定に使う
+    if (e.isComposing || e.keyCode===229) return;
     if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendReply_(); }
   });
   ta.addEventListener("input", function(){
