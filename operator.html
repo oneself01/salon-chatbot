@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -126,6 +126,24 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- スタッフ管理パネル -->
+<div id="staffPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">👥 スタッフ（ログイン許可）</strong>
+      <button class="sc-btn" onclick="closeStaff_()">閉じる</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;">ここに登録したGoogleアカウント（Gmail）が対応コンソールにログインできます。</p>
+    <div style="display:flex;gap:6px;margin:10px 0;">
+      <input id="st_email" class="sc-input" type="email" placeholder="staff@gmail.com" style="flex:2;">
+      <input id="st_name" class="sc-input" type="text" placeholder="名前（任意）" style="flex:1;">
+      <button class="sc-primary" onclick="staffAdd_()">追加</button>
+    </div>
+    <div id="staffList"></div>
+    <div id="staffOwners" style="font-size:12px;color:#94a3b8;margin-top:10px;"></div>
   </div>
 </div>
 
@@ -215,22 +233,40 @@ var listTimer=null, typingHideTimer=null, typingSendT=0;
  *  Google ログイン
  * ========================================================= */
 window.onload = function(){
-  if (!window.google || !google.accounts){ setTimeout(window.onload, 300); return; }
+  // 同じ端末で有効なトークンが残っていれば再ログイン不要
+  var saved=null, exp=0;
+  try{ saved=localStorage.getItem("op_idtoken"); exp=parseInt(localStorage.getItem("op_idtoken_exp")||"0",10); }catch(e){}
+  if (saved && exp > (Date.now()/1000)+60){
+    idToken=saved;
+    httpPost_("/staff/me", {}).then(function(r){
+      if (r && r.ok){ me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
+      else { clearStored_(); initGis_(); }
+    }).catch(function(){ initGis_(); });
+    return;
+  }
+  initGis_();
+};
+function initGis_(){
+  if (!window.google || !google.accounts){ setTimeout(initGis_, 300); return; }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential_, auto_select: true });
   google.accounts.id.renderButton(document.getElementById("gbtn"), { theme:"filled_blue", size:"large", text:"signin_with", shape:"pill" });
   google.accounts.id.prompt();
-};
+}
+function clearStored_(){ try{ localStorage.removeItem("op_idtoken"); localStorage.removeItem("op_idtoken_exp"); }catch(e){} }
+function enterConsole_(){
+  document.getElementById("whoami").textContent = me.name;
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="grid";
+  startList_();
+}
 function onCredential_(resp){
   idToken = resp.credential || "";
   if (!idToken){ loginError_("トークンの取得に失敗しました。"); return; }
+  var ex=0; try{ ex=JSON.parse(atob(idToken.split('.')[1])).exp||0; }catch(e){}
+  try{ localStorage.setItem("op_idtoken", idToken); localStorage.setItem("op_idtoken_exp", String(ex)); }catch(e){}
   httpPost_("/staff/me", {}).then(function(r){
-    if (r && r.ok){
-      me.email=r.email; me.name=r.name||r.email;
-      document.getElementById("whoami").textContent = me.name;
-      document.getElementById("login").style.display="none";
-      document.getElementById("app").style.display="grid";
-      startList_();
-    } else loginError_(authMsg_(r));
+    if (r && r.ok){ me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
+    else loginError_(authMsg_(r));
   }).catch(function(){ loginError_("接続に失敗しました。"); });
 }
 function authMsg_(r){
@@ -241,7 +277,47 @@ function authMsg_(r){
   return "ログインできませんでした（"+d+"）。";
 }
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
-function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} idToken=""; stopAll_(); location.reload(); }
+function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clearStored_(); idToken=""; stopAll_(); location.reload(); }
+
+/* =========================================================
+ *  スタッフ（ログイン許可）管理
+ * ========================================================= */
+function openStaff_(){ document.getElementById("staffPanel").style.display="flex"; loadStaff_(); }
+function closeStaff_(){ document.getElementById("staffPanel").style.display="none"; }
+var staffRows=[];
+function loadStaff_(){
+  httpPost_("/v2/admin/staff", {}).then(function(r){
+    if (!r || !r.ok) return;
+    var box=document.getElementById("staffList");
+    staffRows=r.staff||[]; var rows=staffRows;
+    box.innerHTML = rows.length ? rows.map(function(s){
+      var act = s.active ? '<span style="color:#16a34a;">有効</span>' : '<span style="color:#94a3b8;">停止中</span>';
+      return '<div class="sc-row"><span class="lbl" style="white-space:normal;"><strong>'+esc_(s.email)+'</strong>'+(s.name?' <span style="color:#64748b;font-size:12px;">'+esc_(s.name)+'</span>':'')+' '+act+'</span>'
+        +'<button class="sc-btn" data-t="'+esc_(s.email)+'" data-a="'+(s.active?0:1)+'">'+(s.active?'停止':'有効化')+'</button>'
+        +'<button class="sc-btn" data-d="'+esc_(s.email)+'">🗑</button></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;padding:8px;">追加スタッフはまだいません</div>';
+    Array.prototype.forEach.call(box.querySelectorAll("[data-t]"), function(b){ b.onclick=function(){ staffToggle_(b.getAttribute("data-t"), b.getAttribute("data-a")==="1"); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ staffDelete_(b.getAttribute("data-d")); }; });
+    document.getElementById("staffOwners").textContent = "オーナー（常時許可・ターミナル設定）: " + ((r.owners||[]).join(", ")||"なし");
+  });
+}
+function staffAdd_(){
+  var email=document.getElementById("st_email").value.trim();
+  var name=document.getElementById("st_name").value.trim();
+  if (!email || email.indexOf("@")===-1){ toast_("メールアドレスを入力してください"); return; }
+  httpPost_("/v2/admin/staff-save", { email:email, name:name, active:true }).then(function(r){
+    if (r && r.ok){ document.getElementById("st_email").value=""; document.getElementById("st_name").value=""; toast_("追加しました"); loadStaff_(); }
+    else toast_("失敗"+((r&&r.error)?("："+r.error):""));
+  });
+}
+function staffToggle_(email, active){
+  var row=staffRows.find(function(x){ return x.email===email; });
+  httpPost_("/v2/admin/staff-save", { email:email, name:(row&&row.name)||"", active:active }).then(function(r){ if (r&&r.ok){ loadStaff_(); } });
+}
+function staffDelete_(email){
+  if (!confirm(email+" を削除しますか？（ログインできなくなります）")) return;
+  httpPost_("/v2/admin/staff-delete", { email:email }).then(function(r){ if (r&&r.ok){ toast_("削除しました"); loadStaff_(); } });
+}
 
 /* =========================================================
  *  訪問者モニター
@@ -554,11 +630,11 @@ function httpGet_(path){
     .then(function(r){ if (r.status===401){ handle401_(); return {ok:false,error:"unauthorized"}; } return r.json(); });
 }
 function handle401_(){
-  stopAll_();
+  stopAll_(); clearStored_();
   document.getElementById("app").style.display="none";
   document.getElementById("login").style.display="flex";
   loginError_("セッションが切れました。もう一度ログインしてください。");
-  try{ google.accounts.id.prompt(); }catch(e){}
+  try{ initGis_(); google.accounts.id.prompt(); }catch(e){}
 }
 
 /* =========================================================
