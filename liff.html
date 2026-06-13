@@ -36,6 +36,10 @@
   .fl{display:block; font-size:13px; font-weight:600; margin:10px 0 4px; color:#374151;}
   .fi{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; font-size:16px; font-family:inherit;}
   textarea.fi{resize:vertical; min-height:80px;}
+  .sug{margin-top:-2px;}
+  .sug-item{padding:11px 12px; border:1px solid var(--line); border-top:none; background:#fff; font-size:15px; cursor:pointer;}
+  .sug-item:first-child{border-top-left-radius:0;}
+  .sug-item:active{background:#e0f2fe;}
 
   /* ===== ライブチャット ===== */
   #chat{display:none; flex:1; flex-direction:column; overflow:hidden;}
@@ -104,6 +108,29 @@ var LIFF_ID     = "2010385778-OQo3c1Q3";
 var WORKER_BASE = "https://oneselfchatbot.0618-fmp.workers.dev";
 var WS_BASE     = WORKER_BASE.replace(/^http/, "ws");
 var GAS_URL     = "https://script.google.com/macros/s/AKfycbzibjrSDBt4BJVuXgX28LmkPvfthxsNolHjgpdajhlxzro2brT8ww3VgsKc5gbhdscYsw/exec";
+
+// 店舗リスト（将来は管理画面から差し替え予定）。n=表示名, k=読み仮名（検索用）
+var STORES = [
+  {n:"浜松市野",k:"はままついちの"},{n:"新潟",k:"にいがた"},{n:"袋井浅羽",k:"ふくろいあさば"},
+  {n:"甲府",k:"こうふ"},{n:"つくば",k:"つくば"},{n:"宇都宮",k:"うつのみや"},{n:"三島",k:"みしま"},
+  {n:"富士",k:"ふじ"},{n:"沼津",k:"ぬまづ"},{n:"長野",k:"ながの"},{n:"横浜上大岡",k:"よこはまかみおおおか"},
+  {n:"水戸",k:"みと"},{n:"岐阜",k:"ぎふ"},{n:"浜松佐鳴台",k:"はままつさなるだい"},{n:"平塚",k:"ひらつか"},
+  {n:"岡崎",k:"おかざき"},{n:"川崎元住吉",k:"かわさきもとすみよし"},{n:"御殿場",k:"ごてんば"},
+  {n:"鹿児島荒田",k:"かごしまあらた"},{n:"横浜白楽",k:"よこはまはくらく"},{n:"刈谷",k:"かりや"},
+  {n:"多治見",k:"たじみ"},{n:"豊橋",k:"とよはし"},{n:"高岡",k:"たかおか"},{n:"名古屋中村",k:"なごやなかむら"},
+  {n:"日立",k:"ひたち"},{n:"厚木",k:"あつぎ"},{n:"静岡駿河",k:"しずおかするが"},{n:"横須賀",k:"よこすか"},
+  {n:"津",k:"つ"},{n:"福井",k:"ふくい"},{n:"奈良",k:"なら"},{n:"成田",k:"なりた"},
+  {n:"豊田若林",k:"とよたわかばやし"},{n:"仙台一番町",k:"せんだいいちばんちょう"},{n:"大垣",k:"おおがき"},
+  {n:"小田原",k:"おだわら"},{n:"高松",k:"たかまつ"},{n:"神戸垂水",k:"こうべたるみ"},{n:"藤沢",k:"ふじさわ"},
+  {n:"岡山",k:"おかやま"},{n:"富士吉田",k:"ふじよしだ"},{n:"町田駅前",k:"まちだえきまえ"},
+  {n:"静岡駅北口",k:"しずおかえききたぐち"},{n:"大船",k:"おおふな"},{n:"酒々井",k:"しすい"},{n:"千葉",k:"ちば"},
+  {n:"清水",k:"しみず"},{n:"名古屋駅前",k:"なごやえきまえ"},{n:"横浜関内",k:"よこはまかんない"},
+  {n:"熊本新市街",k:"くまもとしんしがい"},{n:"鹿児島天文館",k:"かごしまてんもんかん"},{n:"鈴鹿",k:"すずか"},
+  {n:"小倉駅南口",k:"こくらえきみなみぐち"},{n:"名古屋野並",k:"なごやのなみ"},{n:"茅ヶ崎",k:"ちがさき"},
+  {n:"熊本光の森",k:"くまもとひかりのもり"},{n:"西宮門戸厄神",k:"にしのみやもんどやくじん"},
+  {n:"新宿南口",k:"しんじゅくみなみぐち"},{n:"東十条",k:"ひがしじゅうじょう"},{n:"久留米",k:"くるめ"},
+  {n:"富山",k:"とやま"},{n:"春日部",k:"かすかべ"},{n:"長崎",k:"ながさき"},{n:"尾道",k:"おのみち"}
+];
 
 /* 状態 */
 var idToken="", profile=null, tree=null, mediaData={}, stack=[];
@@ -246,14 +273,30 @@ function renderEmergencyForm_(){
     + '<div style="font-size:13px;color:#64748b;margin-bottom:8px;">スムーズなご案内のため、以下をご入力ください。</div>'
     + '<label class="fl">予約者名（ご予約時のお名前）*</label><input id="ef_name" class="fi" type="text" placeholder="例：山田 花子">'
     + '<label class="fl">メールアドレス *</label><input id="ef_email" class="fi" type="email">'
-    + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text">'
+    + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text" autocomplete="off" placeholder="例：沼津（「ぬ」でも検索できます）"><div id="ef_store_sug" class="sug"></div>'
     + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="状況を詳しく教えてください"></textarea>'
     + '<label class="fl">画像・動画の添付（任意・最大20MB）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*">'
     + '<label class="fl">動画URL（任意）</label><input id="ef_videoUrl" class="fi" type="url" placeholder="https://...">'
     + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
     + '<button class="askBtn secondary" style="margin-top:10px;" onclick="renderOptions_()">← 戻る</button>'
     + '</div>';
+  var si=document.getElementById("ef_store");
+  if (si) si.addEventListener("input", renderStoreSug_);
   box.scrollTop=0;
+}
+
+// 店舗名サジェスト（漢字でも読み仮名でも検索）
+function renderStoreSug_(){
+  var el=document.getElementById("ef_store"); if (!el) return;
+  var q=el.value.trim().toLowerCase();
+  var sug=document.getElementById("ef_store_sug"); if (!sug) return;
+  if (!q){ sug.innerHTML=""; return; }
+  var hits=STORES.filter(function(s){ return s.n.toLowerCase().indexOf(q)!==-1 || s.k.indexOf(q)!==-1; }).slice(0,8);
+  if (!hits.length){ sug.innerHTML=""; return; }
+  sug.innerHTML=hits.map(function(s){ return '<div class="sug-item" data-n="'+esc_(s.n)+'">'+esc_(s.n)+'</div>'; }).join("");
+  Array.prototype.forEach.call(sug.querySelectorAll(".sug-item"), function(it){
+    it.addEventListener("click", function(){ el.value=it.getAttribute("data-n"); sug.innerHTML=""; });
+  });
 }
 
 function fileToBase64_(f){
