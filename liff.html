@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>ONESELF サポート</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{ --brand:#0ea5e9; --brand-d:#0284c7; --ink:#0f172a; --sub:#64748b; --line:#e5e7eb; --cust:#0ea5e9; --staff:#f1f5f9; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#fff; display:flex; flex-direction:column; height:100dvh;}
+  /* ローディング */
+  #loading{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--sub);}
+  .spinner{width:34px; height:34px; border:3px solid #e2e8f0; border-top-color:var(--brand); border-radius:50%; animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #errBox{display:none; padding:16px; margin:16px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; font-size:14px; white-space:pre-wrap;}
+  /* チャット */
+  #chat{display:none; flex:1; flex-direction:column; height:100dvh; overflow:hidden;}
+  header{padding:12px 16px; background:var(--brand); color:#fff; display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  header .ttl{font-weight:700; font-size:15px;}
+  header .st{font-size:11px; opacity:.9; margin-left:auto;}
+  #msgs{flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; background:#f8fafc;}
+  .row{display:flex; flex-direction:column; max-width:82%;}
+  .row.customer{align-self:flex-end; align-items:flex-end;}
+  .row.staff{align-self:flex-start; align-items:flex-start;}
+  .row.system{align-self:center; align-items:center; max-width:92%;}
+  .bubble{padding:10px 14px; border-radius:16px; font-size:15px; white-space:pre-wrap; word-break:break-word; line-height:1.55;}
+  .row.customer .bubble{background:var(--cust); color:#fff; border-bottom-right-radius:5px;}
+  .row.staff .bubble{background:#fff; color:var(--ink); border:1px solid var(--line); border-bottom-left-radius:5px;}
+  .row.system .bubble{background:#eef2f7; color:#64748b; font-size:13px; border-radius:10px;}
+  .row .meta{font-size:11px; color:#94a3b8; margin-top:3px;}
+  #typing{font-size:12px; color:#94a3b8; padding:0 16px 4px; min-height:18px; background:#f8fafc;}
+  #composer{display:flex; gap:8px; padding:10px; border-top:1px solid var(--line); background:#fff; align-items:flex-end; padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+  #composer textarea{flex:1; resize:none; height:44px; max-height:130px; padding:11px; border:1px solid var(--line); border-radius:22px; font-size:16px; font-family:inherit;}
+  #composer button{width:44px; height:44px; border:none; border-radius:50%; background:var(--brand); color:#fff; font-size:18px; cursor:pointer; flex-shrink:0;}
+  #composer button:disabled{background:#cbd5e1;}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>読み込み中…</div>
+</div>
+<div id="errBox"></div>
+
+<div id="chat">
+  <header>
+    <span class="ttl">ONESELF サポート</span>
+    <span class="st" id="connSt">接続中…</span>
+  </header>
+  <div id="msgs"></div>
+  <div id="typing"></div>
+  <div id="composer">
+    <textarea id="input" placeholder="メッセージを入力" rows="1"></textarea>
+    <button id="sendBtn" onclick="send_()">➤</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+ *  設定（LINE Developers で作成後に差し替え）
+ * ========================================================= */
+var LIFF_ID     = "2010385778-OQo3c1Q3";                                // ← LIFF ID
+var WORKER_BASE = "https://oneselfchatbot.0618-fmp.workers.dev";
+var WS_BASE     = WORKER_BASE.replace(/^http/, "ws");
+
+/* 状態 */
+var idToken="", profile=null, convId=null, ws=null, seen=new Set(), draftT=0, typingHideT=null;
+
+/* =========================================================
+ *  初期化
+ * ========================================================= */
+async function boot_(){
+  try{
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()){ liff.login(); return; }   // LINEログインへ
+    idToken = liff.getIDToken() || "";
+    profile = await liff.getProfile();
+    if (!idToken){ showErr_("IDトークンが取得できませんでした。LIFFのスコープに openid が必要です。"); return; }
+
+    // 会話を作成/取得
+    var r = await httpPost_("/v2/conversations", { name: profile.displayName || "" });
+    if (!r || !r.ok){ showErr_("会話の作成に失敗しました（"+((r&&r.detail)||"")+"）。"); return; }
+    convId = r.conversationId;
+
+    document.getElementById("loading").style.display="none";
+    document.getElementById("chat").style.display="flex";
+
+    await loadHistory_();
+    openWs_();
+  }catch(e){
+    showErr_("初期化エラー: "+(e&&e.message?e.message:e));
+  }
+}
+
+function httpPost_(path, body){
+  return fetch(WORKER_BASE+path, {
+    method:"POST",
+    headers:{ "content-type":"application/json", "authorization":"Bearer "+idToken },
+    body: JSON.stringify(body||{})
+  }).then(function(r){ return r.json(); }).catch(function(){ return null; });
+}
+
+async function loadHistory_(){
+  try{
+    var url=WORKER_BASE+"/v2/messages?role=customer&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(idToken);
+    var r=await fetch(url).then(function(x){return x.json();});
+    if (r && r.ok && Array.isArray(r.messages)){
+      r.messages.forEach(function(m){
+        seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||""));
+        append_(m.sender_type, m.body, m.created_at);
+      });
+      scrollBottom_();
+    }
+    if (!r || !r.messages || !r.messages.length){
+      append_("system", "お困りごとを入力してください。スタッフが順次対応します。", Date.now());
+    }
+  }catch(e){}
+}
+
+/* =========================================================
+ *  WebSocket
+ * ========================================================= */
+function openWs_(){
+  var url=WS_BASE+"/v2/ws?role=customer&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(idToken);
+  ws=new WebSocket(url);
+  ws.onopen=function(){ setSt_("接続中 ●"); };
+  ws.onclose=function(){ setSt_("再接続待ち"); setTimeout(function(){ if (convId) openWs_(); }, 3000); };
+  ws.onerror=function(){};
+  ws.onmessage=function(ev){
+    var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+    if (d.type==="typing"){ if (d.from==="staff") showTyping_(); return; }
+    if (d.type==="message"){
+      var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (d.sender_type==="staff") clearTyping_();
+      append_(d.sender_type, d.body, d.created_at);
+      scrollBottom_();
+    }
+  };
+}
+function setSt_(t){ document.getElementById("connSt").textContent=t; }
+
+/* =========================================================
+ *  描画
+ * ========================================================= */
+function append_(senderType, body, createdAt){
+  var side = senderType==="customer" ? "customer" : (senderType==="system" ? "system" : "staff");
+  var who  = senderType==="customer" ? "" : (senderType==="system" ? "" : "スタッフ");
+  var row=document.createElement("div");
+  row.className="row "+side;
+  row.innerHTML='<div class="bubble">'+esc_(body||"")+'</div>'
+    + (who||createdAt ? '<div class="meta">'+(who?who:"")+(who&&createdAt?" ・ ":"")+(createdAt?fmt_(createdAt):"")+'</div>' : '');
+  document.getElementById("msgs").appendChild(row);
+}
+function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
+function showTyping_(){ document.getElementById("typing").textContent="スタッフが入力中…"; if (typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_, 4000); }
+function clearTyping_(){ document.getElementById("typing").textContent=""; }
+
+/* =========================================================
+ *  送信 + 入力中（下書き）配信
+ * ========================================================= */
+function send_(){
+  var ta=document.getElementById("input");
+  var text=ta.value.trim();
+  if (!text) return;
+  if (!ws || ws.readyState!==1){ openWs_(); return; }
+  ws.send(JSON.stringify({ type:"message", body:text }));
+  // 下書きクリア
+  ws.send(JSON.stringify({ type:"draft", body:"" }));
+  ta.value=""; ta.style.height="44px";
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  var ta=document.getElementById("input");
+  if (!ta) return;
+  var lastCompEnd=0;
+  ta.addEventListener("compositionstart", function(){ lastCompEnd=0; });
+  ta.addEventListener("compositionend", function(){ lastCompEnd=Date.now(); sendDraft_(); });
+  ta.addEventListener("keydown", function(e){
+    if (e.key!=="Enter" || e.shiftKey) return;
+    if (e.isComposing || e.keyCode===229) return;
+    if (Date.now()-lastCompEnd < 120) return;
+    e.preventDefault(); send_();
+  });
+  ta.addEventListener("input", function(){
+    ta.style.height="44px"; ta.style.height=Math.min(ta.scrollHeight,130)+"px";
+    sendDraft_();
+  });
+});
+
+// 入力テキストをスタッフにリアルタイム配信（送信前）
+function sendDraft_(){
+  if (!ws || ws.readyState!==1) return;
+  var now=Date.now();
+  if (now-draftT < 400) return;   // 送りすぎ防止
+  draftT=now;
+  var text=document.getElementById("input").value;
+  ws.send(JSON.stringify({ type:"draft", body:text }));
+}
+
+/* =========================================================
+ *  ユーティリティ
+ * ========================================================= */
+function showErr_(msg){
+  document.getElementById("loading").style.display="none";
+  var el=document.getElementById("errBox"); el.style.display="block"; el.textContent="⚠️ "+msg;
+}
+function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmt_(ms){
+  var d=new Date(Number(ms)); if (isNaN(d)) return "";
+  return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+}
+
+boot_();
+</script>
+</body>
+</html>
