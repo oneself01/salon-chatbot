@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -126,6 +126,22 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- ナレッジ管理パネル -->
+<div id="knowledgePanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">📚 ナレッジ</strong>
+      <div style="display:flex; gap:6px;">
+        <button class="sc-btn" onclick="knowAdd_()">＋ 追加</button>
+        <button class="sc-btn" onclick="closeKnowledge_()">閉じる</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;">スタッフが覚えなくていい情報（例：沼津店のブレーカーの位置）を登録しておくと、関連する質問が来た時にAIが回答案に使います。店舗を指定すると、その店舗のお客様の時だけ優先されます。</p>
+    <div id="knowList" style="margin-top:8px;"></div>
+    <div id="knowEdit" style="display:none;"></div>
   </div>
 </div>
 
@@ -247,6 +263,58 @@ function openMonitorFeed_(){
     if (isNew) fetchConvs_();
   };
   monWs.onclose=function(){ if (idToken) setTimeout(openMonitorFeed_, 5000); };
+}
+
+/* =========================================================
+ *  ナレッジ管理
+ * ========================================================= */
+var knowItems=[];
+function openKnowledge_(){ document.getElementById("knowledgePanel").style.display="flex"; loadKnowledge_(); }
+function closeKnowledge_(){ document.getElementById("knowledgePanel").style.display="none"; }
+function loadKnowledge_(){
+  httpPost_("/v2/admin/knowledge", {}).then(function(r){ if (r && r.ok){ knowItems=r.items||[]; renderKnow_(); } });
+}
+function knowShowList_(){ document.getElementById("knowList").style.display="block"; document.getElementById("knowEdit").style.display="none"; }
+function renderKnow_(){
+  knowShowList_();
+  var box=document.getElementById("knowList");
+  if (!knowItems.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">まだありません。「＋追加」から登録してください。</div>'; return; }
+  box.innerHTML=knowItems.map(function(k){
+    return '<div class="sc-row"><span class="lbl" style="white-space:normal;">'+(k.store?'<span style="color:#0ea5e9;font-size:12px;">['+esc_(k.store)+']</span> ':'')+'<strong>'+esc_(k.title||"(無題)")+'</strong> <span style="color:#64748b;font-size:12px;">'+esc_(String(k.body||"").slice(0,30))+'</span></span>'
+      +'<button class="sc-btn" data-e="'+k.id+'">編集</button><button class="sc-btn" data-d="'+k.id+'">🗑</button></div>';
+  }).join("");
+  Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ knowEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ knowDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
+}
+function knowAdd_(){ knowForm_({ id:0, store:"", keywords:"", title:"", body:"" }); }
+function knowEdit_(id){ var k=knowItems.find(function(x){return x.id===id;}); if (k) knowForm_(k); }
+function knowForm_(k){
+  document.getElementById("knowList").style.display="none";
+  var v=document.getElementById("knowEdit"); v.style.display="block";
+  v.innerHTML=
+    '<button class="sc-btn" onclick="renderKnow_()">← 一覧へ戻る</button>'
+    +'<label class="sc-field">店舗（任意・その店舗のお客様の時だけ優先。空欄なら全店共通）</label>'
+    +'<input id="kn_store" class="sc-input" type="text" placeholder="例：沼津">'
+    +'<label class="sc-field">キーワード（カンマ区切り。お客様の発言にこれが含まれると参照）</label>'
+    +'<input id="kn_kw" class="sc-input" type="text" placeholder="例：電気,停電,ブレーカー,消えた">'
+    +'<label class="sc-field">タイトル</label>'
+    +'<input id="kn_title" class="sc-input" type="text" placeholder="例：ブレーカーの位置">'
+    +'<label class="sc-field">内容</label>'
+    +'<textarea id="kn_body" class="sc-input" style="min-height:120px;" placeholder="例：沼津店のブレーカーは入口入って右奥の白い扉の中にあります。…"></textarea>'
+    +'<div style="margin-top:14px;display:flex;gap:8px;"><button class="sc-primary" onclick="knowSave_('+k.id+')">保存</button><button class="sc-btn" onclick="renderKnow_()">キャンセル</button></div>';
+  document.getElementById("kn_store").value=k.store||"";
+  document.getElementById("kn_kw").value=k.keywords||"";
+  document.getElementById("kn_title").value=k.title||"";
+  document.getElementById("kn_body").value=k.body||"";
+}
+function knowSave_(id){
+  httpPost_("/v2/admin/knowledge-save", { id:id||0, store:document.getElementById("kn_store").value, keywords:document.getElementById("kn_kw").value, title:document.getElementById("kn_title").value, body:document.getElementById("kn_body").value }).then(function(r){
+    if (r && r.ok){ toast_("保存しました"); loadKnowledge_(); } else toast_("保存に失敗");
+  });
+}
+function knowDelete_(id){
+  if (!confirm("削除しますか？")) return;
+  httpPost_("/v2/admin/knowledge-delete", { id:id }).then(function(r){ if (r && r.ok){ toast_("削除しました"); loadKnowledge_(); } else toast_("削除に失敗"); });
 }
 
 /* =========================================================
