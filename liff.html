@@ -134,7 +134,7 @@ var STORES = [
 
 /* 状態 */
 var idToken="", profile=null, tree=null, mediaData={}, stack=[];
-var convId=null, ws=null, seen=new Set(), draftT=0, typingHideT=null;
+var convId=null, ws=null, seen=new Set(), draftT=0, typingHideT=null, pendingIntake=null;
 
 /* =========================================================
  *  初期化
@@ -345,12 +345,39 @@ async function submitEmergency_(){
     }
   }
 
-  var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, situation:situation, attachments:attachments });
-  if (!r || !r.ok){ if (btn){ btn.disabled=false; btn.textContent="確認する"; } alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
-  convId=r.conversationId;
+  // 入力内容を保持（チャットへ進む時に使う）
+  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments };
+
+  // 会話作成・スタッフ通知の前に「もしかして」案内を判定
+  var dc=await httpPost_("/v2/deflect-check", { situation:situation });
+  if (btn){ btn.disabled=false; btn.textContent="確認する"; }
+  if (dc && dc.ok && dc.deflect){ showDeflectScreen_(dc.deflect); return; }
+  await proceedToChat_();
+}
+
+// 「もしかして」案内画面（チャットに入る前）
+function showDeflectScreen_(body){
+  var box=document.getElementById("options"); box.innerHTML="";
+  var div=document.createElement("div"); div.className="answer";
+  div.innerHTML='<div style="font-weight:700;margin-bottom:6px;color:#92400e;">💡 もしかして、こちらで解決しませんか？</div>'+linkify_(body);
+  box.appendChild(div);
+  var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="14px";
+  b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
+  var b2=document.createElement("button"); b2.className="askBtn"; b2.style.marginTop="10px";
+  b2.textContent="解決しない・スタッフに相談する"; b2.onclick=function(){ proceedToChat_(); };
+  box.appendChild(b1); box.appendChild(b2);
+  box.scrollTop=0;
+}
+
+// スタッフチャットへ進む（ここで初めて会話作成・通知）
+async function proceedToChat_(){
+  if (!pendingIntake) return;
+  var p=pendingIntake;
+  var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments });
+  if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
+  convId=r.conversationId; pendingIntake=null;
   showChat_(); setSt_("接続中…"); sendNav_();
   await loadHistory_(); openWs_();
-  if (r.deflect) appendSuggest_(r.deflect);
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
 function goRoot_(){ stack=[]; renderOptions_(); }
