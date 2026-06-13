@@ -105,6 +105,7 @@
       <div class="nm" id="chNm"></div>
       <div class="sub" id="chSub"></div>
       <div id="statusBar"></div>
+      <button id="endBtn" onclick="endConv_()" style="margin-top:8px;font-size:12px;padding:6px 12px;border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;">✓ 会話を終了する</button>
     </div>
     <div id="msgs" style="display:none;"></div>
     <div id="typing" style="display:none;"></div>
@@ -246,7 +247,12 @@ function openConv_(id){
   document.getElementById("typing").textContent="";
   document.getElementById("msgs").innerHTML="";
   document.getElementById("chNm").textContent=(c.customer_name||"（お客様）")+(c.store?("　"+c.store):"");
-  document.getElementById("chSub").textContent=c.id;
+  var sub=[];
+  if (c.email) sub.push(c.email);
+  if (c.reservation) sub.push("予約:"+c.reservation);
+  if (c.reservation_time) sub.push(c.reservation_time);
+  sub.push(c.id);
+  document.getElementById("chSub").textContent=sub.join("　");
   renderStatusBar_(); renderConvs_();
 
   // 履歴を取得
@@ -343,6 +349,15 @@ function setStatus_(s){
   httpPost_("/v2/staff/status", { conversationId: current.id, status: s }).then(function(r){
     if (r && r.ok){ current.status=s; renderStatusBar_(); fetchConvs_(); toast_("ステータス: "+s); }
     else toast_("更新に失敗しました");
+  });
+}
+// 会話を終了（完了）→ お客様は次回FAQ（ツリー）から開始
+function endConv_(){
+  if (!current) return;
+  if (!confirm("この会話を終了しますか？\nお客様には終了が通知され、次回はFAQから始まります。")) return;
+  httpPost_("/v2/staff/status", { conversationId: current.id, status: "完了" }).then(function(r){
+    if (r && r.ok){ current.status="完了"; renderStatusBar_(); fetchConvs_(); toast_("会話を終了しました"); }
+    else toast_("終了に失敗しました");
   });
 }
 
