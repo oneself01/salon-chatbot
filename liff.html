@@ -55,7 +55,7 @@
   .row .meta{font-size:11px; color:#94a3b8; margin-top:3px;}
   #typing{font-size:12px; color:#94a3b8; padding:0 16px 4px; min-height:18px; background:var(--bg);}
   #composer{display:flex; gap:8px; padding:10px; border-top:1px solid var(--line); background:#fff; align-items:flex-end; padding-bottom:calc(10px + env(safe-area-inset-bottom));}
-  #composer textarea{flex:1; resize:none; height:44px; max-height:130px; padding:11px; border:1px solid var(--line); border-radius:22px; font-size:16px; font-family:inherit;}
+  #composer textarea{flex:1; resize:none; height:52px; max-height:40vh; padding:12px 14px; border:1px solid var(--line); border-radius:18px; font-size:16px; font-family:inherit; line-height:1.5;}
   #composer button{width:44px; height:44px; border:none; border-radius:50%; background:var(--brand); color:#fff; font-size:18px; cursor:pointer; flex-shrink:0;}
   #composer button:disabled{background:#cbd5e1;}
 
@@ -455,7 +455,7 @@ function send_(){
   if (!ws || ws.readyState!==1){ if (convId) openWs_(); return; }
   ws.send(JSON.stringify({ type:"message", body:text }));
   ws.send(JSON.stringify({ type:"draft", body:"" }));
-  ta.value=""; ta.style.height="44px";
+  ta.value=""; ta.style.height="52px";
 }
 function sendDraft_(){
   if (!ws || ws.readyState!==1) return;
@@ -474,7 +474,7 @@ document.addEventListener("DOMContentLoaded", function(){
     e.preventDefault(); send_();
   });
   ta.addEventListener("input", function(){
-    ta.style.height="44px"; ta.style.height=Math.min(ta.scrollHeight,130)+"px"; sendDraft_();
+    ta.style.height="52px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.4))+"px"; sendDraft_();
   });
 });
 
