@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ONESELF スタッフ対応コンソール</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bg:#f1f5f9; --panel:#fff; --line:#e2e8f0; --ink:#0f172a; --sub:#64748b;
+    --brand:#0ea5e9; --brand-d:#0284c7; --cust:#f1f5f9;
+    --new:#fee2e2; --working:#fef9c3; --done:#e5e7eb;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); height:100vh; overflow:hidden;}
+  #login{height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding:20px;}
+  #login h1{font-size:20px;}
+  #login p{color:var(--sub); font-size:14px; max-width:320px;}
+  #loginError{color:#b91c1c; font-size:13px; background:#fef2f2; border:1px solid #fecaca; padding:10px 14px; border-radius:8px; display:none; max-width:360px;}
+  #app{display:none; height:100vh; grid-template-columns:340px 1fr; grid-template-rows:52px 1fr;}
+  header{grid-column:1/3; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:var(--panel); border-bottom:1px solid var(--line);}
+  header .title{font-weight:700; font-size:15px;}
+  header .who{font-size:13px; color:var(--sub); display:flex; align-items:center; gap:10px;}
+  header .conn{font-size:11px; padding:2px 8px; border-radius:999px; background:#e5e7eb; color:#475569;}
+  header .conn.on{background:#dcfce7; color:#16a34a;}
+  header button{font-size:12px; padding:5px 10px; border:1px solid var(--line); background:#fff; border-radius:6px; cursor:pointer;}
+  #list{border-right:1px solid var(--line); background:var(--panel); overflow-y:auto;}
+  .filters{display:flex; gap:6px; padding:10px; border-bottom:1px solid var(--line); flex-wrap:wrap; position:sticky; top:0; background:var(--panel); z-index:1;}
+  .filters button{font-size:12px; padding:5px 9px; border:1px solid var(--line); background:#fff; border-radius:999px; cursor:pointer;}
+  .filters button.on{background:var(--brand); color:#fff; border-color:var(--brand);}
+  .ticket{padding:11px 14px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .ticket:hover{background:#f8fafc;}
+  .ticket.sel{background:#e0f2fe;}
+  .ticket .top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .ticket .nm{font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .badge{font-size:11px; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+  .b-new{background:var(--new); color:#b91c1c;} .b-working{background:var(--working); color:#854d0e;}
+  .b-done{background:var(--done); color:#475569;} .b-other{background:#e0e7ff; color:#3730a3;}
+  .ticket .sit{font-size:12px; color:var(--sub); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ticket .meta{font-size:11px; color:#94a3b8; margin-top:4px; display:flex; justify-content:space-between;}
+  #chat{display:flex; flex-direction:column; overflow:hidden;}
+  #chatHead{padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel);}
+  #chatHead .nm{font-weight:700; font-size:15px;}
+  #chatHead .sub{font-size:12px; color:var(--sub); margin-top:2px;}
+  #statusBar{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  #statusBar button{font-size:12px; padding:5px 10px; border:1px solid var(--line); background:#fff; border-radius:6px; cursor:pointer;}
+  #statusBar button:hover{background:#f1f5f9;}
+  #msgs{flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;}
+  .row{display:flex; flex-direction:column; max-width:78%;}
+  .row.staff{align-self:flex-end; align-items:flex-end;}
+  .row.customer{align-self:flex-start; align-items:flex-start;}
+  .row.system{align-self:center; align-items:center; max-width:90%;}
+  .bubble{padding:9px 13px; border-radius:14px; font-size:14px; white-space:pre-wrap; word-break:break-word; line-height:1.5;}
+  .row.staff .bubble{background:var(--brand); color:#fff; border-bottom-right-radius:4px;}
+  .row.customer .bubble{background:var(--cust); color:var(--ink); border-bottom-left-radius:4px;}
+  .row.system .bubble{background:#f1f5f9; color:#64748b; font-size:12px; border-radius:8px;}
+  .row .rmeta{font-size:11px; color:#94a3b8; margin-top:3px;}
+  #typing{font-size:12px; color:#94a3b8; padding:0 16px 4px; height:18px;}
+  #composer{border-top:1px solid var(--line); padding:10px; background:var(--panel); display:flex; gap:8px; align-items:flex-end;}
+  #composer textarea{flex:1; resize:none; height:46px; max-height:140px; padding:11px; border:1px solid var(--line); border-radius:10px; font-size:16px; font-family:inherit;}
+  #composer button{padding:11px 18px; background:var(--brand); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer;}
+  #composer button:disabled{background:#94a3b8; cursor:not-allowed;}
+  #empty{flex:1; display:flex; align-items:center; justify-content:center; color:var(--sub); font-size:14px;}
+  .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:9px 16px; border-radius:8px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50;}
+  .toast.show{opacity:.95;}
+  @media(max-width:760px){
+    #app{grid-template-columns:1fr;}
+    #list{grid-column:1; display:block;}
+    #chat{grid-column:1; display:none;}
+    body.viewing #list{display:none;}
+    body.viewing #chat{display:flex;}
+    #chatHead .back{display:inline-block;}
+  }
+  #chatHead .back{display:none; font-size:13px; color:var(--brand); cursor:pointer; margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>ONESELF スタッフ対応コンソール</h1>
+  <p>許可されたGoogleアカウントでログインしてください。</p>
+  <div id="gbtn"></div>
+  <div id="loginError"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="title">🎧 対応コンソール</div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="logout_()">ログアウト</button></div>
+  </header>
+
+  <div id="list">
+    <div class="filters">
+      <button data-f="active" class="on" onclick="setFilter_('active',this)">対応待ち</button>
+      <button data-f="all" onclick="setFilter_('all',this)">すべて</button>
+      <button data-f="done" onclick="setFilter_('done',this)">完了</button>
+    </div>
+    <div id="tickets"></div>
+  </div>
+
+  <div id="chat">
+    <div id="empty">← 左の一覧から会話を選んでください</div>
+    <div id="chatHead" style="display:none;">
+      <div class="back" onclick="closeChat_()">← 一覧へ戻る</div>
+      <div class="nm" id="chNm"></div>
+      <div class="sub" id="chSub"></div>
+      <div id="statusBar"></div>
+    </div>
+    <div id="msgs" style="display:none;"></div>
+    <div id="typing" style="display:none;"></div>
+    <div id="composer" style="display:none;">
+      <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
+      <button id="sendBtn" onclick="sendReply_()">送信</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+ *  設定（ここを自分の値に変更）
+ * ========================================================= */
+var GOOGLE_CLIENT_ID = "203790194033-54sho0be0ou4o9o3kjmeiaevrcr5070a.apps.googleusercontent.com";  // ← Google OAuth クライアントID
+var WORKER_BASE      = "https://oneselfchatbot.0618-fmp.workers.dev";       // ← Worker のURL
+var WS_BASE          = WORKER_BASE.replace(/^http/, "ws");
+
+var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了"];
+
+/* 状態 */
+var idToken="", me={email:"",name:""}, filter="active";
+var convs=[], current=null;
+var ws=null, wsConvId=null, seenKeys=new Set();
+var listTimer=null, typingHideTimer=null, typingSendT=0;
+
+/* =========================================================
+ *  Google ログイン
+ * ========================================================= */
+window.onload = function(){
+  if (!window.google || !google.accounts){ setTimeout(window.onload, 300); return; }
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential_, auto_select: true });
+  google.accounts.id.renderButton(document.getElementById("gbtn"), { theme:"filled_blue", size:"large", text:"signin_with", shape:"pill" });
+  google.accounts.id.prompt();
+};
+function onCredential_(resp){
+  idToken = resp.credential || "";
+  if (!idToken){ loginError_("トークンの取得に失敗しました。"); return; }
+  httpPost_("/staff/me", {}).then(function(r){
+    if (r && r.ok){
+      me.email=r.email; me.name=r.name||r.email;
+      document.getElementById("whoami").textContent = me.name;
+      document.getElementById("login").style.display="none";
+      document.getElementById("app").style.display="grid";
+      startList_();
+    } else loginError_(authMsg_(r));
+  }).catch(function(){ loginError_("接続に失敗しました。"); });
+}
+function authMsg_(r){
+  var d=(r&&r.detail)||"";
+  if (d==="not_allowed") return "このアカウントは許可されていません: "+((r&&r.email)||"");
+  if (d==="no_allowlist_configured") return "サーバ側に許可メールが未設定です（管理者に連絡）。";
+  if (d==="aud_mismatch") return "クライアントIDが一致しません（設定を確認）。";
+  return "ログインできませんでした（"+d+"）。";
+}
+function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
+function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} idToken=""; stopAll_(); location.reload(); }
+
+/* =========================================================
+ *  HTTP ヘルパー（認証ヘッダ付き）
+ * ========================================================= */
+function httpPost_(path, body){
+  return fetch(WORKER_BASE+path, {
+    method:"POST",
+    headers:{ "content-type":"application/json", "authorization":"Bearer "+idToken },
+    body: JSON.stringify(body||{})
+  }).then(function(r){ if (r.status===401){ handle401_(); return {ok:false,error:"unauthorized"}; } return r.json(); });
+}
+function httpGet_(path){
+  return fetch(WORKER_BASE+path, { headers:{ "authorization":"Bearer "+idToken } })
+    .then(function(r){ if (r.status===401){ handle401_(); return {ok:false,error:"unauthorized"}; } return r.json(); });
+}
+function handle401_(){
+  stopAll_();
+  document.getElementById("app").style.display="none";
+  document.getElementById("login").style.display="flex";
+  loginError_("セッションが切れました。もう一度ログインしてください。");
+  try{ google.accounts.id.prompt(); }catch(e){}
+}
+
+/* =========================================================
+ *  会話一覧（D1）
+ * ========================================================= */
+function startList_(){ fetchConvs_(); listTimer=setInterval(fetchConvs_, 10000); }
+function fetchConvs_(){
+  httpPost_("/v2/staff/conversations", {}).then(function(r){
+    if (!r || r.ok!==true) return;
+    convs = Array.isArray(r.conversations) ? r.conversations : [];
+    renderConvs_();
+  }).catch(function(){});
+}
+function setFilter_(f, btn){
+  filter=f;
+  var bs=document.querySelectorAll(".filters button");
+  for (var i=0;i<bs.length;i++) bs[i].classList.remove("on");
+  btn.classList.add("on"); renderConvs_();
+}
+function statusClass_(s){
+  if (s==="完了") return "b-done";
+  if (s==="未対応"||!s) return "b-new";
+  if (s==="対応中") return "b-working";
+  return "b-other";
+}
+function renderConvs_(){
+  var box=document.getElementById("tickets");
+  var rows=convs.filter(function(c){
+    if (filter==="all") return true;
+    if (filter==="done") return c.status==="完了";
+    return c.status!=="完了";
+  });
+  if (!rows.length){ box.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">該当する会話はありません</div>'; return; }
+  box.innerHTML=rows.map(function(c){
+    var sel=(current&&current.id===c.id)?" sel":"";
+    var st=c.status||"未対応";
+    return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')">'
+      +'<div class="top"><div class="nm">'+esc_(c.customer_name||"（お客様）")+'</div>'
+      +'<span class="badge '+statusClass_(st)+'">'+esc_(st)+'</span></div>'
+      +'<div class="sit">'+esc_((c.store?("["+c.store+"] "):"")+c.id)+'</div>'
+      +'<div class="meta"><span>'+esc_(c.assigned_staff||"")+'</span><span>'+fmtTime_(c.last_message_at)+'</span></div>'
+      +'</div>';
+  }).join("");
+}
+
+/* =========================================================
+ *  会話を開く（履歴HTTP + WebSocket）
+ * ========================================================= */
+function openConv_(id){
+  var c=convs.find(function(x){ return x.id===id; });
+  if (!c) return;
+  current=c; seenKeys.clear();
+  document.body.classList.add("viewing");
+  document.getElementById("empty").style.display="none";
+  document.getElementById("chatHead").style.display="block";
+  document.getElementById("msgs").style.display="flex";
+  document.getElementById("typing").style.display="block";
+  document.getElementById("composer").style.display="flex";
+  document.getElementById("typing").textContent="";
+  document.getElementById("msgs").innerHTML="";
+  document.getElementById("chNm").textContent=(c.customer_name||"（お客様）")+(c.store?("　"+c.store):"");
+  document.getElementById("chSub").textContent=c.id;
+  renderStatusBar_(); renderConvs_();
+
+  // 履歴を取得
+  httpGet_("/v2/messages?role=staff&c="+encodeURIComponent(id)+"&token="+encodeURIComponent(idToken)).then(function(r){
+    if (r && r.ok && Array.isArray(r.messages)){
+      r.messages.forEach(function(m){
+        var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
+        seenKeys.add(key);
+        appendMsg_(m.sender_type, m.body, m.created_at);
+      });
+      scrollBottom_();
+    }
+    openWs_(id);  // 履歴の後にWebSocket
+  }).catch(function(){ openWs_(id); });
+}
+function closeChat_(){ document.body.classList.remove("viewing"); closeWs_(); current=null; renderConvs_(); }
+
+/* =========================================================
+ *  WebSocket
+ * ========================================================= */
+function openWs_(id){
+  closeWs_();
+  wsConvId=id;
+  var url=WS_BASE+"/v2/ws?role=staff&c="+encodeURIComponent(id)+"&token="+encodeURIComponent(idToken);
+  ws=new WebSocket(url);
+  ws.onopen=function(){ setConn_(true); };
+  ws.onclose=function(){ setConn_(false); };
+  ws.onerror=function(){ setConn_(false); };
+  ws.onmessage=function(ev){
+    var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+    if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
+    if (d.type==="message"){
+      var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+      appendMsg_(d.sender_type, d.body, d.created_at);
+      scrollBottom_();
+      if (d.sender_type==="customer"){ clearTyping_(); fetchConvs_(); }
+    }
+  };
+}
+function closeWs_(){ if (ws){ try{ws.close();}catch(e){} ws=null; } wsConvId=null; setConn_(false); }
+function setConn_(on){
+  var el=document.getElementById("conn");
+  el.textContent = on ? "● リアルタイム接続中" : "接続待ち";
+  el.className = "conn" + (on?" on":"");
+}
+
+/* =========================================================
+ *  メッセージ描画
+ * ========================================================= */
+function appendMsg_(senderType, body, createdAt){
+  var side = senderType==="staff" ? "staff" : (senderType==="system" ? "system" : "customer");
+  var who  = senderType==="staff" ? "スタッフ" : (senderType==="system" ? "" : "お客様");
+  var row=document.createElement("div");
+  row.className="row "+side;
+  row.innerHTML='<div class="bubble">'+esc_(body||"")+'</div>'
+    +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
+  document.getElementById("msgs").appendChild(row);
+}
+function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
+
+function showTyping_(){
+  document.getElementById("typing").textContent="お客様が入力中…";
+  if (typingHideTimer) clearTimeout(typingHideTimer);
+  typingHideTimer=setTimeout(clearTyping_, 3000);
+}
+function clearTyping_(){ document.getElementById("typing").textContent=""; }
+
+/* =========================================================
+ *  ステータス
+ * ========================================================= */
+function renderStatusBar_(){
+  var bar=document.getElementById("statusBar");
+  bar.innerHTML=STATUSES.map(function(s){
+    var cur=(current&&current.status===s)?' style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;"':'';
+    return '<button'+cur+' onclick="setStatus_(\''+s+'\')">'+s+'</button>';
+  }).join("");
+}
+function setStatus_(s){
+  if (!current) return;
+  httpPost_("/v2/staff/status", { conversationId: current.id, status: s }).then(function(r){
+    if (r && r.ok){ current.status=s; renderStatusBar_(); fetchConvs_(); toast_("ステータス: "+s); }
+    else toast_("更新に失敗しました");
+  });
+}
+
+/* =========================================================
+ *  送信
+ * ========================================================= */
+function sendReply_(){
+  var ta=document.getElementById("reply");
+  var text=ta.value.trim();
+  if (!text || !current) return;
+  if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  ws.send(JSON.stringify({ type:"message", body:text }));
+  ta.value=""; ta.style.height="46px";
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  var ta=document.getElementById("reply");
+  if (!ta) return;
+  ta.addEventListener("keydown", function(e){
+    if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendReply_(); }
+  });
+  ta.addEventListener("input", function(){
+    ta.style.height="46px"; ta.style.height=Math.min(ta.scrollHeight,140)+"px";
+    var now=Date.now();
+    if (ws && ws.readyState===1 && now-typingSendT>1500){ typingSendT=now; ws.send(JSON.stringify({type:"typing"})); }
+  });
+});
+
+/* =========================================================
+ *  ユーティリティ
+ * ========================================================= */
+function stopAll_(){ if (listTimer){clearInterval(listTimer); listTimer=null;} closeWs_(); }
+function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtTime_(ms){
+  if (!ms) return "";
+  var d=new Date(Number(ms)); if (isNaN(d)) return "";
+  var now=new Date(), sameDay=d.toDateString()===now.toDateString();
+  var hh=("0"+d.getHours()).slice(-2), mm=("0"+d.getMinutes()).slice(-2);
+  return sameDay ? (hh+":"+mm) : ((d.getMonth()+1)+"/"+d.getDate()+" "+hh+":"+mm);
+}
+var toastT=null;
+function toast_(msg){
+  var el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show");
+  if (toastT) clearTimeout(toastT);
+  toastT=setTimeout(function(){ el.classList.remove("show"); }, 2200);
+}
+</script>
+</body>
+</html>
