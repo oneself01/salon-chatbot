@@ -147,6 +147,7 @@ async function boot_(){
     profile = await liff.getProfile();
     if (!idToken){ showErr_("IDトークンが取得できませんでした。LIFFのスコープに openid を追加してください。"); return; }
     await loadTree_();
+    loadProfile_();
     document.getElementById("loading").style.display="none";
     showHome_();
     renderOptions_();
@@ -154,6 +155,10 @@ async function boot_(){
   }catch(e){ showErr_("初期化エラー: "+(e&&e.message?e.message:e)); }
 }
 
+var savedProfile={name:"",store:"",email:""};
+function loadProfile_(){
+  return httpPost_("/v2/profile", {}).then(function(r){ if (r && r.ok){ savedProfile={ name:r.name||"", store:r.store||"", email:r.email||"" }; } }).catch(function(){});
+}
 async function loadTree_(){
   try{
     // D1から高速取得。失敗時はGAS(スプレッドシート)にフォールバック
@@ -286,6 +291,10 @@ function renderEmergencyForm_(){
     + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
     + '<button class="askBtn secondary" style="margin-top:10px;" onclick="renderOptions_()">← 戻る</button>'
     + '</div>';
+  // 前回入力した情報を自動入力
+  if (savedProfile.name)  document.getElementById("ef_name").value=savedProfile.name;
+  if (savedProfile.email) document.getElementById("ef_email").value=savedProfile.email;
+  if (savedProfile.store) document.getElementById("ef_store").value=savedProfile.store;
   var si=document.getElementById("ef_store");
   if (si) si.addEventListener("input", renderStoreSug_);
   box.scrollTop=0;

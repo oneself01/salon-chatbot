@@ -433,8 +433,9 @@ function renderConvs_(){
     html += vis.map(function(v){
       var dot=v.status==="hidden"?"#cbd5e1":"#22c55e";
       var where=(v.path&&v.path.length)?v.path.join(" › "):"🏠 トップ（FAQ）";
+      var nm = esc_(v.name||"お客様") + (v.store?(' <span style="font-size:11px;color:#64748b;">'+esc_(v.store)+'</span>'):'');
       return '<div class="ticket" style="cursor:default;background:#fcfefb;">'
-        +'<div class="top"><div class="nm"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dot+';margin-right:6px;vertical-align:middle;"></span>'+esc_(v.name||"お客様")+'</div>'
+        +'<div class="top"><div class="nm"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dot+';margin-right:6px;vertical-align:middle;"></span>'+nm+'</div>'
         +'<span class="badge" style="background:#dcfce7;color:#16a34a;">'+(v.status==="hidden"?"離席中":"閲覧中")+'</span></div>'
         +'<div class="sit">'+esc_(where)+'</div></div>';
     }).join("");
