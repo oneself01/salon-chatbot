@@ -244,26 +244,46 @@ function renderEmergencyForm_(){
     '<div class="answer">'
     + '<div style="font-weight:700;margin-bottom:4px;">スタッフにおつなぎします</div>'
     + '<div style="font-size:13px;color:#64748b;margin-bottom:8px;">スムーズなご案内のため、以下をご入力ください。</div>'
-    + '<label class="fl">お名前 *</label><input id="ef_name" class="fi" type="text">'
+    + '<label class="fl">予約者名（ご予約時のお名前）*</label><input id="ef_name" class="fi" type="text" placeholder="例：山田 花子">'
     + '<label class="fl">メールアドレス *</label><input id="ef_email" class="fi" type="email">'
-    + '<label class="fl">店舗名 *</label><input id="ef_store" class="fi" type="text">'
-    + '<label class="fl">予約番号（任意）</label><input id="ef_res" class="fi" type="text">'
-    + '<label class="fl">予約時間（任意）</label><input id="ef_rtime" class="fi" type="text">'
-    + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="お困りの内容をご記入ください"></textarea>'
-    + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">送信して相談する</button>'
+    + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text">'
+    + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="状況を詳しく教えてください"></textarea>'
+    + '<label class="fl">画像・動画の添付（任意・最大20MB）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*">'
+    + '<label class="fl">動画URL（任意）</label><input id="ef_videoUrl" class="fi" type="url" placeholder="https://...">'
+    + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
     + '<button class="askBtn secondary" style="margin-top:10px;" onclick="renderOptions_()">← 戻る</button>'
     + '</div>';
-  var nm=document.getElementById("ef_name"); if (nm) nm.value=(profile&&profile.displayName)||"";
   box.scrollTop=0;
 }
 
+function fileToBase64_(f){
+  return new Promise(function(res,rej){ var rd=new FileReader(); rd.onload=function(){ res(String(rd.result||"")); }; rd.onerror=rej; rd.readAsDataURL(f); });
+}
 async function submitEmergency_(){
   var name=v_("ef_name").trim(), email=v_("ef_email").trim(), store=v_("ef_store").trim();
-  var reservation=v_("ef_res").trim(), rtime=v_("ef_rtime").trim(), situation=v_("ef_sit").trim();
-  if (!name || !email || !store || !situation){ alert("お名前・メール・店舗名・状況は必須です。"); return; }
+  var situation=v_("ef_sit").trim(), videoUrl=v_("ef_videoUrl").trim();
+  if (!name || !email || !store || !situation){ alert("予約者名・メール・店舗・状況は必須です。"); return; }
   var btn=document.getElementById("ef_submit"); if (btn){ btn.disabled=true; btn.textContent="送信中…"; }
-  var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, reservation:reservation, reservationTime:rtime, situation:situation });
-  if (!r || !r.ok){ if (btn){ btn.disabled=false; btn.textContent="送信して相談する"; } alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
+
+  // 添付があればDriveへアップロード
+  var attachUrl="";
+  var fi=document.getElementById("ef_file");
+  if (fi && fi.files && fi.files[0]){
+    var f=fi.files[0];
+    if (f.size > 20*1024*1024){ alert("ファイルは20MBまでです。"); if (btn){ btn.disabled=false; btn.textContent="確認する"; } return; }
+    try{
+      var b64=await fileToBase64_(f);
+      var up=await httpPost_("/v2/upload", { fileData:b64, fileName:f.name, mimeType:f.type });
+      if (up && up.success){ attachUrl=up.fileUrl||up.ucUrl||""; }
+    }catch(e){}
+  }
+
+  var full=situation;
+  if (attachUrl) full += "\n📎 添付: "+attachUrl;
+  if (videoUrl)  full += "\n🎥 動画URL: "+videoUrl;
+
+  var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, situation:full });
+  if (!r || !r.ok){ if (btn){ btn.disabled=false; btn.textContent="確認する"; } alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
   convId=r.conversationId;
   showChat_(); setSt_("接続中…");
   await loadHistory_(); openWs_();
