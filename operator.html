@@ -62,6 +62,17 @@
   #composer button:disabled{background:#94a3b8; cursor:not-allowed;}
   #empty{flex:1; display:flex; align-items:center; justify-content:center; color:var(--sub); font-size:14px;}
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:9px 16px; border-radius:8px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50;}
+  .sc-modal{background:#fff; width:min(720px,95vw); max-height:88vh; overflow:auto; border-radius:14px; padding:18px;}
+  .sc-row{display:flex; align-items:center; gap:5px; padding:6px 2px; border-bottom:1px solid #f1f5f9;}
+  .sc-row .lbl{flex:1; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sc-tag{font-size:10px; padding:1px 6px; border-radius:999px;}
+  .sc-tag.em{background:#fee2e2; color:#b91c1c;} .sc-tag.fm{background:#e0e7ff; color:#3730a3;}
+  .sc-btn{font-size:12px; padding:4px 7px; border:1px solid var(--line); background:#fff; border-radius:6px; cursor:pointer;}
+  .sc-field{display:block; font-size:12px; font-weight:600; margin:10px 0 4px; color:#374151;}
+  .sc-input{width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; font-size:15px; font-family:inherit; box-sizing:border-box;}
+  textarea.sc-input{min-height:64px; resize:vertical;}
+  .sc-media-item{display:flex; align-items:center; gap:8px; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; margin-top:6px;}
+  .sc-primary{background:#0ea5e9; color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:700; cursor:pointer;}
   .toast.show{opacity:.95;}
   @media(max-width:760px){
     #app{grid-template-columns:1fr;}
@@ -117,16 +128,28 @@
 </div>
 
 <!-- シナリオ管理パネル -->
-<div id="scenarioPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:center; justify-content:center;">
-  <div style="background:#fff; width:min(560px,92vw); max-height:86vh; overflow:auto; border-radius:14px; padding:20px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+<div id="scenarioPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong style="font-size:16px;">⚙ シナリオ管理</strong>
-      <button onclick="closeScenario_()" style="border:none;background:#eee;border-radius:6px;padding:6px 12px;cursor:pointer;">閉じる</button>
+      <div style="display:flex; gap:6px;">
+        <button class="sc-btn" id="importBtn" onclick="importTree_()" title="現在のスプレッドシートFAQで上書き">現行FAQを再取り込み</button>
+        <button class="sc-btn" onclick="closeScenario_()">閉じる</button>
+      </div>
     </div>
-    <p style="font-size:13px;color:#475569;line-height:1.6;">お客様のFAQツリーをデータベース(D1)で管理します。まず「今のFAQを取り込む」を押すと、LIFFがD1から読み込むようになり<strong>起動が速く</strong>なります。</p>
-    <button id="importBtn" onclick="importTree_()" style="width:100%;padding:12px;margin-top:10px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">今のFAQをD1に取り込む（初回）</button>
-    <div id="importResult" style="font-size:13px;margin-top:10px;"></div>
-    <p style="font-size:12px;color:#94a3b8;margin-top:14px;">※ 追加・編集・並べ替え・画像/リンク管理の編集画面は次のステップで追加します。</p>
+    <div id="importResult" style="font-size:12px;margin-bottom:8px;"></div>
+
+    <!-- ツリー一覧 -->
+    <div id="scListView">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0;">
+        <span style="font-size:13px;color:#64748b;">項目をタップして編集。保存すると即お客様画面に反映されます。</span>
+        <button class="sc-btn" onclick="scAddRoot_()">＋ 大項目を追加</button>
+      </div>
+      <div id="scTree"></div>
+    </div>
+
+    <!-- 編集フォーム -->
+    <div id="scEditView" style="display:none;"></div>
   </div>
 </div>
 
@@ -180,17 +203,151 @@ function authMsg_(r){
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
 function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} idToken=""; stopAll_(); location.reload(); }
 
-/* シナリオ管理（移行＋将来の編集） */
-function openScenario_(){ document.getElementById("scenarioPanel").style.display="flex"; }
+/* =========================================================
+ *  シナリオ管理（D1編集）
+ * ========================================================= */
+var scNodes=[], scMediaTmp=[];
+function openScenario_(){ document.getElementById("scenarioPanel").style.display="flex"; loadScenario_(); }
 function closeScenario_(){ document.getElementById("scenarioPanel").style.display="none"; }
+function scMsg_(text, ok){ var e=document.getElementById("importResult"); e.style.color=ok?"#16a34a":"#b91c1c"; e.textContent=text; }
+
 function importTree_(){
-  var btn=document.getElementById("importBtn"), res=document.getElementById("importResult");
-  if (btn){ btn.disabled=true; btn.textContent="取り込み中…"; }
+  if (!confirm("現在のスプレッドシートのFAQでD1を上書きします。よろしいですか？")) return;
+  var btn=document.getElementById("importBtn"); if (btn){ btn.disabled=true; btn.textContent="取り込み中…"; }
   httpPost_("/v2/admin/import-tree", {}).then(function(r){
-    if (btn){ btn.disabled=false; btn.textContent="今のFAQをD1に取り込む（初回）"; }
-    if (r && r.ok){ res.style.color="#16a34a"; res.textContent="✓ "+r.count+"件をD1に取り込みました。LIFFを開き直すと高速化されます。"; }
-    else { res.style.color="#b91c1c"; res.textContent="失敗（"+((r&&(r.detail||r.error))||"")+"）。GAS_EXEC_URLの設定を確認してください。"; }
-  }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="今のFAQをD1に取り込む（初回）";} res.style.color="#b91c1c"; res.textContent="通信エラー"; });
+    if (btn){ btn.disabled=false; btn.textContent="現行FAQを再取り込み"; }
+    if (r && r.ok){ scMsg_("✓ "+r.count+"件を取り込みました。",true); loadScenario_(); }
+    else scMsg_("失敗（"+((r&&(r.detail||r.error))||"")+"）",false);
+  }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="現行FAQを再取り込み";} scMsg_("通信エラー",false); });
+}
+
+function loadScenario_(){
+  httpPost_("/v2/admin/tree", {}).then(function(r){
+    if (r && r.ok){ scNodes=r.nodes||[]; renderScTree_(); }
+    else scMsg_("読み込み失敗",false);
+  }).catch(function(){ scMsg_("通信エラー",false); });
+}
+function scChildren_(pid){ return scNodes.filter(function(n){ return (n.parent_id||null)===(pid||null); }).sort(function(a,b){ return (a.sort||0)-(b.sort||0); }); }
+function showList_(){ document.getElementById("scListView").style.display="block"; document.getElementById("scEditView").style.display="none"; }
+
+function renderScTree_(){
+  showList_();
+  var box=document.getElementById("scTree"); box.innerHTML="";
+  function walk(pid, depth){
+    scChildren_(pid).forEach(function(n){
+      var row=document.createElement("div"); row.className="sc-row";
+      var tag = n.type==="emergency" ? '<span class="sc-tag em">緊急</span>' : (n.type==="form" ? '<span class="sc-tag fm">フォーム</span>' : '');
+      row.innerHTML='<span style="width:'+(depth*16)+'px;flex-shrink:0;"></span>'
+        +'<span class="lbl">'+(depth?'└ ':'')+esc_(n.label||"(空)")+' '+tag+'</span>'
+        +'<button class="sc-btn" data-a="edit">編集</button>'
+        +'<button class="sc-btn" data-a="add">＋子</button>'
+        +'<button class="sc-btn" data-a="up">↑</button>'
+        +'<button class="sc-btn" data-a="down">↓</button>'
+        +'<button class="sc-btn" data-a="del">🗑</button>';
+      row.querySelector('[data-a=edit]').onclick=function(){ scEditNode_(n.id); };
+      row.querySelector('[data-a=add]').onclick=function(){ scAddChild_(n.id); };
+      row.querySelector('[data-a=up]').onclick=function(){ scMove_(n.id,-1); };
+      row.querySelector('[data-a=down]').onclick=function(){ scMove_(n.id,1); };
+      row.querySelector('[data-a=del]').onclick=function(){ scDelete_(n.id); };
+      box.appendChild(row);
+      walk(n.id, depth+1);
+    });
+  }
+  walk(null,0);
+  if (!scNodes.length) box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">項目がありません。「現行FAQを再取り込み」か「＋大項目を追加」から始めてください。</div>';
+}
+
+function scAddRoot_(){ scSaveNode_({ id:"", parent_id:null, sort:scChildren_(null).length, label:"新しい項目", type:"node", media:"[]" }, true); }
+function scAddChild_(pid){ scSaveNode_({ id:"", parent_id:pid, sort:scChildren_(pid).length, label:"新しい項目", type:"node", media:"[]" }, true); }
+
+function scMove_(id, dir){
+  var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
+  var sibs=scChildren_(n.parent_id); var i=sibs.findIndex(function(x){return x.id===id;});
+  var j=i+dir; if (j<0||j>=sibs.length) return;
+  var a=sibs[i], b=sibs[j]; var as=a.sort, bs=b.sort;
+  Promise.all([
+    httpPost_("/v2/admin/node", { id:a.id, parent_id:a.parent_id, sort:bs, label:a.label, type:a.type, media:a.media }),
+    httpPost_("/v2/admin/node", { id:b.id, parent_id:b.parent_id, sort:as, label:b.label, type:b.type, media:b.media })
+  ]).then(function(){ loadScenario_(); });
+}
+
+function scDelete_(id){
+  if (!confirm("この項目と、その配下の子項目もすべて削除します。よろしいですか？")) return;
+  httpPost_("/v2/admin/node-delete", { id:id }).then(function(r){
+    if (r && r.ok){ toast_("削除しました"); loadScenario_(); } else toast_("削除に失敗");
+  });
+}
+
+function scEditNode_(id){
+  var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
+  try{ scMediaTmp = n.media ? JSON.parse(n.media) : []; }catch(e){ scMediaTmp=[]; }
+  if (!Array.isArray(scMediaTmp)) scMediaTmp=[];
+  var v=document.getElementById("scEditView");
+  document.getElementById("scListView").style.display="none";
+  v.style.display="block";
+  v.innerHTML=
+    '<button class="sc-btn" onclick="renderScTree_()">← 一覧へ戻る</button>'
+    +'<label class="sc-field">表示テキスト</label>'
+    +'<textarea id="sc_label" class="sc-input"></textarea>'
+    +'<label class="sc-field">種類</label>'
+    +'<select id="sc_type" class="sc-input">'
+      +'<option value="node">通常（質問・回答）</option>'
+      +'<option value="emergency">緊急対応（スタッフチャットへ）</option>'
+      +'<option value="form">フォーム</option>'
+    +'</select>'
+    +'<label class="sc-field">画像・リンク</label>'
+    +'<div id="sc_media"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;">'
+      +'<button class="sc-btn" onclick="scAddLink_()">＋ リンク追加</button>'
+      +'<button class="sc-btn" onclick="document.getElementById(\'sc_img\').click()">＋ 画像追加</button>'
+      +'<input type="file" id="sc_img" accept="image/*" style="display:none;" onchange="scAddImage_(this)">'
+    +'</div>'
+    +'<div style="margin-top:16px;display:flex;gap:8px;">'
+      +'<button class="sc-primary" onclick="scSaveEdit_(\''+n.id+'\')">保存</button>'
+      +'<button class="sc-btn" onclick="renderScTree_()">キャンセル</button>'
+    +'</div>';
+  document.getElementById("sc_label").value=n.label||"";
+  document.getElementById("sc_type").value=n.type||"node";
+  renderScMedia_();
+}
+function renderScMedia_(){
+  var box=document.getElementById("sc_media"); if(!box) return;
+  if (!scMediaTmp.length){ box.innerHTML='<div style="font-size:12px;color:#94a3b8;">なし</div>'; return; }
+  box.innerHTML="";
+  scMediaTmp.forEach(function(m,i){
+    var d=document.createElement("div"); d.className="sc-media-item";
+    var icon = m.type==="image" ? "🖼" : (m.type==="form" ? "📝" : "🔗");
+    d.innerHTML='<span>'+icon+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(m.text||m.url||"")+'</span><button class="sc-btn" data-i="'+i+'">削除</button>';
+    d.querySelector("button").onclick=function(){ scMediaTmp.splice(i,1); renderScMedia_(); };
+    box.appendChild(d);
+  });
+}
+function scAddLink_(){
+  var text=prompt("リンクの表示テキスト（例：予約はこちら）"); if (text===null) return;
+  var url=prompt("リンクURL（https://...）"); if (!url) return;
+  scMediaTmp.push({ type:"link", url:url.trim(), text:(text||"リンク").trim() }); renderScMedia_();
+}
+function scAddImage_(input){
+  var f=input.files&&input.files[0]; if(!f) return;
+  if (f.size>20*1024*1024){ alert("画像は20MBまで"); input.value=""; return; }
+  toast_("画像アップロード中…");
+  fetch(WORKER_BASE+"/v2/admin/upload?name="+encodeURIComponent(f.name), {
+    method:"POST", headers:{ "content-type":f.type||"application/octet-stream", "authorization":"Bearer "+idToken }, body:f
+  }).then(function(x){return x.json();}).then(function(r){
+    input.value="";
+    if (r && r.success){ scMediaTmp.push({ type:"image", url:r.fileUrl, text:f.name }); renderScMedia_(); toast_("追加しました"); }
+    else toast_("アップロード失敗");
+  }).catch(function(){ input.value=""; toast_("通信エラー"); });
+}
+function scSaveEdit_(id){
+  var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
+  scSaveNode_({ id:id, parent_id:n.parent_id, sort:n.sort, label:document.getElementById("sc_label").value, type:document.getElementById("sc_type").value, media:JSON.stringify(scMediaTmp) }, false);
+}
+function scSaveNode_(payload, isNew){
+  httpPost_("/v2/admin/node", payload).then(function(r){
+    if (r && r.ok){ toast_(isNew?"追加しました":"保存しました"); loadScenario_(); }
+    else toast_("保存に失敗");
+  }).catch(function(){ toast_("通信エラー"); });
 }
 
 /* =========================================================
