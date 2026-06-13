@@ -150,6 +150,7 @@ async function boot_(){
     document.getElementById("loading").style.display="none";
     showHome_();
     renderOptions_();
+    openMonitor_();
   }catch(e){ showErr_("初期化エラー: "+(e&&e.message?e.message:e)); }
 }
 
@@ -167,7 +168,7 @@ async function loadTree_(){
 /* =========================================================
  *  画面切替
  * ========================================================= */
-function showHome_(){ hideAll_(); document.getElementById("home").style.display="flex"; }
+function showHome_(){ hideAll_(); document.getElementById("home").style.display="flex"; sendNav_(); }
 function showChat_(){ hideAll_(); document.getElementById("chat").style.display="flex"; }
 function hideAll_(){
   ["home","chat","formView"].forEach(function(id){ document.getElementById(id).style.display="none"; });
@@ -199,6 +200,7 @@ function renderOptions_(){
     b.onclick=function(){ selectNode_(node.id); };
     box.appendChild(b);
   });
+  sendNav_();
   box.scrollTop=0;
 }
 function renderCrumb_(){
@@ -251,6 +253,7 @@ function renderAnswer_(node){
   var back=document.createElement("button"); back.className="askBtn secondary"; back.style.marginTop="12px";
   back.textContent="← 一覧へ戻る"; back.onclick=function(){ renderOptions_(); };
   box.appendChild(back);
+  sendNav_();
   box.scrollTop=0;
 }
 
@@ -336,7 +339,7 @@ async function submitEmergency_(){
   var r=await httpPost_("/v2/conversations", { emergency:true, name:name, email:email, store:store, situation:situation, attachments:attachments });
   if (!r || !r.ok){ if (btn){ btn.disabled=false; btn.textContent="確認する"; } alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
   convId=r.conversationId;
-  showChat_(); setSt_("接続中…");
+  showChat_(); setSt_("接続中…"); sendNav_();
   await loadHistory_(); openWs_();
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
@@ -472,6 +475,25 @@ document.addEventListener("DOMContentLoaded", function(){
 function showErr_(msg){ document.getElementById("loading").style.display="none"; var el=document.getElementById("errBox"); el.style.display="block"; el.textContent="⚠️ "+msg; }
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function fmt_(ms){ var d=new Date(Number(ms)); if (isNaN(d)) return ""; return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
+
+/* =========================================================
+ *  訪問者モニター（スタッフがお客様の動きを見るための通知）
+ * ========================================================= */
+var monWs=null;
+function openMonitor_(){
+  if (!idToken) return;
+  try{ monWs=new WebSocket(WS_BASE+"/v2/monitor?role=visitor&token="+encodeURIComponent(idToken)); }catch(e){ return; }
+  monWs.onopen=function(){ sendNav_(); };
+  monWs.onclose=function(){ setTimeout(openMonitor_, 5000); };
+}
+function monSend_(o){ if (monWs && monWs.readyState===1){ try{ monWs.send(JSON.stringify(o)); }catch(e){} } }
+function sendNav_(){
+  var inChat = document.getElementById("chat").style.display!=="none";
+  if (inChat){ monSend_({ type:"nav", path:["緊急チャット"], chat:true }); return; }
+  var labels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
+  monSend_({ type:"nav", path:labels, chat:false });
+}
+document.addEventListener("visibilitychange", function(){ monSend_({ type:"presence", status: document.hidden?"hidden":"viewing" }); });
 
 boot_();
 </script>
