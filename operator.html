@@ -361,10 +361,17 @@ function sendReply_(){
 document.addEventListener("DOMContentLoaded", function(){
   var ta=document.getElementById("reply");
   if (!ta) return;
+  var lastCompEnd=0;
+  ta.addEventListener("compositionstart", function(){ lastCompEnd=0; });
+  ta.addEventListener("compositionend", function(){ lastCompEnd=Date.now(); });
   ta.addEventListener("keydown", function(e){
-    // 日本語入力の変換中（下線あり）のEnterは送信しない＝変換確定に使う
+    if (e.key!=="Enter" || e.shiftKey) return;
+    // 変換中（Chrome）のEnterは送信しない＝確定に使う
     if (e.isComposing || e.keyCode===229) return;
-    if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendReply_(); }
+    // 変換確定直後（Safari）のEnterも送信しない
+    if (Date.now()-lastCompEnd < 120) return;
+    e.preventDefault();
+    sendReply_();
   });
   ta.addEventListener("input", function(){
     ta.style.height="46px"; ta.style.height=Math.min(ta.scrollHeight,140)+"px";
