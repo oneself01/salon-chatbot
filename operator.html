@@ -122,6 +122,7 @@
     <div id="typing" style="display:none;"></div>
     <div id="suggestBar" style="display:none; padding:6px 10px; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line); background:#fffbeb;"></div>
     <div id="composer" style="display:none;">
+      <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
@@ -674,6 +675,24 @@ function showSuggest_(items){
   });
 }
 function clearSuggest_(){ var bar=document.getElementById("suggestBar"); bar.style.display="none"; bar.innerHTML=""; }
+// AI返信案（スタッフ補助）
+function aiSuggest_(){
+  if (!current){ toast_("会話を開いてください"); return; }
+  var btn=document.getElementById("aiBtn"); if (btn){ btn.disabled=true; btn.textContent="…"; }
+  httpPost_("/v2/staff/ai-suggest", { conversationId: current.id }).then(function(r){
+    if (btn){ btn.disabled=false; btn.textContent="🤖"; }
+    if (r && r.ok && r.suggestion){ showAiSuggest_(r.suggestion); }
+    else toast_("AI候補を生成できませんでした"+((r&&r.detail)?("："+r.detail):""));
+  }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="🤖";} toast_("通信エラー"); });
+}
+function showAiSuggest_(text){
+  var bar=document.getElementById("suggestBar"); bar.style.display="flex";
+  bar.innerHTML='<span style="font-size:11px;color:#7c3aed;width:100%;">🤖 AI返信案（タップで入力欄へ・編集して送信できます）</span>';
+  var b=document.createElement("button"); b.className="sc-btn"; b.style.cssText="max-width:100%;text-align:left;white-space:normal;line-height:1.5;";
+  b.textContent=text;
+  b.onclick=function(){ var ta=document.getElementById("reply"); ta.value=text; ta.focus(); ta.style.height="60px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.45))+"px"; clearSuggest_(); };
+  bar.appendChild(b);
+}
 
 /* =========================================================
  *  ステータス
