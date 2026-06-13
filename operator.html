@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -120,10 +120,32 @@
     </div>
     <div id="msgs" style="display:none;"></div>
     <div id="typing" style="display:none;"></div>
+    <div id="suggestBar" style="display:none; padding:6px 10px; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line); background:#fffbeb;"></div>
     <div id="composer" style="display:none;">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- 定型文・キーワード管理パネル -->
+<div id="templatePanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">💬 定型文・キーワード</strong>
+      <div style="display:flex; gap:6px;">
+        <button class="sc-btn" onclick="importTemplates_()" title="現在のスプレッドシートから取り込み">現行を再取り込み</button>
+        <button class="sc-btn" onclick="closeTemplates_()">閉じる</button>
+      </div>
+    </div>
+    <div id="tplMsg" style="font-size:12px;margin-bottom:8px;"></div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;">スタッフ返信候補＝お客様の発言にキーワードが一致したら、対応画面に候補ボタンが出ます。お客様向け案内＝緊急チャットで一致した時に「もしかして」案内を出します（次ステップで連携）。</p>
+    <div style="display:flex;gap:8px;margin:8px 0;">
+      <button class="sc-btn" onclick="tplAdd_('staff')">＋ スタッフ返信候補</button>
+      <button class="sc-btn" onclick="tplAdd_('customer')">＋ お客様向け案内</button>
+    </div>
+    <div id="tplList"></div>
+    <div id="tplEdit" style="display:none;"></div>
   </div>
 </div>
 
@@ -224,6 +246,72 @@ function openMonitorFeed_(){
     if (isNew) fetchConvs_();
   };
   monWs.onclose=function(){ if (idToken) setTimeout(openMonitorFeed_, 5000); };
+}
+
+/* =========================================================
+ *  定型文・キーワード管理
+ * ========================================================= */
+var tplItems=[];
+function openTemplates_(){ document.getElementById("templatePanel").style.display="flex"; loadTemplates_(); }
+function closeTemplates_(){ document.getElementById("templatePanel").style.display="none"; }
+function tplMsg_(t,ok){ var e=document.getElementById("tplMsg"); e.style.color=ok?"#16a34a":"#b91c1c"; e.textContent=t; }
+function importTemplates_(){
+  if (!confirm("現在のスプレッドシートの定型文・キーワードでD1を上書きします。よろしいですか？")) return;
+  httpPost_("/v2/admin/import-templates", {}).then(function(r){
+    if (r && r.ok){ tplMsg_("✓ スタッフ"+r.staff+"件・お客様"+r.customer+"件を取り込みました",true); loadTemplates_(); }
+    else tplMsg_("失敗（"+((r&&(r.detail||r.error))||"")+"）",false);
+  }).catch(function(){ tplMsg_("通信エラー",false); });
+}
+function loadTemplates_(){
+  httpPost_("/v2/admin/templates", {}).then(function(r){ if (r && r.ok){ tplItems=r.templates||[]; renderTpl_(); } else tplMsg_("読み込み失敗",false); });
+}
+function tplShowList_(){ document.getElementById("tplList").style.display="block"; document.getElementById("tplEdit").style.display="none"; }
+function renderTpl_(){
+  tplShowList_();
+  var box=document.getElementById("tplList");
+  function section(kind, title){
+    var items=tplItems.filter(function(t){ return (t.kind||"staff")===kind; });
+    var html='<div style="font-weight:700;font-size:13px;margin:12px 0 4px;">'+title+'（'+items.length+'）</div>';
+    if (!items.length) html+='<div style="font-size:12px;color:#94a3b8;">なし</div>';
+    html+=items.map(function(t){
+      return '<div class="sc-row"><span class="lbl" style="white-space:normal;"><span style="color:#0ea5e9;font-size:12px;">['+esc_(t.keywords||"キーワードなし")+']</span> '+esc_(String(t.body||"").slice(0,40))+'</span>'
+        +'<button class="sc-btn" data-e="'+t.id+'">編集</button><button class="sc-btn" data-d="'+t.id+'">🗑</button></div>';
+    }).join("");
+    return html;
+  }
+  box.innerHTML=section("staff","スタッフ返信候補")+section("customer","お客様向け案内（もしかして）");
+  Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ tplEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ tplDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
+}
+function tplAdd_(kind){ tplEditForm_({ id:0, kind:kind, category:"", keywords:"", body:"" }); }
+function tplEdit_(id){ var t=tplItems.find(function(x){return x.id===id;}); if (t) tplEditForm_(t); }
+function tplEditForm_(t){
+  document.getElementById("tplList").style.display="none";
+  var v=document.getElementById("tplEdit"); v.style.display="block";
+  v.innerHTML=
+    '<button class="sc-btn" onclick="renderTpl_()">← 一覧へ戻る</button>'
+    +'<label class="sc-field">種類</label>'
+    +'<select id="tpl_kind" class="sc-input"><option value="staff">スタッフ返信候補</option><option value="customer">お客様向け案内（もしかして）</option></select>'
+    +'<label class="sc-field">キーワード（カンマ区切り。お客様の発言にこれが含まれると候補表示）</label>'
+    +'<input id="tpl_kw" class="sc-input" type="text" placeholder="例：鍵,開かない,入れない">'
+    +'<label class="sc-field">分類（任意・スタッフ用の見出し）</label>'
+    +'<input id="tpl_cat" class="sc-input" type="text">'
+    +'<label class="sc-field">本文（返信／案内の文章）</label>'
+    +'<textarea id="tpl_body" class="sc-input" style="min-height:120px;"></textarea>'
+    +'<div style="margin-top:14px;display:flex;gap:8px;"><button class="sc-primary" onclick="tplSave_('+t.id+')">保存</button><button class="sc-btn" onclick="renderTpl_()">キャンセル</button></div>';
+  document.getElementById("tpl_kind").value=t.kind||"staff";
+  document.getElementById("tpl_kw").value=t.keywords||"";
+  document.getElementById("tpl_cat").value=t.category||"";
+  document.getElementById("tpl_body").value=t.body||"";
+}
+function tplSave_(id){
+  httpPost_("/v2/admin/template", { id:id||0, kind:document.getElementById("tpl_kind").value, keywords:document.getElementById("tpl_kw").value, category:document.getElementById("tpl_cat").value, body:document.getElementById("tpl_body").value }).then(function(r){
+    if (r && r.ok){ toast_("保存しました"); loadTemplates_(); } else toast_("保存に失敗");
+  });
+}
+function tplDelete_(id){
+  if (!confirm("削除しますか？")) return;
+  httpPost_("/v2/admin/template-delete", { id:id }).then(function(r){ if (r && r.ok){ toast_("削除しました"); loadTemplates_(); } else toast_("削除に失敗"); });
 }
 
 /* =========================================================
@@ -469,6 +557,7 @@ function openConv_(id){
   document.getElementById("composer").style.display="flex";
   document.getElementById("typing").textContent="";
   document.getElementById("msgs").innerHTML="";
+  clearSuggest_();
   document.getElementById("chNm").textContent=(c.customer_name||"（お客様）")+(c.store?("　"+c.store):"");
   var sub=[];
   if (c.email) sub.push(c.email);
@@ -508,6 +597,7 @@ function openWs_(id){
     var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
     if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
     if (d.type==="draft"){ showDraft_(d.body); return; }
+    if (d.type==="suggest"){ showSuggest_(d.items||[]); return; }
     if (d.type==="message"){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seenKeys.has(key)) return;
@@ -569,6 +659,21 @@ function showDraft_(text){
   typingHideTimer=setTimeout(clearTyping_, 6000);
 }
 function clearTyping_(){ var el=document.getElementById("typing"); el.textContent=""; el.dataset.draft=""; }
+// 定型文サジェスト（お客様の発言にマッチした候補をスタッフに提示）
+function showSuggest_(items){
+  var bar=document.getElementById("suggestBar");
+  if (!items.length){ clearSuggest_(); return; }
+  bar.style.display="flex";
+  bar.innerHTML='<span style="font-size:11px;color:#92400e;width:100%;">💡 候補（タップで入力欄へ）</span>'
+    + items.map(function(it,i){
+        var label=(it.category?("["+it.category+"] "):"")+String(it.body||"").slice(0,24)+(String(it.body||"").length>24?"…":"");
+        return '<button class="sc-btn" data-i="'+i+'" style="max-width:100%;text-align:left;white-space:normal;">'+esc_(label)+'</button>';
+      }).join("");
+  Array.prototype.forEach.call(bar.querySelectorAll("button"), function(b){
+    b.onclick=function(){ var it=items[parseInt(b.getAttribute("data-i"),10)]; var ta=document.getElementById("reply"); ta.value=it.body||""; ta.focus(); clearSuggest_(); };
+  });
+}
+function clearSuggest_(){ var bar=document.getElementById("suggestBar"); bar.style.display="none"; bar.innerHTML=""; }
 
 /* =========================================================
  *  ステータス
@@ -606,7 +711,7 @@ function sendReply_(){
   if (!text || !current) return;
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
   ws.send(JSON.stringify({ type:"message", body:text }));
-  ta.value=""; ta.style.height="46px";
+  ta.value=""; ta.style.height="46px"; clearSuggest_();
 }
 
 document.addEventListener("DOMContentLoaded", function(){
