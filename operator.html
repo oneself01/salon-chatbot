@@ -86,7 +86,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -113,6 +113,20 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- シナリオ管理パネル -->
+<div id="scenarioPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:center; justify-content:center;">
+  <div style="background:#fff; width:min(560px,92vw); max-height:86vh; overflow:auto; border-radius:14px; padding:20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">⚙ シナリオ管理</strong>
+      <button onclick="closeScenario_()" style="border:none;background:#eee;border-radius:6px;padding:6px 12px;cursor:pointer;">閉じる</button>
+    </div>
+    <p style="font-size:13px;color:#475569;line-height:1.6;">お客様のFAQツリーをデータベース(D1)で管理します。まず「今のFAQを取り込む」を押すと、LIFFがD1から読み込むようになり<strong>起動が速く</strong>なります。</p>
+    <button id="importBtn" onclick="importTree_()" style="width:100%;padding:12px;margin-top:10px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">今のFAQをD1に取り込む（初回）</button>
+    <div id="importResult" style="font-size:13px;margin-top:10px;"></div>
+    <p style="font-size:12px;color:#94a3b8;margin-top:14px;">※ 追加・編集・並べ替え・画像/リンク管理の編集画面は次のステップで追加します。</p>
   </div>
 </div>
 
@@ -165,6 +179,19 @@ function authMsg_(r){
 }
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
 function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} idToken=""; stopAll_(); location.reload(); }
+
+/* シナリオ管理（移行＋将来の編集） */
+function openScenario_(){ document.getElementById("scenarioPanel").style.display="flex"; }
+function closeScenario_(){ document.getElementById("scenarioPanel").style.display="none"; }
+function importTree_(){
+  var btn=document.getElementById("importBtn"), res=document.getElementById("importResult");
+  if (btn){ btn.disabled=true; btn.textContent="取り込み中…"; }
+  httpPost_("/v2/admin/import-tree", {}).then(function(r){
+    if (btn){ btn.disabled=false; btn.textContent="今のFAQをD1に取り込む（初回）"; }
+    if (r && r.ok){ res.style.color="#16a34a"; res.textContent="✓ "+r.count+"件をD1に取り込みました。LIFFを開き直すと高速化されます。"; }
+    else { res.style.color="#b91c1c"; res.textContent="失敗（"+((r&&(r.detail||r.error))||"")+"）。GAS_EXEC_URLの設定を確認してください。"; }
+  }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="今のFAQをD1に取り込む（初回）";} res.style.color="#b91c1c"; res.textContent="通信エラー"; });
+}
 
 /* =========================================================
  *  HTTP ヘルパー（認証ヘッダ付き）

@@ -155,7 +155,11 @@ async function boot_(){
 
 async function loadTree_(){
   try{
-    var r = await fetch(GAS_URL).then(function(x){ return x.json(); });
+    // D1から高速取得。失敗時はGAS(スプレッドシート)にフォールバック
+    var r = await fetch(WORKER_BASE+"/v2/tree").then(function(x){ return x.json(); }).catch(function(){ return null; });
+    if (!r || !r.success || !r.data || !(r.data.level0||[]).length){
+      r = await fetch(GAS_URL).then(function(x){ return x.json(); }).catch(function(){ return null; });
+    }
     if (r && r.success){ tree = r.data || {}; mediaData = r.media || {}; }
   }catch(e){ tree = tree || {}; }
 }
