@@ -441,7 +441,7 @@ function append_(senderType, body, createdAt, attachments){
   var who=senderType==="customer"?"":(senderType==="system"?"":"スタッフ");
   var media=attachHtml_(attachments);
   var row=document.createElement("div"); row.className="row "+side;
-  row.innerHTML='<div class="bubble">'+esc_(body||"")+media+'</div>'
+  row.innerHTML='<div class="bubble">'+linkify_(body||"")+media+'</div>'
     + (who||createdAt ? '<div class="meta">'+(who||"")+(who&&createdAt?" ・ ":"")+(createdAt?fmt_(createdAt):"")+'</div>' : '');
   document.getElementById("msgs").appendChild(row);
 }
@@ -483,6 +483,7 @@ document.addEventListener("DOMContentLoaded", function(){
  * ========================================================= */
 function showErr_(msg){ document.getElementById("loading").style.display="none"; var el=document.getElementById("errBox"); el.style.display="block"; el.textContent="⚠️ "+msg; }
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function linkify_(s){ return esc_(s).replace(/(https?:\/\/[^\s<]+)/g, function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;word-break:break-all;">'+u+'</a>'; }); }
 function fmt_(ms){ var d=new Date(Number(ms)); if (isNaN(d)) return ""; return ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
 
 /* =========================================================

@@ -636,7 +636,7 @@ function appendMsg_(senderType, body, createdAt, attachments){
   var media=attachHtml_(attachments);
   var row=document.createElement("div");
   row.className="row "+side;
-  row.innerHTML='<div class="bubble">'+esc_(body||"")+media+'</div>'
+  row.innerHTML='<div class="bubble">'+linkify_(body||"")+media+'</div>'
     +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
   document.getElementById("msgs").appendChild(row);
 }
@@ -741,6 +741,7 @@ document.addEventListener("DOMContentLoaded", function(){
  * ========================================================= */
 function stopAll_(){ if (listTimer){clearInterval(listTimer); listTimer=null;} closeWs_(); if (monWs){ try{ monWs.close(); }catch(e){} monWs=null; } }
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function linkify_(s){ return esc_(s).replace(/(https?:\/\/[^\s<]+)/g, function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;word-break:break-all;">'+u+'</a>'; }); }
 function fmtTime_(ms){
   if (!ms) return "";
   var d=new Date(Number(ms)); if (isNaN(d)) return "";
