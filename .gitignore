@@ -42,3 +42,9 @@ coverage/
 
 # その他
 .cache/
+
+# Worker / 引き継ぎ（公開Pagesリポジトリに含めない）
+worker.js
+wrangler.toml
+HANDOVER.md
+DEPLOY_GUIDE.md
