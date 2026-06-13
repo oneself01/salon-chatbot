@@ -350,6 +350,7 @@ async function submitEmergency_(){
   convId=r.conversationId;
   showChat_(); setSt_("接続中…"); sendNav_();
   await loadHistory_(); openWs_();
+  if (r.deflect) appendSuggest_(r.deflect);
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
 function goRoot_(){ stack=[]; renderOptions_(); }
