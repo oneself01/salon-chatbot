@@ -153,6 +153,7 @@ async function boot_(){
     showHome_();
     renderOptions_();
     openMonitor_();
+    httpPost_("/v2/enter", {});
   }catch(e){ showErr_("初期化エラー: "+(e&&e.message?e.message:e)); }
 }
 
