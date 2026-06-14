@@ -121,10 +121,11 @@
     <div id="msgs" style="display:none;"></div>
     <div id="typing" style="display:none;"></div>
     <div id="suggestBar" style="display:none; padding:6px 10px; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line); background:#fffbeb;"></div>
+    <div id="opPendingBar" style="display:none;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-top:1px solid var(--line);"></div>
     <div id="composer" style="display:none;">
       <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
-      <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を送る" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
-      <input type="file" id="opChatFile" accept="image/*,video/*" style="display:none;" onchange="opSendMedia_(this)">
+      <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を選ぶ" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
+      <input type="file" id="opChatFile" accept="image/*,video/*" style="display:none;" onchange="opPickMedia_(this)">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
@@ -164,8 +165,8 @@
     <div id="gtTplChips" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto;"></div>
     <label class="sc-field">本文</label>
     <textarea id="gtBody" class="sc-input" style="min-height:140px;"></textarea>
-    <button class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtMailto_()">📧 メールアプリで作成する</button>
-    <p style="font-size:11px;color:#94a3b8;margin-top:8px;">お使いのメールアプリが起動し、宛先・件名・本文が入った状態になります。内容を確認して送信してください。</p>
+    <button class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtMailto_()">📧 Gmailで作成する</button>
+    <p style="font-size:11px;color:#94a3b8;margin-top:8px;">Gmailの作成画面が新しいタブで開き、宛先・件名・本文が入った状態になります。内容を確認して送信してください。</p>
   </div>
 </div>
 
@@ -468,8 +469,8 @@ function gtMailto_(){
   var subject=document.getElementById("gtSubject").value;
   var body=document.getElementById("gtBody").value;
   if (!to){ toast_("宛先がありません"); return; }
-  var url="mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
-  window.location.href=url;
+  var url="https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(to)+"&su="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+  window.open(url, "_blank");
 }
 function renderGtPager_(){
   var p=document.getElementById("generalPager"); p.innerHTML="";
@@ -1080,21 +1081,37 @@ function sendReply_(){
   var text=ta.value.trim();
   if (!text || !current) return;
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  if (opPendingFile){ opSendWithMedia_(text); return; }
   ws.send(JSON.stringify({ type:"message", body:text }));
   ta.value=""; ta.style.height="60px"; clearSuggest_();
 }
-async function opSendMedia_(input){
+var opPendingFile=null;
+function opPickMedia_(input){
   var f=input.files&&input.files[0]; input.value="";
-  if (!f || !current) return;
+  if (!f) return;
   if (f.size>20*1024*1024){ toast_("ファイルは20MBまでです"); return; }
-  if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
-  var ab=document.getElementById("opAttachBtn"); if (ab){ ab.disabled=true; ab.textContent="…"; }
+  opPendingFile=f;
+  var bar=document.getElementById("opPendingBar"); bar.style.display="flex";
+  var url=URL.createObjectURL(f);
+  var isImg=(f.type||"").indexOf("image")===0, isVid=(f.type||"").indexOf("video")===0;
+  var thumb = isImg ? ('<img src="'+url+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;display:block;">')
+            : isVid ? ('<video src="'+url+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;display:block;"></video>')
+            : '<span style="font-size:24px;">📄</span>';
+  bar.innerHTML='<div style="position:relative;">'+thumb+'<button onclick="opClearPending_()" style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#0f172a;color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;">×</button></div>'
+    +'<span style="font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(f.name)+'</span>';
+}
+function opClearPending_(){ opPendingFile=null; var bar=document.getElementById("opPendingBar"); bar.style.display="none"; bar.innerHTML=""; }
+async function opSendWithMedia_(text){
+  if (!current || !ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  var f=opPendingFile, ab=document.getElementById("opAttachBtn"); if (ab){ ab.disabled=true; ab.textContent="…"; }
   var r=await fetch(WORKER_BASE+"/v2/admin/upload?name="+encodeURIComponent(f.name), {
     method:"POST", headers:{ "content-type":f.type||"application/octet-stream", "authorization":"Bearer "+idToken }, body:f
   }).then(function(x){return x.json();}).catch(function(){return null;});
   if (ab){ ab.disabled=false; ab.textContent="📎"; }
-  if (r && r.success){ ws.send(JSON.stringify({ type:"message", body:"", attachments:[{ url:r.fileUrl, type:r.type, name:r.name }] })); }
-  else toast_("送信に失敗しました");
+  if (r && r.success){
+    ws.send(JSON.stringify({ type:"message", body:text||"", attachments:[{ url:r.fileUrl, type:r.type, name:r.name }] }));
+    opClearPending_(); var ta=document.getElementById("reply"); ta.value=""; ta.style.height="60px"; clearSuggest_();
+  } else toast_("送信に失敗しました");
 }
 
 document.addEventListener("DOMContentLoaded", function(){

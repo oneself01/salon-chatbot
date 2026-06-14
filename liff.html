@@ -89,9 +89,10 @@
   <div id="msgs"></div>
   <div id="typing"></div>
   <div id="endBar" style="padding:4px 10px 0;"><button onclick="customerEnd_()" style="width:100%;padding:11px;background:#fff;border:1px solid #cbd5e1;color:#0f172a;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">✓ 解決しました（チャットを終了）</button></div>
+  <div id="pendingBar" style="display:none;align-items:center;gap:8px;padding:6px 12px;background:#f8fafc;border-top:1px solid var(--line);"></div>
   <div id="composer">
-    <button id="attachBtn" onclick="document.getElementById('chatFile').click()" title="画像・動画を送る" style="width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
-    <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="sendMedia_(this)">
+    <button id="attachBtn" onclick="document.getElementById('chatFile').click()" title="画像・動画を選ぶ" style="width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
+    <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="pickMedia_(this)">
     <textarea id="input" placeholder="メッセージを入力" rows="1"></textarea>
     <button id="sendBtn" onclick="send_()">➤</button>
   </div>
@@ -560,24 +561,40 @@ function startCalling_(){
 }
 function clearCalling_(){ var el=document.getElementById("typing"); if (el.dataset.mode==="calling"){ el.dataset.mode=""; el.textContent=""; } if (callingT){ clearTimeout(callingT); callingT=null; } }
 
-function send_(){
-  var ta=document.getElementById("input"); var text=ta.value.trim();
-  if (!text) return;
-  if (!ws || ws.readyState!==1){ if (convId) openWs_(); return; }
-  ws.send(JSON.stringify({ type:"message", body:text }));
-  ws.send(JSON.stringify({ type:"draft", body:"" }));
-  ta.value=""; ta.style.height="52px";
-}
-async function sendMedia_(input){
+var pendingFile=null;
+function pickMedia_(input){
   var f=input.files&&input.files[0]; input.value="";
   if (!f) return;
   if (f.size>20*1024*1024){ alert("ファイルは20MBまでです。"); return; }
-  if (!ws || ws.readyState!==1){ if (convId) openWs_(); }
-  var ab=document.getElementById("attachBtn"); if (ab){ ab.disabled=true; ab.textContent="…"; }
-  var up=await uploadFile_(f);
-  if (ab){ ab.disabled=false; ab.textContent="📎"; }
-  if (up && up.success){ ws.send(JSON.stringify({ type:"message", body:"", attachments:[{ url:up.fileUrl, type:up.type, name:up.name }] })); }
-  else alert("送信に失敗しました。");
+  pendingFile=f;
+  var bar=document.getElementById("pendingBar"); bar.style.display="flex";
+  var url=URL.createObjectURL(f);
+  var isImg=(f.type||"").indexOf("image")===0, isVid=(f.type||"").indexOf("video")===0;
+  var thumb = isImg ? ('<img src="'+url+'" style="width:52px;height:52px;object-fit:cover;border-radius:8px;display:block;">')
+            : isVid ? ('<video src="'+url+'" style="width:52px;height:52px;object-fit:cover;border-radius:8px;display:block;"></video>')
+            : '<span style="font-size:26px;">📄</span>';
+  bar.innerHTML='<div style="position:relative;">'+thumb+'<button onclick="clearPending_()" style="position:absolute;top:-7px;right:-7px;width:21px;height:21px;border-radius:50%;background:#0f172a;color:#fff;border:none;font-size:13px;line-height:1;cursor:pointer;">×</button></div>'
+    +'<span style="font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(f.name)+'</span>';
+}
+function clearPending_(){ pendingFile=null; var bar=document.getElementById("pendingBar"); bar.style.display="none"; bar.innerHTML=""; }
+async function send_(){
+  var ta=document.getElementById("input"); var text=ta.value.trim();
+  if (!pendingFile && !text) return;
+  if (!ws || ws.readyState!==1){ if (convId) openWs_(); return; }
+  if (pendingFile){
+    var f=pendingFile;
+    var sb=document.getElementById("sendBtn"); if (sb) sb.disabled=true;
+    var up=await uploadFile_(f);
+    if (sb) sb.disabled=false;
+    if (up && up.success){
+      ws.send(JSON.stringify({ type:"message", body:text, attachments:[{ url:up.fileUrl, type:up.type, name:up.name }] }));
+      clearPending_(); ta.value=""; ta.style.height="52px";
+    } else { alert("送信に失敗しました。"); }
+    return;
+  }
+  ws.send(JSON.stringify({ type:"message", body:text }));
+  ws.send(JSON.stringify({ type:"draft", body:"" }));
+  ta.value=""; ta.style.height="52px";
 }
 function sendDraft_(){
   if (!ws || ws.readyState!==1) return;
