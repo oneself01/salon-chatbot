@@ -139,8 +139,20 @@
         <button class="sc-btn" onclick="closeGeneral_()">閉じる</button>
       </div>
     </div>
-    <p style="font-size:12px;color:#64748b;">各種フォームや緊急ではないお問い合わせはここに溜まります（スプレッドシート「一般チケット」と同期）。</p>
-    <div id="generalList" style="margin-top:8px;"></div>
+    <p style="font-size:12px;color:#64748b;">各種フォームや緊急ではないお問い合わせはここに溜まります。完了分も含め検索できます。</p>
+    <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;">
+      <input id="gtQ" class="sc-input" type="text" placeholder="名前・メール・内容で検索" style="flex:2;min-width:160px;" onkeydown="if(event.key==='Enter'){gtSearch_();}">
+      <select id="gtStatus" class="sc-input" style="flex:1;min-width:110px;" onchange="gtSearch_()">
+        <option value="">すべての状態</option>
+        <option value="未対応">未対応</option>
+        <option value="確認中">確認中</option>
+        <option value="完了">完了</option>
+      </select>
+      <button class="sc-btn" onclick="gtSearch_()">検索</button>
+    </div>
+    <div id="generalMeta" style="font-size:11px;color:#94a3b8;margin-bottom:6px;"></div>
+    <div id="generalList"></div>
+    <div id="generalPager" style="display:flex;justify-content:center;gap:10px;margin-top:10px;"></div>
   </div>
 </div>
 
@@ -297,27 +309,47 @@ function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clear
 /* =========================================================
  *  一般チケット（フォーム回答・非緊急）
  * ========================================================= */
-function openGeneral_(){ document.getElementById("generalPanel").style.display="flex"; loadGeneral_(); }
+var gtOffset=0, gtLimit=20, gtTotal=0;
+function openGeneral_(){ document.getElementById("generalPanel").style.display="flex"; gtOffset=0; loadGeneral_(); }
 function closeGeneral_(){ document.getElementById("generalPanel").style.display="none"; }
+function gtSearch_(){ gtOffset=0; loadGeneral_(); }
 function loadGeneral_(){
   var box=document.getElementById("generalList");
   box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
-  httpPost_("/v2/staff/general-tickets", {}).then(function(r){
-    if (!r || r.success!==true){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗しました</div>'; return; }
-    var rows=r.tickets||[];
-    if (!rows.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">一般チケットはありません</div>'; return; }
+  var q=document.getElementById("gtQ").value.trim();
+  var status=document.getElementById("gtStatus").value;
+  httpPost_("/v2/staff/general-tickets", { q:q, status:status, limit:gtLimit, offset:gtOffset }).then(function(r){
+    if (!r || r.ok!==true){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗しました</div>'; return; }
+    var rows=r.tickets||[]; gtTotal=r.total||0;
+    document.getElementById("generalMeta").textContent="全 "+gtTotal+" 件中 "+(gtTotal?gtOffset+1:0)+"〜"+Math.min(gtOffset+rows.length,gtTotal)+" 件";
+    if (!rows.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">該当するチケットはありません</div>'; renderGtPager_(); return; }
     box.innerHTML=rows.map(function(t){
       var st=t.status||"未対応";
       var stColor = st==="完了" ? "#475569" : (st==="未対応"||!st ? "#b91c1c" : "#854d0e");
+      var att = t.attachments ? '<a href="'+esc_(t.attachments)+'" target="_blank" rel="noopener" style="font-size:12px;color:#0ea5e9;">📎 添付</a>' : '';
       return '<div style="padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;">'
-        +'<div style="display:flex;justify-content:space-between;gap:8px;"><strong style="font-size:14px;">'+esc_(t.name||"（無名）")+'</strong>'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong style="font-size:14px;">'+esc_(t.name||"（無名）")+'</strong>'
         +'<span style="font-size:11px;color:'+stColor+';font-weight:700;">'+esc_(st)+'</span></div>'
         +(t.category?'<div style="font-size:12px;color:#3730a3;margin-top:2px;">'+esc_(t.category)+'</div>':'')
-        +'<div style="font-size:13px;color:#334155;margin-top:4px;white-space:pre-wrap;">'+linkify_(t.situation||"")+'</div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;"><span>'+esc_(t.email||"")+'</span><span>'+fmtTime_(t.timestamp?Date.parse(t.timestamp):0)+'</span></div>'
-        +'</div>';
+        +'<div style="font-size:13px;color:#334155;margin-top:4px;white-space:pre-wrap;">'+linkify_(t.body||"")+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;align-items:center;"><span>'+esc_(t.email||"")+' '+att+'</span><span>'+fmtTime_(t.created_at)+'</span></div>'
+        +'<div style="display:flex;gap:6px;margin-top:8px;">'
+          +'<button class="sc-btn" data-id="'+t.id+'" data-s="確認中">確認中</button>'
+          +'<button class="sc-btn" data-id="'+t.id+'" data-s="完了">完了</button>'
+          +'<button class="sc-btn" data-id="'+t.id+'" data-s="未対応">未対応に戻す</button>'
+        +'</div></div>';
     }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-s]"), function(b){ b.onclick=function(){ gtStatusSet_(parseInt(b.getAttribute("data-id"),10), b.getAttribute("data-s")); }; });
+    renderGtPager_();
   }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+function gtStatusSet_(id, status){
+  httpPost_("/v2/staff/general-status", { id:id, status:status }).then(function(r){ if (r&&r.ok){ toast_("→ "+status); loadGeneral_(); } else toast_("更新に失敗"); });
+}
+function renderGtPager_(){
+  var p=document.getElementById("generalPager"); p.innerHTML="";
+  if (gtOffset>0){ var prev=document.createElement("button"); prev.className="sc-btn"; prev.textContent="← 前"; prev.onclick=function(){ gtOffset=Math.max(0,gtOffset-gtLimit); loadGeneral_(); }; p.appendChild(prev); }
+  if (gtOffset+gtLimit<gtTotal){ var next=document.createElement("button"); next.className="sc-btn"; next.textContent="次 →"; next.onclick=function(){ gtOffset+=gtLimit; loadGeneral_(); }; p.appendChild(next); }
 }
 
 /* =========================================================
