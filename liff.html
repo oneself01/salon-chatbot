@@ -351,17 +351,34 @@ async function submitEmergency_(){
   // 会話作成・スタッフ通知の前に「もしかして」案内を判定
   var dc=await httpPost_("/v2/deflect-check", { situation:situation });
   if (btn){ btn.disabled=false; btn.textContent="確認する"; }
-  if (dc && dc.ok && dc.deflect){ showDeflectScreen_(dc.deflect); return; }
+  var hasFaq = dc && dc.faqs && dc.faqs.length;
+  if (dc && dc.ok && (dc.deflect || hasFaq)){ showDeflectScreen_(dc.deflect, dc.faqs||[]); return; }
   await proceedToChat_();
 }
 
 // 「もしかして」案内画面（チャットに入る前）
-function showDeflectScreen_(body){
+function showDeflectScreen_(body, faqs){
   var box=document.getElementById("options"); box.innerHTML="";
-  var div=document.createElement("div"); div.className="answer";
-  div.innerHTML='<div style="font-weight:700;margin-bottom:6px;color:#92400e;">💡 もしかして、こちらで解決しませんか？</div>'+linkify_(body);
-  box.appendChild(div);
-  var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="14px";
+  var head=document.createElement("div"); head.style.cssText="font-weight:700;margin:4px 0 10px;color:#92400e;";
+  head.textContent="💡 もしかして、こちらで解決しませんか？"; box.appendChild(head);
+  // 登録キーワードの案内
+  if (body){
+    var div=document.createElement("div"); div.className="answer"; div.style.marginBottom="10px";
+    div.innerHTML=linkify_(body); box.appendChild(div);
+  }
+  // FAQツリーからの「これかも」
+  (faqs||[]).forEach(function(f){
+    var card=document.createElement("div"); card.className="answer"; card.style.marginBottom="10px";
+    card.innerHTML=linkify_(f.label||"");
+    if (f.media && f.media.length){
+      f.media.forEach(function(m){
+        if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.style.cssText="max-width:100%;border-radius:8px;margin-top:8px;display:block;"; card.appendChild(img); }
+        else { var a=document.createElement("a"); a.className="media"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); a.style.cssText="display:inline-block;margin-top:8px;padding:9px 14px;background:var(--brand);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;"; card.appendChild(document.createElement("br")); card.appendChild(a); }
+      });
+    }
+    box.appendChild(card);
+  });
+  var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="6px";
   b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
   var b2=document.createElement("button"); b2.className="askBtn"; b2.style.marginTop="10px";
   b2.textContent="解決しない・スタッフに相談する"; b2.onclick=function(){ proceedToChat_(); };
