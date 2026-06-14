@@ -123,6 +123,8 @@
     <div id="suggestBar" style="display:none; padding:6px 10px; gap:6px; flex-wrap:wrap; border-top:1px solid var(--line); background:#fffbeb;"></div>
     <div id="composer" style="display:none;">
       <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
+      <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を送る" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
+      <input type="file" id="opChatFile" accept="image/*,video/*" style="display:none;" onchange="opSendMedia_(this)">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
@@ -954,7 +956,7 @@ function openWs_(id){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seenKeys.has(key)) return;
       seenKeys.add(key);
-      appendMsg_(d.sender_type, d.body, d.created_at);
+      appendMsg_(d.sender_type, d.body, d.created_at, d.attachments);
       scrollBottom_();
       if (d.sender_type==="customer"){ clearTyping_(); fetchConvs_(); }
     }
@@ -1082,6 +1084,19 @@ function sendReply_(){
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
   ws.send(JSON.stringify({ type:"message", body:text }));
   ta.value=""; ta.style.height="60px"; clearSuggest_();
+}
+async function opSendMedia_(input){
+  var f=input.files&&input.files[0]; input.value="";
+  if (!f || !current) return;
+  if (f.size>20*1024*1024){ toast_("ファイルは20MBまでです"); return; }
+  if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  var ab=document.getElementById("opAttachBtn"); if (ab){ ab.disabled=true; ab.textContent="…"; }
+  var r=await fetch(WORKER_BASE+"/v2/admin/upload?name="+encodeURIComponent(f.name), {
+    method:"POST", headers:{ "content-type":f.type||"application/octet-stream", "authorization":"Bearer "+idToken }, body:f
+  }).then(function(x){return x.json();}).catch(function(){return null;});
+  if (ab){ ab.disabled=false; ab.textContent="📎"; }
+  if (r && r.success){ ws.send(JSON.stringify({ type:"message", body:"", attachments:[{ url:r.fileUrl, type:r.type, name:r.name }] })); }
+  else toast_("送信に失敗しました");
 }
 
 document.addEventListener("DOMContentLoaded", function(){
