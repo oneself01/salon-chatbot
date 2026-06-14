@@ -84,7 +84,8 @@
   <header>
     <button class="back" onclick="showHome_()">← FAQ</button>
     <span class="ttl">スタッフ対応</span>
-    <span class="st" id="connSt">接続中…</span>
+    <button onclick="customerEnd_()" style="margin-left:auto;background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;">✓ 解決・終了</button>
+    <span class="st" id="connSt" style="margin-left:8px;">接続中…</span>
   </header>
   <div id="msgs"></div>
   <div id="typing"></div>
@@ -493,6 +494,17 @@ function openWs_(){
   };
 }
 function setSt_(t){ document.getElementById("connSt").textContent=t; }
+// お客様が「解決・終了」を押した時：完了にしてアンケートメールを送る
+function customerEnd_(){
+  if (!convId){ showHome_(); return; }
+  if (!confirm("チャットを終了します。よろしいですか？\n（後ほどアンケートのメールをお送りします）")) return;
+  httpPost_("/v2/customer-end", { conversationId: convId }).then(function(r){
+    append_("system","ありがとうございました。後ほどアンケートのメールをお送りします。",Date.now()); scrollBottom_();
+    var ta=document.getElementById("input"); if (ta){ ta.disabled=true; ta.placeholder="対応は終了しました"; }
+    var sb=document.getElementById("sendBtn"); if (sb) sb.disabled=true;
+    convId=null; if (ws){ try{ws.close();}catch(e){} ws=null; } setSt_("終了");
+  }).catch(function(){ alert("通信エラーが発生しました。"); });
+}
 // スタッフが会話を終了した時：入力を閉じ、次回は新規（ツリーから）になるよう会話をリセット
 function onEnded_(){
   append_("system","スタッフが対応を終了しました。ご利用ありがとうございました。", Date.now());

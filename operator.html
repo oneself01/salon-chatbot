@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -126,6 +126,24 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- アンケート集計パネル -->
+<div id="surveyPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">📊 アンケート集計</strong>
+      <button class="sc-btn" onclick="closeSurvey_()">閉じる</button>
+    </div>
+    <div style="display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:12px;color:#64748b;">期間:</span>
+      <input id="svFrom" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <span style="font-size:12px;">〜</span>
+      <input id="svTo" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <button class="sc-btn" onclick="loadSurvey_()">表示</button>
+    </div>
+    <div id="surveyBody"></div>
   </div>
 </div>
 
@@ -305,6 +323,51 @@ function authMsg_(r){
 }
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
 function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clearStored_(); idToken=""; stopAll_(); location.reload(); }
+
+/* =========================================================
+ *  アンケート集計
+ * ========================================================= */
+function openSurvey_(){ document.getElementById("surveyPanel").style.display="flex"; loadSurvey_(); }
+function closeSurvey_(){ document.getElementById("surveyPanel").style.display="none"; }
+function svStars_(avg){ var a=Math.round(avg||0); return "★★★★★".slice(0,a)+"☆☆☆☆☆".slice(0,5-a); }
+function loadSurvey_(){
+  var body=document.getElementById("surveyBody");
+  body.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
+  var fromV=document.getElementById("svFrom").value, toV=document.getElementById("svTo").value;
+  var req={};
+  if (fromV) req.from=new Date(fromV+"T00:00:00").getTime();
+  if (toV) req.to=new Date(toV+"T23:59:59").getTime();
+  httpPost_("/v2/staff/survey-stats", req).then(function(r){
+    if (!r || !r.ok){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗</div>'; return; }
+    var ov=r.overall||{c:0,avg:0};
+    var html='<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px;margin-bottom:12px;text-align:center;">'
+      +'<div style="font-size:13px;color:#0369a1;">全体</div>'
+      +'<div style="font-size:26px;font-weight:700;color:#0ea5e9;">'+(ov.avg?Number(ov.avg).toFixed(2):"-")+' <span style="font-size:16px;color:#fbbf24;">'+svStars_(ov.avg)+'</span></div>'
+      +'<div style="font-size:12px;color:#64748b;">回答数 '+(ov.c||0)+'件</div></div>';
+    // 対応者ごと
+    html+='<div style="font-weight:700;font-size:13px;margin:10px 0 4px;">対応者ごと</div>';
+    var bs=r.byStaff||[];
+    html+= bs.length ? bs.map(function(s){
+      return '<div class="sc-row"><span class="lbl">'+esc_(s.staff_email||"（不明）")+'</span><span style="font-size:13px;color:#fbbf24;">'+svStars_(s.avg)+'</span><span style="font-size:13px;font-weight:700;width:42px;text-align:right;">'+(s.avg?Number(s.avg).toFixed(2):"-")+'</span><span style="font-size:11px;color:#94a3b8;width:42px;text-align:right;">'+(s.c||0)+'件</span></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    // 月ごと
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;">月ごと</div>';
+    var bm=r.byMonth||[];
+    html+= bm.length ? bm.map(function(m){
+      return '<div class="sc-row"><span class="lbl">'+esc_(m.ym||"")+'</span><span style="font-size:13px;color:#fbbf24;">'+svStars_(m.avg)+'</span><span style="font-size:13px;font-weight:700;width:42px;text-align:right;">'+(m.avg?Number(m.avg).toFixed(2):"-")+'</span><span style="font-size:11px;color:#94a3b8;width:42px;text-align:right;">'+(m.c||0)+'件</span></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    // コメント（お叱り含む）
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;">コメント</div>';
+    var cm=r.comments||[];
+    html+= cm.length ? cm.map(function(c){
+      var low = (c.rating<=2);
+      return '<div style="padding:9px 11px;border:1px solid '+(low?"#fca5a5":"var(--line)")+';background:'+(low?"#fef2f2":"#fff")+';border-radius:8px;margin-bottom:6px;">'
+        +'<div style="font-size:12px;color:#64748b;display:flex;justify-content:space-between;"><span>'+esc_(c.staff_email||"")+(c.store?(" / "+esc_(c.store)):"")+'</span><span style="color:#fbbf24;">'+svStars_(c.rating)+'</span></div>'
+        +'<div style="font-size:13px;margin-top:3px;white-space:pre-wrap;">'+esc_(c.comment||"")+'</div></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">コメントはありません</div>';
+    body.innerHTML=html;
+  }).catch(function(){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
 
 /* =========================================================
  *  一般チケット（フォーム回答・非緊急）
