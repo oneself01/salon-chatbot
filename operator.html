@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -126,6 +126,21 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- 一般チケットパネル -->
+<div id="generalPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">📋 一般チケット（フォーム回答・非緊急の問い合わせ）</strong>
+      <div style="display:flex; gap:6px;">
+        <button class="sc-btn" onclick="loadGeneral_()">更新</button>
+        <button class="sc-btn" onclick="closeGeneral_()">閉じる</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#64748b;">各種フォームや緊急ではないお問い合わせはここに溜まります（スプレッドシート「一般チケット」と同期）。</p>
+    <div id="generalList" style="margin-top:8px;"></div>
   </div>
 </div>
 
@@ -278,6 +293,32 @@ function authMsg_(r){
 }
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
 function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clearStored_(); idToken=""; stopAll_(); location.reload(); }
+
+/* =========================================================
+ *  一般チケット（フォーム回答・非緊急）
+ * ========================================================= */
+function openGeneral_(){ document.getElementById("generalPanel").style.display="flex"; loadGeneral_(); }
+function closeGeneral_(){ document.getElementById("generalPanel").style.display="none"; }
+function loadGeneral_(){
+  var box=document.getElementById("generalList");
+  box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
+  httpPost_("/v2/staff/general-tickets", {}).then(function(r){
+    if (!r || r.success!==true){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗しました</div>'; return; }
+    var rows=r.tickets||[];
+    if (!rows.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">一般チケットはありません</div>'; return; }
+    box.innerHTML=rows.map(function(t){
+      var st=t.status||"未対応";
+      var stColor = st==="完了" ? "#475569" : (st==="未対応"||!st ? "#b91c1c" : "#854d0e");
+      return '<div style="padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;"><strong style="font-size:14px;">'+esc_(t.name||"（無名）")+'</strong>'
+        +'<span style="font-size:11px;color:'+stColor+';font-weight:700;">'+esc_(st)+'</span></div>'
+        +(t.category?'<div style="font-size:12px;color:#3730a3;margin-top:2px;">'+esc_(t.category)+'</div>':'')
+        +'<div style="font-size:13px;color:#334155;margin-top:4px;white-space:pre-wrap;">'+linkify_(t.situation||"")+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;"><span>'+esc_(t.email||"")+'</span><span>'+fmtTime_(t.timestamp?Date.parse(t.timestamp):0)+'</span></div>'
+        +'</div>';
+    }).join("");
+  }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
 
 /* =========================================================
  *  スタッフ（ログイン許可）管理
