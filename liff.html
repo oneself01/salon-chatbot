@@ -84,11 +84,11 @@
   <header>
     <button class="back" onclick="showHome_()">← FAQ</button>
     <span class="ttl">スタッフ対応</span>
-    <button onclick="customerEnd_()" style="margin-left:auto;background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;">✓ 解決・終了</button>
-    <span class="st" id="connSt" style="margin-left:8px;">接続中…</span>
+    <span class="st" id="connSt" style="margin-left:auto;">接続中…</span>
   </header>
   <div id="msgs"></div>
   <div id="typing"></div>
+  <div id="endBar" style="padding:4px 10px 0;"><button onclick="customerEnd_()" style="width:100%;padding:11px;background:#fff;border:1px solid #cbd5e1;color:#0f172a;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">✓ 解決しました（チャットを終了）</button></div>
   <div id="composer">
     <textarea id="input" placeholder="メッセージを入力" rows="1"></textarea>
     <button id="sendBtn" onclick="send_()">➤</button>
@@ -135,7 +135,7 @@ var STORES = [
 
 /* 状態 */
 var idToken="", profile=null, tree=null, mediaData={}, stack=[];
-var convId=null, ws=null, seen=new Set(), draftT=0, typingHideT=null, pendingIntake=null;
+var convId=null, ws=null, seen=new Set(), draftT=0, typingHideT=null, pendingIntake=null, callingT=null, staffSeen=false;
 
 /* =========================================================
  *  初期化
@@ -422,9 +422,10 @@ async function proceedToChat_(){
   var p=pendingIntake;
   var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments });
   if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
-  convId=r.conversationId; pendingIntake=null;
+  convId=r.conversationId; pendingIntake=null; staffSeen=false;
   showChat_(); setSt_("接続中…"); sendNav_();
   await loadHistory_(); openWs_();
+  if (!staffSeen) startCalling_();
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
 function goRoot_(){ stack=[]; renderOptions_(); }
@@ -497,9 +498,10 @@ function setSt_(t){ document.getElementById("connSt").textContent=t; }
 // お客様が「解決・終了」を押した時：完了にしてアンケートメールを送る
 function customerEnd_(){
   if (!convId){ showHome_(); return; }
-  if (!confirm("チャットを終了します。よろしいですか？\n（後ほどアンケートのメールをお送りします）")) return;
+  if (!confirm("チャットを終了します。よろしいですか？\n\n担当者の対応はいかがでしたか？後ほどアンケートのメールをお送りしますので、お時間がございましたらサービス向上のためご協力いただけますと幸いです。")) return;
+  clearCalling_();
   httpPost_("/v2/customer-end", { conversationId: convId }).then(function(r){
-    append_("system","ありがとうございました。後ほどアンケートのメールをお送りします。",Date.now()); scrollBottom_();
+    append_("system","ご利用ありがとうございました。後ほどアンケートのメールをお送りします。お時間がございましたらサービス向上のためご協力いただけますと幸いです。",Date.now()); scrollBottom_();
     var ta=document.getElementById("input"); if (ta){ ta.disabled=true; ta.placeholder="対応は終了しました"; }
     var sb=document.getElementById("sendBtn"); if (sb) sb.disabled=true;
     convId=null; if (ws){ try{ws.close();}catch(e){} ws=null; } setSt_("終了");
@@ -528,6 +530,7 @@ function attachHtml_(attachments){
   }).join("");
 }
 function append_(senderType, body, createdAt, attachments){
+  if (senderType==="staff"){ staffSeen=true; clearCalling_(); }
   var side=senderType==="customer"?"customer":(senderType==="system"?"system":"staff");
   var who=senderType==="customer"?"":(senderType==="system"?"":"スタッフ");
   var media=attachHtml_(attachments);
@@ -544,8 +547,15 @@ function appendSuggest_(body){
   row.innerHTML='<div class="bubble" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;"><div style="font-weight:700;margin-bottom:4px;">💡 もしかして、こちらで解決しませんか？</div>'+linkify_(body)+'</div>';
   document.getElementById("msgs").appendChild(row); scrollBottom_();
 }
-function showTyping_(){ document.getElementById("typing").textContent="スタッフが入力中…"; if (typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_,4000); }
-function clearTyping_(){ document.getElementById("typing").textContent=""; }
+function showTyping_(){ clearCalling_(); document.getElementById("typing").textContent="スタッフが入力中…"; if (typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_,4000); }
+function clearTyping_(){ var el=document.getElementById("typing"); if (el.dataset.mode!=="calling") el.textContent=""; }
+// スタッフが応答するまでの安心表示（呼び出し中→確認中）
+function startCalling_(){
+  var el=document.getElementById("typing"); el.dataset.mode="calling"; el.textContent="🧑‍💼 担当者を呼び出し中・・・";
+  if (callingT) clearTimeout(callingT);
+  callingT=setTimeout(function(){ if (el.dataset.mode==="calling" && !staffSeen) el.textContent="🧑‍💼 担当者が確認しています・・・"; }, 5000);
+}
+function clearCalling_(){ var el=document.getElementById("typing"); if (el.dataset.mode==="calling"){ el.dataset.mode=""; el.textContent=""; } if (callingT){ clearTimeout(callingT); callingT=null; } }
 
 function send_(){
   var ta=document.getElementById("input"); var text=ta.value.trim();
