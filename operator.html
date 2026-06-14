@@ -147,6 +147,26 @@
   </div>
 </div>
 
+<!-- 一般チケット メール返信モーダル -->
+<div id="gtReplyModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:210; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:15px;">✉️ メールで返信</strong>
+      <button class="sc-btn" onclick="gtReplyClose_()">閉じる</button>
+    </div>
+    <label class="sc-field">宛先</label>
+    <input id="gtTo" class="sc-input" type="email" readonly>
+    <label class="sc-field">件名</label>
+    <input id="gtSubject" class="sc-input" type="text">
+    <label class="sc-field">定型文を選ぶ（タップで本文に挿入）</label>
+    <div id="gtTplChips" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto;"></div>
+    <label class="sc-field">本文</label>
+    <textarea id="gtBody" class="sc-input" style="min-height:140px;"></textarea>
+    <button class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtMailto_()">📧 メールアプリで作成する</button>
+    <p style="font-size:11px;color:#94a3b8;margin-top:8px;">お使いのメールアプリが起動し、宛先・件名・本文が入った状態になります。内容を確認して送信してください。</p>
+  </div>
+</div>
+
 <!-- 一般チケットパネル -->
 <div id="generalPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
   <div class="sc-modal">
@@ -372,7 +392,7 @@ function loadSurvey_(){
 /* =========================================================
  *  一般チケット（フォーム回答・非緊急）
  * ========================================================= */
-var gtOffset=0, gtLimit=20, gtTotal=0;
+var gtOffset=0, gtLimit=20, gtTotal=0, gtTickets=[], gtStaffTpls=null;
 function openGeneral_(){ document.getElementById("generalPanel").style.display="flex"; gtOffset=0; loadGeneral_(); }
 function closeGeneral_(){ document.getElementById("generalPanel").style.display="none"; }
 function gtSearch_(){ gtOffset=0; loadGeneral_(); }
@@ -383,7 +403,7 @@ function loadGeneral_(){
   var status=document.getElementById("gtStatus").value;
   httpPost_("/v2/staff/general-tickets", { q:q, status:status, limit:gtLimit, offset:gtOffset }).then(function(r){
     if (!r || r.ok!==true){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗しました</div>'; return; }
-    var rows=r.tickets||[]; gtTotal=r.total||0;
+    var rows=r.tickets||[]; gtTotal=r.total||0; gtTickets=rows;
     document.getElementById("generalMeta").textContent="全 "+gtTotal+" 件中 "+(gtTotal?gtOffset+1:0)+"〜"+Math.min(gtOffset+rows.length,gtTotal)+" 件";
     if (!rows.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">該当するチケットはありません</div>'; renderGtPager_(); return; }
     box.innerHTML=rows.map(function(t){
@@ -396,18 +416,60 @@ function loadGeneral_(){
         +(t.category?'<div style="font-size:12px;color:#3730a3;margin-top:2px;">'+esc_(t.category)+'</div>':'')
         +'<div style="font-size:13px;color:#334155;margin-top:4px;white-space:pre-wrap;">'+linkify_(t.body||"")+'</div>'
         +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;align-items:center;"><span>'+esc_(t.email||"")+' '+att+'</span><span>'+fmtTime_(t.created_at)+'</span></div>'
-        +'<div style="display:flex;gap:6px;margin-top:8px;">'
+        +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'
+          +(t.email?'<button class="sc-btn" data-rep="'+t.id+'" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">✉️ メール返信</button>':'')
           +'<button class="sc-btn" data-id="'+t.id+'" data-s="確認中">確認中</button>'
           +'<button class="sc-btn" data-id="'+t.id+'" data-s="完了">完了</button>'
           +'<button class="sc-btn" data-id="'+t.id+'" data-s="未対応">未対応に戻す</button>'
         +'</div></div>';
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-s]"), function(b){ b.onclick=function(){ gtStatusSet_(parseInt(b.getAttribute("data-id"),10), b.getAttribute("data-s")); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-rep]"), function(b){ b.onclick=function(){ gtReply_(parseInt(b.getAttribute("data-rep"),10)); }; });
     renderGtPager_();
   }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
 }
 function gtStatusSet_(id, status){
   httpPost_("/v2/staff/general-status", { id:id, status:status }).then(function(r){ if (r&&r.ok){ toast_("→ "+status); loadGeneral_(); } else toast_("更新に失敗"); });
+}
+function gtReplyClose_(){ document.getElementById("gtReplyModal").style.display="none"; }
+function gtReply_(id){
+  var t=gtTickets.find(function(x){ return x.id===id; }); if (!t) return;
+  document.getElementById("gtReplyModal").style.display="flex";
+  document.getElementById("gtTo").value=t.email||"";
+  document.getElementById("gtSubject").value=(t.category? t.category : "")+"のお問い合わせについて";
+  document.getElementById("gtBody").value="";
+  var chips=document.getElementById("gtTplChips");
+  chips.innerHTML='<div style="font-size:12px;color:#94a3b8;">読み込み中…</div>';
+  var fill=function(){
+    var hint=((t.category||"")+" "+(t.body||"")).toLowerCase();
+    var staff=(gtStaffTpls||[]).slice();
+    // カテゴリ・内容に一致するものを上に
+    staff.sort(function(a,b){
+      var sa=tplScore_(a,hint), sb=tplScore_(b,hint); return sb-sa;
+    });
+    if (!staff.length){ chips.innerHTML='<div style="font-size:12px;color:#94a3b8;">定型文がありません（💬定型文で登録できます）</div>'; return; }
+    chips.innerHTML=staff.map(function(s,i){
+      var label=(s.category?("["+s.category+"] "):"")+String(s.body||"").slice(0,28)+(String(s.body||"").length>28?"…":"");
+      return '<button class="sc-btn" data-i="'+i+'" style="text-align:left;white-space:normal;">'+esc_(label)+'</button>';
+    }).join("");
+    Array.prototype.forEach.call(chips.querySelectorAll("[data-i]"), function(b){ b.onclick=function(){ var s=staff[parseInt(b.getAttribute("data-i"),10)]; var ta=document.getElementById("gtBody"); ta.value=(ta.value?ta.value+"\n\n":"")+(s.body||""); }; });
+  };
+  if (gtStaffTpls){ fill(); }
+  else { httpPost_("/v2/admin/templates", {}).then(function(r){ gtStaffTpls=((r&&r.templates)||[]).filter(function(x){ return (x.kind||"staff")==="staff"; }); fill(); }); }
+}
+function tplScore_(t, hint){
+  var kws=String(t.keywords||"").split(/[,、，\s]+/).map(function(k){return k.trim().toLowerCase();}).filter(Boolean);
+  var s=0; kws.forEach(function(k){ if (k && hint.indexOf(k)!==-1) s++; });
+  if (t.category && hint.indexOf(String(t.category).toLowerCase())!==-1) s+=2;
+  return s;
+}
+function gtMailto_(){
+  var to=document.getElementById("gtTo").value.trim();
+  var subject=document.getElementById("gtSubject").value;
+  var body=document.getElementById("gtBody").value;
+  if (!to){ toast_("宛先がありません"); return; }
+  var url="mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+  window.location.href=url;
 }
 function renderGtPager_(){
   var p=document.getElementById("generalPager"); p.innerHTML="";
