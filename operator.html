@@ -243,9 +243,10 @@
     </div>
     <div id="tplMsg" style="font-size:12px;margin-bottom:8px;"></div>
     <p style="font-size:12px;color:#64748b;line-height:1.6;">スタッフ返信候補＝お客様の発言にキーワードが一致したら、対応画面に候補ボタンが出ます。お客様向け案内＝緊急チャットで一致した時に「もしかして」案内を出します（次ステップで連携）。</p>
-    <div style="display:flex;gap:8px;margin:8px 0;">
+    <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">
       <button class="sc-btn" onclick="tplAdd_('staff')">＋ スタッフ返信候補</button>
       <button class="sc-btn" onclick="tplAdd_('customer')">＋ お客様向け案内</button>
+      <button class="sc-btn" onclick="tplAdd_('email')">＋ メール返信文</button>
     </div>
     <div id="tplList"></div>
     <div id="tplEdit" style="display:none;"></div>
@@ -394,7 +395,7 @@ function loadSurvey_(){
 /* =========================================================
  *  一般チケット（フォーム回答・非緊急）
  * ========================================================= */
-var gtOffset=0, gtLimit=20, gtTotal=0, gtTickets=[], gtStaffTpls=null;
+var gtOffset=0, gtLimit=20, gtTotal=0, gtTickets=[], gtEmailTpls=null;
 function openGeneral_(){ document.getElementById("generalPanel").style.display="flex"; gtOffset=0; loadGeneral_(); }
 function closeGeneral_(){ document.getElementById("generalPanel").style.display="none"; }
 function gtSearch_(){ gtOffset=0; loadGeneral_(); }
@@ -444,20 +445,17 @@ function gtReply_(id){
   chips.innerHTML='<div style="font-size:12px;color:#94a3b8;">読み込み中…</div>';
   var fill=function(){
     var hint=((t.category||"")+" "+(t.body||"")).toLowerCase();
-    var staff=(gtStaffTpls||[]).slice();
-    // カテゴリ・内容に一致するものを上に
-    staff.sort(function(a,b){
-      var sa=tplScore_(a,hint), sb=tplScore_(b,hint); return sb-sa;
-    });
-    if (!staff.length){ chips.innerHTML='<div style="font-size:12px;color:#94a3b8;">定型文がありません（💬定型文で登録できます）</div>'; return; }
-    chips.innerHTML=staff.map(function(s,i){
+    var list=(gtEmailTpls||[]).slice();
+    list.sort(function(a,b){ var sa=tplScore_(a,hint), sb=tplScore_(b,hint); return sb-sa; });
+    if (!list.length){ chips.innerHTML='<div style="font-size:12px;color:#94a3b8;">メール返信文がありません（💬定型文 →「＋メール返信文」で登録できます）</div>'; return; }
+    chips.innerHTML=list.map(function(s,i){
       var label=(s.category?("["+s.category+"] "):"")+String(s.body||"").slice(0,28)+(String(s.body||"").length>28?"…":"");
       return '<button class="sc-btn" data-i="'+i+'" style="text-align:left;white-space:normal;">'+esc_(label)+'</button>';
     }).join("");
-    Array.prototype.forEach.call(chips.querySelectorAll("[data-i]"), function(b){ b.onclick=function(){ var s=staff[parseInt(b.getAttribute("data-i"),10)]; var ta=document.getElementById("gtBody"); ta.value=(ta.value?ta.value+"\n\n":"")+(s.body||""); }; });
+    Array.prototype.forEach.call(chips.querySelectorAll("[data-i]"), function(b){ b.onclick=function(){ var s=list[parseInt(b.getAttribute("data-i"),10)]; var ta=document.getElementById("gtBody"); ta.value=(ta.value?ta.value+"\n\n":"")+(s.body||""); }; });
   };
-  if (gtStaffTpls){ fill(); }
-  else { httpPost_("/v2/admin/templates", {}).then(function(r){ gtStaffTpls=((r&&r.templates)||[]).filter(function(x){ return (x.kind||"staff")==="staff"; }); fill(); }); }
+  if (gtEmailTpls){ fill(); }
+  else { httpPost_("/v2/admin/templates", {}).then(function(r){ gtEmailTpls=((r&&r.templates)||[]).filter(function(x){ return (x.kind||"")==="email"; }); fill(); }); }
 }
 function tplScore_(t, hint){
   var kws=String(t.keywords||"").split(/[,、，\s]+/).map(function(k){return k.trim().toLowerCase();}).filter(Boolean);
@@ -633,7 +631,7 @@ function renderTpl_(){
     }).join("");
     return html;
   }
-  box.innerHTML=section("staff","スタッフ返信候補")+section("customer","お客様向け案内（もしかして）");
+  box.innerHTML=section("staff","スタッフ返信候補")+section("customer","お客様向け案内（もしかして）")+section("email","メール返信文（一般チケットのメール返信用）");
   Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ tplEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
   Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ tplDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
 }
@@ -645,7 +643,7 @@ function tplEditForm_(t){
   v.innerHTML=
     '<button class="sc-btn" onclick="renderTpl_()">← 一覧へ戻る</button>'
     +'<label class="sc-field">種類</label>'
-    +'<select id="tpl_kind" class="sc-input"><option value="staff">スタッフ返信候補</option><option value="customer">お客様向け案内（もしかして）</option></select>'
+    +'<select id="tpl_kind" class="sc-input"><option value="staff">スタッフ返信候補</option><option value="customer">お客様向け案内（もしかして）</option><option value="email">メール返信文</option></select>'
     +'<label class="sc-field">キーワード（カンマ区切り。お客様の発言にこれが含まれると候補表示）</label>'
     +'<input id="tpl_kw" class="sc-input" type="text" placeholder="例：鍵,開かない,入れない">'
     +'<label class="sc-field">分類（任意・スタッフ用の見出し）</label>'
