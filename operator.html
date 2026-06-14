@@ -1079,7 +1079,8 @@ function endConv_(){
 function sendReply_(){
   var ta=document.getElementById("reply");
   var text=ta.value.trim();
-  if (!text || !current) return;
+  if (!current) return;
+  if ((!text && !opPendingFile)) return;
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
   if (opPendingFile){ opSendWithMedia_(text); return; }
   ws.send(JSON.stringify({ type:"message", body:text }));
