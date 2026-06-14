@@ -433,7 +433,11 @@ function goTo_(i){ stack=stack.slice(0,i+1); renderOptions_(); }
  *  フォーム
  * ========================================================= */
 function openForm_(formType, category){
-  document.getElementById("formFrame").src = GAS_URL+"?page=form&type="+encodeURIComponent(formType)+"&category="+encodeURIComponent(category||"")+"&v="+Date.now();
+  var p="";
+  if (savedProfile.name)  p+="&name="+encodeURIComponent(savedProfile.name);
+  if (savedProfile.email) p+="&email="+encodeURIComponent(savedProfile.email);
+  if (savedProfile.store) p+="&store="+encodeURIComponent(savedProfile.store);
+  document.getElementById("formFrame").src = GAS_URL+"?page=form&type="+encodeURIComponent(formType)+"&category="+encodeURIComponent(category||"")+p+"&v="+Date.now();
   hideAll_(); document.getElementById("formView").style.display="flex";
 }
 function closeForm_(){ document.getElementById("formFrame").src="about:blank"; showHome_(); }
