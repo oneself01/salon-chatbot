@@ -197,16 +197,44 @@ function renderOptions_(){
   var box=document.getElementById("options");
   var kids=currentChildren_();
   box.innerHTML="";
-  // 回答（末端ノードを開いた場合）はrenderAnswer_で別途表示
+  // 子を「回答（長文/画像付きの末端）」と「選択肢ボタン」に分ける
+  var answers=[], options=[];
   kids.forEach(function(node){
-    var b=document.createElement("button");
-    b.className="opt";
-    b.innerHTML='<span>'+esc_(label_(node))+'</span><span class="arw">›</span>';
+    var isLeaf = !(node.children && node.children.length);
+    var v=String(node.value||"");
+    var isEmergency = v.indexOf("緊急対応")!==-1 && v.indexOf("スタッフが直対応")!==-1;
+    var hasMedia = node.media && node.media.length;
+    var longText = label_(node).length >= 18;
+    if (isLeaf && !isEmergency && (hasMedia || longText)) answers.push(node);
+    else options.push(node);
+  });
+  answers.forEach(function(node){
+    var div=document.createElement("div"); div.className="answer"; div.style.marginBottom="10px";
+    div.textContent=label_(node);
+    renderNodeMedia_(div, node);
+    box.appendChild(div);
+  });
+  options.forEach(function(node){
+    var b=document.createElement("button"); b.className="opt";
+    b.innerHTML='<span>'+esc_(firstLine_(label_(node)))+'</span><span class="arw">›</span>';
     b.onclick=function(){ selectNode_(node.id); };
     box.appendChild(b);
   });
   sendNav_();
   box.scrollTop=0;
+}
+function firstLine_(s){
+  s=String(s||"").split(/[\n。]/)[0].trim();
+  return s.length>40 ? s.slice(0,40)+"…" : s;
+}
+function renderNodeMedia_(div, node){
+  if (!(node.media && node.media.length)) return;
+  node.media.forEach(function(mid){
+    var m=mediaData[mid]; if (!m) return;
+    if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.alt=String(m.text||""); div.appendChild(img); }
+    else if (m.type==="form"){ var fb=document.createElement("a"); fb.className="media"; fb.textContent="📝 "+(m.text||"フォームを開く"); fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); }; div.appendChild(document.createElement("br")); div.appendChild(fb); }
+    else { var a=document.createElement("a"); a.className="media"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); div.appendChild(document.createElement("br")); div.appendChild(a); }
+  });
 }
 function renderCrumb_(){
   var c=document.getElementById("crumb");
@@ -348,8 +376,9 @@ async function submitEmergency_(){
   // 入力内容を保持（チャットへ進む時に使う）
   pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments };
 
-  // 会話作成・スタッフ通知の前に「もしかして」案内を判定
-  var dc=await httpPost_("/v2/deflect-check", { situation:situation });
+  // 会話作成・スタッフ通知の前に「もしかして」案内を判定（通ってきたセクションは除外）
+  var pathLabels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
+  var dc=await httpPost_("/v2/deflect-check", { situation:situation, path:pathLabels });
   if (btn){ btn.disabled=false; btn.textContent="確認する"; }
   var hasFaq = dc && dc.faqs && dc.faqs.length;
   if (dc && dc.ok && (dc.deflect || hasFaq)){ showDeflectScreen_(dc.deflect, dc.faqs||[]); return; }
