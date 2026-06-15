@@ -222,6 +222,7 @@
       <strong style="font-size:16px;">📚 ナレッジ</strong>
       <div style="display:flex; gap:6px;">
         <button class="sc-btn" onclick="importStoreKnowledge_()" title="スプレッドシートの店舗情報（鍵・ブレーカー）を取り込み/更新">店舗情報を取り込む</button>
+        <button class="sc-btn" onclick="embedBackfill_()" title="既存の学習データ・ナレッジをAIの意味検索に反映（初回のみ）">AI意味検索に反映</button>
         <button class="sc-btn" onclick="knowAdd_()">＋ 追加</button>
         <button class="sc-btn" onclick="closeKnowledge_()">閉じる</button>
       </div>
@@ -569,6 +570,17 @@ function importStoreKnowledge_(){
     if (r && r.ok){ toast_("✓ "+r.count+"店舗を取り込みました"); loadKnowledge_(); }
     else toast_("取り込みに失敗（"+((r&&(r.detail||r.error))||"")+"）");
   }).catch(function(){ toast_("通信エラー"); });
+}
+function embedBackfill_(){
+  toast_("AI意味検索に反映中…（しばらくお待ちください）");
+  var loop=function(){
+    httpPost_("/v2/admin/embed-backfill", {}).then(function(r){
+      if (!r || !r.ok){ toast_("反映に失敗"+((r&&r.error)?("："+r.error):"")); return; }
+      if (r.remaining>0){ toast_("反映中… 残り"+r.remaining+"件"); setTimeout(loop, 400); }
+      else { toast_("✓ AI意味検索への反映が完了しました"); }
+    }).catch(function(){ toast_("通信エラー"); });
+  };
+  loop();
 }
 function knowAdd_(){ knowForm_({ id:0, store:"", keywords:"", title:"", body:"" }); }
 function knowEdit_(id){ var k=knowItems.find(function(x){return x.id===id;}); if (k) knowForm_(k); }
@@ -1033,13 +1045,15 @@ function aiSuggest_(){
   var btn=document.getElementById("aiBtn"); if (btn){ btn.disabled=true; btn.textContent="…"; }
   httpPost_("/v2/staff/ai-suggest", { conversationId: current.id }).then(function(r){
     if (btn){ btn.disabled=false; btn.textContent="🤖"; }
-    if (r && r.ok && r.suggestion){ showAiSuggest_(r.suggestion); }
+    if (r && r.ok && r.suggestion){ showAiSuggest_(r.suggestion, r.capped, r.corpus); }
     else toast_("AI候補を生成できませんでした"+((r&&r.detail)?("："+r.detail):""));
   }).catch(function(){ if(btn){btn.disabled=false;btn.textContent="🤖";} toast_("通信エラー"); });
 }
-function showAiSuggest_(text){
+function showAiSuggest_(text, capped, corpus){
   var bar=document.getElementById("suggestBar"); bar.style.display="flex";
-  bar.innerHTML='<span style="font-size:11px;color:#7c3aed;width:100%;">🤖 AI返信案（タップで入力欄へ・編集して送信できます）</span>';
+  var head='🤖 AI返信案（タップで入力欄へ・編集して送信できます）';
+  if (capped) head+=' ｜ ⚠️学習データ'+corpus+'件で検索上限超過 → Vectorize(有料$5/月)移行推奨';
+  bar.innerHTML='<span style="font-size:11px;color:#7c3aed;width:100%;">'+esc_(head)+'</span>';
   var b=document.createElement("button"); b.className="sc-btn"; b.style.cssText="max-width:100%;text-align:left;white-space:normal;line-height:1.5;";
   b.textContent=text;
   b.onclick=function(){ var ta=document.getElementById("reply"); ta.value=text; ta.focus(); ta.style.height="60px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.45))+"px"; clearSuggest_(); };
