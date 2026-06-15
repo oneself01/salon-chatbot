@@ -97,7 +97,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -129,6 +129,28 @@
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>
+  </div>
+</div>
+
+<!-- AI学習データ管理パネル -->
+<div id="qaPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">🧠 AI学習データ（質問→回答）</strong>
+      <div style="display:flex;gap:6px;">
+        <button class="sc-btn" onclick="qaAdd_()">＋ 追加</button>
+        <button class="sc-btn" onclick="closeQA_()">閉じる</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;">スタッフの返信が自動で貯まります。良い事例は残し、雑なもの（「確認します」等）は削除/編集すると🤖の精度が上がります。</p>
+    <div style="display:flex;gap:6px;margin:8px 0;">
+      <input id="qaQ" class="sc-input" type="text" placeholder="質問・回答で検索" style="flex:1;" onkeydown="if(event.key==='Enter'){qaSearch_();}">
+      <button class="sc-btn" onclick="qaSearch_()">検索</button>
+    </div>
+    <div id="qaMeta" style="font-size:11px;color:#94a3b8;margin-bottom:6px;"></div>
+    <div id="qaList"></div>
+    <div id="qaEdit" style="display:none;"></div>
+    <div id="qaPager" style="display:flex;justify-content:center;gap:10px;margin-top:10px;"></div>
   </div>
 </div>
 
@@ -348,6 +370,74 @@ function authMsg_(r){
 }
 function loginError_(msg){ var el=document.getElementById("loginError"); el.textContent="❌ "+msg; el.style.display="block"; }
 function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clearStored_(); idToken=""; stopAll_(); location.reload(); }
+
+/* =========================================================
+ *  AI学習データ（qa_examples）管理
+ * ========================================================= */
+var qaOffset=0, qaLimit=20, qaTotal=0, qaItems=[];
+function openQA_(){ document.getElementById("qaPanel").style.display="flex"; qaOffset=0; loadQA_(); }
+function closeQA_(){ document.getElementById("qaPanel").style.display="none"; }
+function qaSearch_(){ qaOffset=0; loadQA_(); }
+function qaShowList_(){ document.getElementById("qaList").style.display="block"; document.getElementById("qaEdit").style.display="none"; document.getElementById("qaPager").style.display="flex"; }
+function loadQA_(){
+  qaShowList_();
+  var box=document.getElementById("qaList");
+  box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
+  var q=document.getElementById("qaQ").value.trim();
+  httpPost_("/v2/staff/qa-list", { q:q, limit:qaLimit, offset:qaOffset }).then(function(r){
+    if (!r || !r.ok){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込み失敗</div>'; return; }
+    qaItems=r.items||[]; qaTotal=r.total||0;
+    document.getElementById("qaMeta").textContent="全 "+qaTotal+" 件中 "+(qaTotal?qaOffset+1:0)+"〜"+Math.min(qaOffset+qaItems.length,qaTotal)+" 件";
+    if (!qaItems.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">データがありません</div>'; renderQaPager_(); return; }
+    box.innerHTML=qaItems.map(function(t){
+      var vec = t.has_vec ? '' : ' <span style="color:#f59e0b;font-size:10px;">(未ベクトル化)</span>';
+      return '<div style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;">'
+        +'<div style="font-size:12px;color:#0369a1;font-weight:700;">Q: '+esc_(t.question||"")+(t.store?(' <span style="color:#64748b;">['+esc_(t.store)+']</span>'):'')+vec+'</div>'
+        +'<div style="font-size:13px;color:#334155;margin-top:3px;white-space:pre-wrap;">A: '+esc_(String(t.answer||"").slice(0,200))+'</div>'
+        +'<div style="display:flex;gap:6px;margin-top:8px;"><button class="sc-btn" data-e="'+t.id+'">編集</button><button class="sc-btn" data-d="'+t.id+'">🗑 削除</button></div>'
+        +'</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ qaEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ qaDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
+    renderQaPager_();
+  }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+function qaAdd_(){ qaForm_({ id:0, question:"", answer:"", store:"" }); }
+function qaEdit_(id){ var t=qaItems.find(function(x){return x.id===id;}); if (t) qaForm_(t); }
+function qaForm_(t){
+  document.getElementById("qaList").style.display="none";
+  document.getElementById("qaPager").style.display="none";
+  var v=document.getElementById("qaEdit"); v.style.display="block";
+  v.innerHTML=
+    '<button class="sc-btn" onclick="loadQA_()">← 一覧へ戻る</button>'
+    +'<label class="sc-field">質問（お客様の発言）</label>'
+    +'<textarea id="qa_q" class="sc-input" style="min-height:60px;"></textarea>'
+    +'<label class="sc-field">回答（お手本となるスタッフの返信）</label>'
+    +'<textarea id="qa_a" class="sc-input" style="min-height:120px;"></textarea>'
+    +'<label class="sc-field">店舗（任意）</label>'
+    +'<input id="qa_store" class="sc-input" type="text">'
+    +'<div style="margin-top:14px;display:flex;gap:8px;"><button class="sc-primary" onclick="qaSave_('+t.id+')">保存</button><button class="sc-btn" onclick="loadQA_()">キャンセル</button></div>';
+  document.getElementById("qa_q").value=t.question||"";
+  document.getElementById("qa_a").value=t.answer||"";
+  document.getElementById("qa_store").value=t.store||"";
+}
+function qaSave_(id){
+  var q=document.getElementById("qa_q").value.trim(), a=document.getElementById("qa_a").value.trim();
+  if (!q || !a){ toast_("質問と回答を入力してください"); return; }
+  toast_("保存中…");
+  httpPost_("/v2/staff/qa-save", { id:id||0, question:q, answer:a, store:document.getElementById("qa_store").value }).then(function(r){
+    if (r && r.ok){ toast_("保存しました"); loadQA_(); } else toast_("保存に失敗");
+  });
+}
+function qaDelete_(id){
+  if (!confirm("この学習データを削除しますか？")) return;
+  httpPost_("/v2/staff/qa-delete", { id:id }).then(function(r){ if (r&&r.ok){ toast_("削除しました"); loadQA_(); } else toast_("削除に失敗"); });
+}
+function renderQaPager_(){
+  var p=document.getElementById("qaPager"); p.innerHTML="";
+  if (qaOffset>0){ var prev=document.createElement("button"); prev.className="sc-btn"; prev.textContent="← 前"; prev.onclick=function(){ qaOffset=Math.max(0,qaOffset-qaLimit); loadQA_(); }; p.appendChild(prev); }
+  if (qaOffset+qaLimit<qaTotal){ var next=document.createElement("button"); next.className="sc-btn"; next.textContent="次 →"; next.onclick=function(){ qaOffset+=qaLimit; loadQA_(); }; p.appendChild(next); }
+}
 
 /* =========================================================
  *  アンケート集計
