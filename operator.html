@@ -391,8 +391,9 @@ function loadQA_(){
     if (!qaItems.length){ box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">データがありません</div>'; renderQaPager_(); return; }
     box.innerHTML=qaItems.map(function(t){
       var vec = t.has_vec ? '' : ' <span style="color:#f59e0b;font-size:10px;">(未ベクトル化)</span>';
-      return '<div style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;">'
-        +'<div style="font-size:12px;color:#0369a1;font-weight:700;">Q: '+esc_(t.question||"")+(t.store?(' <span style="color:#64748b;">['+esc_(t.store)+']</span>'):'')+vec+'</div>'
+      var rate = (t.rating!=null) ? (' <span style="font-size:11px;color:'+(t.rating>=4?'#16a34a':(t.rating<=2?'#dc2626':'#64748b'))+';">'+("★★★★★".slice(0,t.rating))+(t.rating<=2?'（除外）':(t.rating>=4?'（優先）':''))+'</span>') : '';
+      return '<div style="padding:10px 12px;border:1px solid '+(t.rating!=null&&t.rating<=2?'#fecaca':'var(--line)')+';border-radius:10px;margin-bottom:8px;">'
+        +'<div style="font-size:12px;color:#0369a1;font-weight:700;">Q: '+esc_(t.question||"")+(t.store?(' <span style="color:#64748b;">['+esc_(t.store)+']</span>'):'')+vec+rate+'</div>'
         +'<div style="font-size:13px;color:#334155;margin-top:3px;white-space:pre-wrap;">A: '+esc_(String(t.answer||"").slice(0,200))+'</div>'
         +'<div style="display:flex;gap:6px;margin-top:8px;"><button class="sc-btn" data-e="'+t.id+'">編集</button><button class="sc-btn" data-d="'+t.id+'">🗑 削除</button></div>'
         +'</div>';
