@@ -260,19 +260,6 @@ function renderOptions_(){
   document.getElementById("homeBack").style.visibility = stack.length ? "visible" : "hidden";
   var box=document.getElementById("options");
   box.innerHTML="";
-  // カテゴリ内に入ったら、その項目の本文（説明）を上部に表示
-  if (stack.length){
-    var cur=tree[stack[stack.length-1]];
-    if (cur){
-      var bt=body_(cur);
-      if (bt || (cur.media && cur.media.length)){
-        var intro=document.createElement("div"); intro.className="answer"; intro.style.marginBottom="12px";
-        if (bt) intro.textContent=bt;
-        renderNodeMedia_(intro, cur);
-        box.appendChild(intro);
-      }
-    }
-  }
   // 子はすべて「題名」のボタンとして表示（タップで本文や次の選択肢へ）
   currentChildren_().forEach(function(node){
     var b=document.createElement("button"); b.className="opt";
