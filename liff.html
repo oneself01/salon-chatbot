@@ -294,8 +294,21 @@ function renderCrumb_(){
 }
 function selectNode_(id){
   var node=tree[id]; if (!node) return;
-  var hasKids = node.children && node.children.length>0;
-  if (hasKids){ stack.push(id); renderOptions_(); return; }
+  var kids = node.children || [];
+  if (kids.length){
+    // 子が1つだけで、それが末端の回答なら、もう一度選ばせず本文を直接表示
+    if (kids.length===1){
+      var only=tree[kids[0]];
+      if (only){
+        var onlyLeaf=!(only.children && only.children.length);
+        var ov=String(only.value||"");
+        var oEmg=only.type==="emergency" || (ov.indexOf("緊急対応")!==-1 && ov.indexOf("スタッフが直対応")!==-1);
+        var oForm=only.type==="form";
+        if (onlyLeaf && !oEmg && !oForm){ terminal_(only); return; }
+      }
+    }
+    stack.push(id); renderOptions_(); return;
+  }
   terminal_(node);
 }
 function terminal_(node){
