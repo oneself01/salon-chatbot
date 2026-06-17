@@ -284,6 +284,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong style="font-size:16px;">⚙ シナリオ管理</strong>
       <div style="display:flex; gap:6px;">
+        <button class="sc-btn" onclick="scMigrateBody_()" title="既存項目の長い回答文を自動で「題名」と「本文」に振り分けます（本文が空の項目のみ・何度押しても安全）">🔁 題名/本文に自動振り分け</button>
         <button class="sc-btn" id="importBtn" onclick="importTree_()" title="現在のスプレッドシートFAQで上書き">現行FAQを再取り込み</button>
         <button class="sc-btn" onclick="closeScenario_()">閉じる</button>
       </div>
@@ -805,8 +806,9 @@ function renderScTree_(){
     scChildren_(pid).forEach(function(n){
       var row=document.createElement("div"); row.className="sc-row";
       var tag = n.type==="emergency" ? '<span class="sc-tag em">緊急</span>' : (n.type==="form" ? '<span class="sc-tag fm">フォーム</span>' : '');
+      var bodyTag = (n.body && String(n.body).trim()) ? ' <span class="sc-tag" style="background:#e0f2fe;color:#0369a1;">本文</span>' : '';
       row.innerHTML='<span style="width:'+(depth*16)+'px;flex-shrink:0;"></span>'
-        +'<span class="lbl">'+(depth?'└ ':'')+esc_(n.label||"(空)")+' '+tag+'</span>'
+        +'<span class="lbl">'+(depth?'└ ':'')+esc_(n.label||"(空)")+' '+tag+bodyTag+'</span>'
         +'<button class="sc-btn" data-a="edit">編集</button>'
         +'<button class="sc-btn" data-a="add">＋子</button>'
         +'<button class="sc-btn" data-a="up">↑</button>'
@@ -825,8 +827,15 @@ function renderScTree_(){
   if (!scNodes.length) box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">項目がありません。「現行FAQを再取り込み」か「＋大項目を追加」から始めてください。</div>';
 }
 
-function scAddRoot_(){ scSaveNode_({ id:"", parent_id:null, sort:scChildren_(null).length, label:"新しい項目", type:"node", media:"[]" }, true); }
-function scAddChild_(pid){ scSaveNode_({ id:"", parent_id:pid, sort:scChildren_(pid).length, label:"新しい項目", type:"node", media:"[]" }, true); }
+function scMigrateBody_(){
+  if (!confirm("既存項目の長い回答文を、自動で「題名」と「本文」に振り分けます。\n（本文が空の項目だけが対象。何度押しても安全です）\n\n実行しますか？")) return;
+  httpPost_("/v2/admin/scenario-migrate-body", {}).then(function(r){
+    if (r && r.ok){ scMsg_("✓ "+r.migrated+"件を題名/本文に振り分けました（全"+r.total+"件中）。",true); loadScenario_(); }
+    else scMsg_("振り分けに失敗しました。", false);
+  }).catch(function(){ scMsg_("通信エラー", false); });
+}
+function scAddRoot_(){ scSaveNode_({ id:"", parent_id:null, sort:scChildren_(null).length, label:"新しい項目", body:"", type:"node", media:"[]" }, true); }
+function scAddChild_(pid){ scSaveNode_({ id:"", parent_id:pid, sort:scChildren_(pid).length, label:"新しい項目", body:"", type:"node", media:"[]" }, true); }
 
 function scMove_(id, dir){
   var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
@@ -855,8 +864,10 @@ function scEditNode_(id){
   v.style.display="block";
   v.innerHTML=
     '<button class="sc-btn" onclick="renderScTree_()">← 一覧へ戻る</button>'
-    +'<label class="sc-field">表示テキスト</label>'
-    +'<textarea id="sc_label" class="sc-input"></textarea>'
+    +'<label class="sc-field">題名（ボタンに表示される短い見出し）</label>'
+    +'<textarea id="sc_label" class="sc-input" style="min-height:48px;" placeholder="例：予約の変更について"></textarea>'
+    +'<label class="sc-field">本文（タップしたときに表示される回答。空欄なら題名のみ表示）</label>'
+    +'<textarea id="sc_body" class="sc-input" style="min-height:120px;" placeholder="例：ご予約の変更はマイページから24時間前まで可能です。…"></textarea>'
     +'<label class="sc-field">種類</label>'
     +'<select id="sc_type" class="sc-input">'
       +'<option value="node">通常（質問・回答）</option>'
@@ -875,6 +886,7 @@ function scEditNode_(id){
       +'<button class="sc-btn" onclick="renderScTree_()">キャンセル</button>'
     +'</div>';
   document.getElementById("sc_label").value=n.label||"";
+  document.getElementById("sc_body").value=n.body||"";
   document.getElementById("sc_type").value=n.type||"node";
   renderScMedia_();
 }
@@ -909,7 +921,7 @@ function scAddImage_(input){
 }
 function scSaveEdit_(id){
   var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
-  scSaveNode_({ id:id, parent_id:n.parent_id, sort:n.sort, label:document.getElementById("sc_label").value, type:document.getElementById("sc_type").value, media:JSON.stringify(scMediaTmp) }, false);
+  scSaveNode_({ id:id, parent_id:n.parent_id, sort:n.sort, label:document.getElementById("sc_label").value, body:document.getElementById("sc_body").value, type:document.getElementById("sc_type").value, media:JSON.stringify(scMediaTmp) }, false);
 }
 function scSaveNode_(payload, isNew){
   httpPost_("/v2/admin/node", payload).then(function(r){
