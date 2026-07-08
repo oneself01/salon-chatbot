@@ -1054,16 +1054,30 @@ function closeChat_(){ document.body.classList.remove("viewing"); closeWs_(); cu
 /* =========================================================
  *  WebSocket
  * ========================================================= */
+var wsRetry=0, wsReconnectT=null;
 function openWs_(id){
   closeWs_();
   wsConvId=id;
   var url=WS_BASE+"/v2/ws?role=staff&c="+encodeURIComponent(id)+"&token="+encodeURIComponent(idToken);
-  ws=new WebSocket(url);
-  ws.onopen=function(){ setConn_(true); };
-  ws.onclose=function(){ setConn_(false); };
+  var sock=new WebSocket(url); ws=sock;
+  ws.onopen=function(){ setConn_(true); wsRetry=0; };
+  ws.onclose=function(){
+    if (ws!==sock) return;            // 別の接続に切り替わっている＝意図的なclose
+    setConn_(false);
+    if (!current || current.id!==id) return;  // その会話を見ていない
+    var delay=Math.min(800*Math.pow(2, wsRetry), 15000); wsRetry++;
+    if (wsReconnectT) clearTimeout(wsReconnectT);
+    wsReconnectT=setTimeout(function(){ if (current && current.id===id) reopenWithHistory_(id); }, delay);
+  };
   ws.onerror=function(){ setConn_(false); };
   ws.onmessage=function(ev){
     var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+    if (d.type==="error"){
+      var ta=document.getElementById("reply");
+      if (ta && lastReply_ && lastReply_.text && !ta.value.trim()){ ta.value=lastReply_.text; }
+      toast_("送信できませんでした。もう一度お送りください");
+      return;
+    }
     if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
     if (d.type==="draft"){ showDraft_(d.body); return; }
     if (d.type==="suggest"){ showSuggest_(d.items||[]); return; }
@@ -1077,7 +1091,21 @@ function openWs_(id){
     }
   };
 }
-function closeWs_(){ if (ws){ try{ws.close();}catch(e){} ws=null; } wsConvId=null; setConn_(false); }
+// 再接続時：切断中に届いたメッセージを取りこぼさないよう履歴を差分取得してからWS再接続
+function reopenWithHistory_(id){
+  httpGet_("/v2/messages?role=staff&c="+encodeURIComponent(id)+"&token="+encodeURIComponent(idToken)).then(function(r){
+    if (r && r.ok && Array.isArray(r.messages)){
+      r.messages.forEach(function(m){
+        var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
+        if (seenKeys.has(key)) return; seenKeys.add(key);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments);
+      });
+      scrollBottom_();
+    }
+    openWs_(id);
+  }).catch(function(){ openWs_(id); });
+}
+function closeWs_(){ if (wsReconnectT){ clearTimeout(wsReconnectT); wsReconnectT=null; } if (ws){ try{ws.close();}catch(e){} ws=null; } wsConvId=null; setConn_(false); }
 function setConn_(on){
   var el=document.getElementById("conn");
   el.textContent = on ? "● リアルタイム接続中" : "接続待ち";
@@ -1201,9 +1229,11 @@ function sendReply_(){
   if ((!text && !opPendingFile)) return;
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
   if (opPendingFile){ opSendWithMedia_(text); return; }
+  lastReply_={text:text};
   ws.send(JSON.stringify({ type:"message", body:text }));
   ta.value=""; ta.style.height="60px"; clearSuggest_();
 }
+var lastReply_=null;
 var opPendingFile=null;
 function opPickMedia_(input){
   var f=input.files&&input.files[0]; input.value="";

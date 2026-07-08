@@ -499,15 +499,20 @@ function showDeflectScreen_(body, faqs){
 }
 
 // スタッフチャットへ進む（ここで初めて会話作成・通知）
+var chatStarting_=false;
 async function proceedToChat_(){
   if (!pendingIntake) return;
-  var p=pendingIntake;
-  var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments });
-  if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
-  convId=r.conversationId; pendingIntake=null; staffSeen=false;
-  showChat_(); setSt_("接続中…"); sendNav_();
-  await loadHistory_(); openWs_();
-  if (!staffSeen) startCalling_();
+  if (chatStarting_) return;          // 二重押し防止（会話・通知の重複を防ぐ）
+  chatStarting_=true;
+  try{
+    var p=pendingIntake;
+    var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments });
+    if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
+    convId=r.conversationId; pendingIntake=null; staffSeen=false;
+    showChat_(); setSt_("接続中…"); sendNav_();
+    await loadHistory_(); openWs_();
+    if (!staffSeen) startCalling_();
+  } finally { chatStarting_=false; }
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
 function goRoot_(){ stack=[]; renderOptions_(); }
@@ -567,9 +572,16 @@ function openWs_(){
     var ta=document.getElementById("input"); if (ta){ ta.disabled=false; ta.placeholder="メッセージを入力"; }
     var sb=document.getElementById("sendBtn"); if (sb) sb.disabled=false;
   };
-  ws.onclose=function(){ setSt_("再接続待ち"); setTimeout(function(){ if (convId && document.getElementById("chat").style.display!=="none") openWs_(); }, 3000); };
+  ws.onclose=function(){ setSt_("再接続待ち"); setTimeout(function(){ if (convId && document.getElementById("chat").style.display!=="none"){ loadHistory_().then(openWs_); } }, 3000); };
   ws.onmessage=function(ev){
     var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+    if (d.type==="error"){
+      // 保存に失敗 → 文章を入力欄に戻して再送を促す（メッセージ消失を防ぐ）
+      var ta=document.getElementById("input");
+      if (ta && lastSend_ && lastSend_.text && !ta.value.trim()){ ta.value=lastSend_.text; }
+      alert("メッセージを送信できませんでした。通信状況をご確認のうえ、もう一度お送りください。");
+      return;
+    }
     if (d.type==="ended"){ onEnded_(); return; }
     if (d.type==="deflect"){ appendSuggest_(d.body); return; }
     if (d.type==="typing"){ if (d.from==="staff") showTyping_(); return; }
@@ -676,10 +688,12 @@ async function send_(){
     } else { alert("送信に失敗しました。"); }
     return;
   }
+  lastSend_={text:text};
   ws.send(JSON.stringify({ type:"message", body:text }));
   ws.send(JSON.stringify({ type:"draft", body:"" }));
   ta.value=""; ta.style.height="52px";
 }
+var lastSend_=null;
 function sendDraft_(){
   if (!ws || ws.readyState!==1) return;
   var now=Date.now(); if (now-draftT<400) return; draftT=now;
