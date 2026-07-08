@@ -456,8 +456,9 @@ async function submitEmergency_(){
     }
   }
 
-  // 入力内容を保持（チャットへ進む時に使う）
-  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments };
+  // 入力内容を保持（チャットへ進む時に使う）。categoryはFAQ入口の大項目＝自動タグ
+  var topCat=(stack.length && tree[stack[0]]) ? label_(tree[stack[0]]) : "";
+  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments, category:topCat };
 
   // 会話作成・スタッフ通知の前に「もしかして」案内を判定（通ってきたセクションは除外）
   var pathLabels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
@@ -506,7 +507,7 @@ async function proceedToChat_(){
   chatStarting_=true;
   try{
     var p=pendingIntake;
-    var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments });
+    var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category });
     if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
     convId=r.conversationId; pendingIntake=null; staffSeen=false;
     showChat_(); setSt_("接続中…"); sendNav_();

@@ -98,7 +98,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -170,6 +170,24 @@
       <button class="sc-btn" onclick="loadSurvey_()">表示</button>
     </div>
     <div id="surveyBody"></div>
+  </div>
+</div>
+
+<!-- 分析パネル -->
+<div id="analyticsPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">📈 分析</strong>
+      <button class="sc-btn" onclick="closeAnalytics_()">閉じる</button>
+    </div>
+    <div style="display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:12px;color:#64748b;">期間:</span>
+      <input id="anFrom" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <span style="font-size:12px;">〜</span>
+      <input id="anTo" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <button class="sc-btn" onclick="loadAnalytics_()">表示</button>
+    </div>
+    <div id="analyticsBody"></div>
   </div>
 </div>
 
@@ -447,6 +465,62 @@ function renderQaPager_(){
  * ========================================================= */
 function openSurvey_(){ document.getElementById("surveyPanel").style.display="flex"; loadSurvey_(); }
 function closeSurvey_(){ document.getElementById("surveyPanel").style.display="none"; }
+
+/* ===== 分析 ===== */
+function anYmd_(d){ var m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).slice(-2); return d.getFullYear()+"-"+m+"-"+day; }
+function anDate_(ts){ if(!ts) return ""; var d=new Date(ts); return (d.getMonth()+1)+"/"+d.getDate(); }
+function openAnalytics_(){
+  var now=new Date();
+  var f=document.getElementById("anFrom"), t=document.getElementById("anTo");
+  if(f && !f.value) f.value=anYmd_(new Date(now.getTime()-29*86400000));
+  if(t && !t.value) t.value=anYmd_(now);
+  document.getElementById("analyticsPanel").style.display="flex"; loadAnalytics_();
+}
+function closeAnalytics_(){ document.getElementById("analyticsPanel").style.display="none"; }
+function anCard_(label,val,color,sub){
+  return '<div style="flex:1;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;">'
+    +'<div style="font-size:11px;color:#64748b;">'+esc_(label)+'</div>'
+    +'<div style="font-size:20px;font-weight:700;color:'+color+';">'+esc_(val)+'</div>'
+    +(sub?'<div style="font-size:10px;color:#94a3b8;">'+esc_(sub)+'</div>':'')+'</div>';
+}
+function loadAnalytics_(){
+  var body=document.getElementById("analyticsBody");
+  body.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
+  var fromV=document.getElementById("anFrom").value, toV=document.getElementById("anTo").value;
+  var req={};
+  if(fromV) req.from=new Date(fromV+"T00:00:00").getTime();
+  if(toV) req.to=new Date(toV+"T23:59:59").getTime();
+  httpPost_("/v2/staff/analytics", req).then(function(r){
+    if(!r || !r.ok){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込みに失敗</div>'; return; }
+    var tt=r.totals||{total:0,done:0}, sv=r.survey||{c:0,avg:0};
+    var html='<div style="display:flex;gap:8px;margin-bottom:12px;">'
+      +anCard_("対応数",(tt.total||0)+"件","#0ea5e9")
+      +anCard_("完了",(tt.done||0)+"件","#16a34a")
+      +anCard_("満足度",(sv.avg?Number(sv.avg).toFixed(2):"-"),"#f59e0b",(sv.c||0)+"件")
+      +'</div>';
+    html+='<div style="font-weight:700;font-size:13px;margin:12px 0 6px;">相談カテゴリ別（FAQ入口＝自動タグ）</div>';
+    var bt=r.byTag||[]; var maxT=bt.reduce(function(a,x){return Math.max(a,x.c||0);},1);
+    html+= bt.length ? bt.map(function(x){
+      var w=Math.round(((x.c||0)/maxT)*100);
+      return '<div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;"><span>'+esc_(x.tag||"未分類")+'</span><span style="font-weight:700;">'+(x.c||0)+'</span></div>'
+        +'<div style="height:7px;background:#e0f2fe;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+w+'%;background:#0ea5e9;"></div></div></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">店舗別</div>';
+    var bs=r.byStore||[];
+    html+= bs.length ? bs.map(function(x){
+      return '<div class="sc-row"><span class="lbl">'+esc_(x.store||"不明")+'</span><span style="font-weight:700;font-size:13px;">'+(x.c||0)+'件</span></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    html+='<div style="font-weight:700;font-size:13px;margin:14px 0 4px;">未解決だった相談（FAQで解決できず緊急になった内容）</div>';
+    html+='<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">FAQ・ナレッジ・「もしかして」案内に追加する参考にしてください。</div>';
+    var ur=r.unresolved||[];
+    html+= ur.length ? ur.map(function(x){
+      return '<div style="padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;">'
+        +'<div style="font-size:11px;color:#64748b;display:flex;justify-content:space-between;gap:6px;"><span>['+esc_(x.tag||"未分類")+']'+(x.store?(" "+esc_(x.store)):"")+'</span><span>'+anDate_(x.created_at)+(x.status?(" / "+esc_(x.status)):"")+'</span></div>'
+        +'<div style="font-size:13px;margin-top:3px;white-space:pre-wrap;">'+esc_(x.situation||"（内容なし）")+'</div></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    body.innerHTML=html;
+  }).catch(function(){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
 function svStars_(avg){ var a=Math.round(avg||0); return "★★★★★".slice(0,a)+"☆☆☆☆☆".slice(0,5-a); }
 function loadSurvey_(){
   var body=document.getElementById("surveyBody");
