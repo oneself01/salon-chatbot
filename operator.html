@@ -1241,7 +1241,7 @@ function handle401_(){
 /* =========================================================
  *  会話一覧（D1）
  * ========================================================= */
-function startList_(){ fetchConvs_(); listTimer=setInterval(fetchConvs_, 10000); openMonitorFeed_(); }
+function startList_(){ fetchConvs_(); listTimer=setInterval(fetchConvs_, 4000); openMonitorFeed_(); }
 function fetchConvs_(){
   httpPost_("/v2/staff/conversations", {}).then(function(r){
     if (!r || r.ok!==true) return;
