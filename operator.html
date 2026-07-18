@@ -429,13 +429,22 @@ function tone_(freq,at,dur,type,gain){
     o.connect(g); g.connect(audioCtx.destination); o.start(at); o.stop(at+dur+0.03);
   }catch(e){}
 }
+function _playTones_(id){
+  if(!audioCtx) return;
+  var t=audioCtx.currentTime+0.02;
+  if(id==="chime"){ tone_(880,t,0.18,"sine",0.4); tone_(1174,t+0.16,0.3,"sine",0.4); }
+  else if(id==="bell"){ tone_(1568,t,0.5,"sine",0.4); tone_(2093,t+0.14,0.4,"sine",0.2); }
+  else if(id==="pin"){ tone_(1046,t,0.13,"sine",0.4); tone_(784,t+0.15,0.24,"sine",0.4); }
+  else if(id==="alert"){ tone_(660,t,0.11,"square",0.3); tone_(660,t+0.17,0.11,"square",0.3); tone_(660,t+0.34,0.18,"square",0.3); }
+  else { tone_(880,t,0.2,"sine",0.4); }
+}
 function playSoundId_(id){
-  ensureAudio_(); if(!audioCtx||id==="none"||!id) return;
-  var t=audioCtx.currentTime;
-  if(id==="chime"){ tone_(880,t,0.16); tone_(1174,t+0.16,0.28); }
-  else if(id==="bell"){ tone_(1568,t,0.5,"sine",0.28); tone_(2093,t+0.14,0.4,"sine",0.14); }
-  else if(id==="pin"){ tone_(1046,t,0.12); tone_(784,t+0.14,0.22); }
-  else if(id==="alert"){ tone_(660,t,0.1,"square",0.18); tone_(660,t+0.16,0.1,"square",0.18); tone_(660,t+0.32,0.16,"square",0.18); }
+  if(!id||id==="none") return;
+  try{
+    if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+    if(audioCtx.state==="suspended"){ audioCtx.resume().then(function(){ _playTones_(id); }).catch(function(){}); }
+    else { _playTones_(id); }
+  }catch(e){}
 }
 function playEvent_(key){ if(!soundSettings.master) return; var s=soundSettings[key]; if(s&&s.on&&s.sound&&s.sound!=="none") playSoundId_(s.sound); }
 function convEventKey_(c){ if((c.audience||"customer")==="cleaner"){ return (c.tag==="清掃報告")?"cleanerReport":"cleanerInquiry"; } return "emergency"; }
