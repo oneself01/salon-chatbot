@@ -844,6 +844,8 @@ function knowDelete_(id){
  *  定型文・キーワード管理
  * ========================================================= */
 var tplItems=[];
+var tplAud="customer";
+function setTplAud_(a){ tplAud=a; renderTpl_(); }
 function openTemplates_(){ document.getElementById("templatePanel").style.display="flex"; loadTemplates_(); }
 function closeTemplates_(){ document.getElementById("templatePanel").style.display="none"; }
 function tplMsg_(t,ok){ var e=document.getElementById("tplMsg"); e.style.color=ok?"#16a34a":"#b91c1c"; e.textContent=t; }
@@ -862,7 +864,7 @@ function renderTpl_(){
   tplShowList_();
   var box=document.getElementById("tplList");
   function section(kind, title){
-    var items=tplItems.filter(function(t){ return (t.kind||"staff")===kind; });
+    var items=tplItems.filter(function(t){ return (t.kind||"staff")===kind && (t.audience||"customer")===tplAud; });
     var html='<div style="font-weight:700;font-size:13px;margin:12px 0 4px;">'+title+'（'+items.length+'）</div>';
     if (!items.length) html+='<div style="font-size:12px;color:#94a3b8;">なし</div>';
     html+=items.map(function(t){
@@ -871,7 +873,12 @@ function renderTpl_(){
     }).join("");
     return html;
   }
-  box.innerHTML=section("staff","スタッフ返信候補")+section("customer","お客様向け案内（もしかして）")+section("email","メール返信文（一般チケットのメール返信用）");
+  var sw='<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;"><span style="font-size:12px;color:#64748b;">区分:</span>'
+    +'<button class="sc-btn'+(tplAud==="customer"?" sc-primary":"")+'" onclick="setTplAud_(\'customer\')">お客様</button>'
+    +'<button class="sc-btn'+(tplAud==="cleaner"?" sc-primary":"")+'" onclick="setTplAud_(\'cleaner\')">🧹清掃委託者</button></div>';
+  var html=sw+section("staff","スタッフ返信候補");
+  if (tplAud==="customer") html+=section("customer","お客様向け案内（もしかして）")+section("email","メール返信文（一般チケットのメール返信用）");
+  box.innerHTML=html;
   Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ tplEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
   Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ tplDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
 }
@@ -884,6 +891,8 @@ function tplEditForm_(t){
     '<button class="sc-btn" onclick="renderTpl_()">← 一覧へ戻る</button>'
     +'<label class="sc-field">種類</label>'
     +'<select id="tpl_kind" class="sc-input"><option value="staff">スタッフ返信候補</option><option value="customer">お客様向け案内（もしかして）</option><option value="email">メール返信文</option></select>'
+    +'<label class="sc-field">区分</label>'
+    +'<select id="tpl_aud" class="sc-input"><option value="customer">お客様</option><option value="cleaner">🧹清掃委託者</option></select>'
     +'<label class="sc-field">キーワード（カンマ区切り。お客様の発言にこれが含まれると候補表示）</label>'
     +'<input id="tpl_kw" class="sc-input" type="text" placeholder="例：鍵,開かない,入れない">'
     +'<label class="sc-field">分類（任意・スタッフ用の見出し）</label>'
@@ -892,12 +901,13 @@ function tplEditForm_(t){
     +'<textarea id="tpl_body" class="sc-input" style="min-height:120px;"></textarea>'
     +'<div style="margin-top:14px;display:flex;gap:8px;"><button class="sc-primary" onclick="tplSave_('+t.id+')">保存</button><button class="sc-btn" onclick="renderTpl_()">キャンセル</button></div>';
   document.getElementById("tpl_kind").value=t.kind||"staff";
+  document.getElementById("tpl_aud").value=t.audience||tplAud;
   document.getElementById("tpl_kw").value=t.keywords||"";
   document.getElementById("tpl_cat").value=t.category||"";
   document.getElementById("tpl_body").value=t.body||"";
 }
 function tplSave_(id){
-  httpPost_("/v2/admin/template", { id:id||0, kind:document.getElementById("tpl_kind").value, keywords:document.getElementById("tpl_kw").value, category:document.getElementById("tpl_cat").value, body:document.getElementById("tpl_body").value }).then(function(r){
+  httpPost_("/v2/admin/template", { id:id||0, kind:document.getElementById("tpl_kind").value, audience:document.getElementById("tpl_aud").value, keywords:document.getElementById("tpl_kw").value, category:document.getElementById("tpl_cat").value, body:document.getElementById("tpl_body").value }).then(function(r){
     if (r && r.ok){ toast_("保存しました"); loadTemplates_(); } else toast_("保存に失敗");
   });
 }
