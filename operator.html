@@ -106,6 +106,10 @@
       <button data-f="active" class="on" onclick="setFilter_('active',this)">対応待ち</button>
       <button data-f="all" onclick="setFilter_('all',this)">すべて</button>
       <button data-f="done" onclick="setFilter_('done',this)">完了</button>
+      <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+      <button data-a="all" class="on" onclick="setAud_('all',this)">全区分</button>
+      <button data-a="customer" onclick="setAud_('customer',this)">お客様</button>
+      <button data-a="cleaner" onclick="setAud_('cleaner',this)">🧹清掃</button>
     </div>
     <div id="tickets"></div>
   </div>
@@ -307,6 +311,11 @@
         <button class="sc-btn" onclick="closeScenario_()">閉じる</button>
       </div>
     </div>
+    <div style="display:flex;gap:6px;margin:4px 0 8px;align-items:center;">
+      <span style="font-size:12px;color:#64748b;">区分:</span>
+      <button id="scAudCustomer" class="sc-btn sc-primary" onclick="setScAud_('customer')">お客様</button>
+      <button id="scAudCleaner" class="sc-btn" onclick="setScAud_('cleaner')">🧹清掃委託者</button>
+    </div>
     <div id="importResult" style="font-size:12px;margin-bottom:8px;"></div>
 
     <!-- ツリー一覧 -->
@@ -336,7 +345,7 @@ var WS_BASE          = WORKER_BASE.replace(/^http/, "ws");
 var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了"];
 
 /* 状態 */
-var idToken="", me={email:"",name:""}, filter="active";
+var idToken="", me={email:"",name:""}, filter="active", audFilter="all";
 var convs=[], current=null;
 var ws=null, wsConvId=null, seenKeys=new Set();
 var listTimer=null, typingHideTimer=null, typingSendT=0;
@@ -849,8 +858,14 @@ function tplDelete_(id){
 /* =========================================================
  *  シナリオ管理（D1編集）
  * ========================================================= */
-var scNodes=[], scMediaTmp=[];
-function openScenario_(){ document.getElementById("scenarioPanel").style.display="flex"; loadScenario_(); }
+var scNodes=[], scMediaTmp=[], scAud="customer";
+function setScAud_(a){
+  scAud=a;
+  var c=document.getElementById("scAudCustomer"), cl=document.getElementById("scAudCleaner");
+  if(c) c.className="sc-btn"+(a==="customer"?" sc-primary":""); if(cl) cl.className="sc-btn"+(a==="cleaner"?" sc-primary":"");
+  loadScenario_();
+}
+function openScenario_(){ document.getElementById("scenarioPanel").style.display="flex"; setScAud_(scAud); }
 function closeScenario_(){ document.getElementById("scenarioPanel").style.display="none"; }
 function scMsg_(text, ok){ var e=document.getElementById("importResult"); e.style.color=ok?"#16a34a":"#b91c1c"; e.textContent=text; }
 
@@ -865,7 +880,7 @@ function importTree_(){
 }
 
 function loadScenario_(){
-  httpPost_("/v2/admin/tree", {}).then(function(r){
+  httpPost_("/v2/admin/tree", { aud:scAud }).then(function(r){
     if (r && r.ok){ scNodes=r.nodes||[]; renderScTree_(); }
     else scMsg_("読み込み失敗",false);
   }).catch(function(){ scMsg_("通信エラー",false); });
@@ -908,8 +923,8 @@ function scMigrateBody_(){
     else scMsg_("振り分けに失敗しました。", false);
   }).catch(function(){ scMsg_("通信エラー", false); });
 }
-function scAddRoot_(){ scSaveNode_({ id:"", parent_id:null, sort:scChildren_(null).length, label:"新しい項目", body:"", type:"node", media:"[]" }, true); }
-function scAddChild_(pid){ scSaveNode_({ id:"", parent_id:pid, sort:scChildren_(pid).length, label:"新しい項目", body:"", type:"node", media:"[]" }, true); }
+function scAddRoot_(){ scSaveNode_({ id:"", parent_id:null, sort:scChildren_(null).length, label:"新しい項目", body:"", type:"node", media:"[]", aud:scAud }, true); }
+function scAddChild_(pid){ scSaveNode_({ id:"", parent_id:pid, sort:scChildren_(pid).length, label:"新しい項目", body:"", type:"node", media:"[]", aud:scAud }, true); }
 
 function scMove_(id, dir){
   var n=scNodes.find(function(x){return x.id===id;}); if(!n) return;
@@ -1039,7 +1054,13 @@ function fetchConvs_(){
 }
 function setFilter_(f, btn){
   filter=f;
-  var bs=document.querySelectorAll(".filters button");
+  var bs=document.querySelectorAll(".filters button[data-f]");
+  for (var i=0;i<bs.length;i++) bs[i].classList.remove("on");
+  btn.classList.add("on"); renderConvs_();
+}
+function setAud_(a, btn){
+  audFilter=a;
+  var bs=document.querySelectorAll(".filters button[data-a]");
   for (var i=0;i<bs.length;i++) bs[i].classList.remove("on");
   btn.classList.add("on"); renderConvs_();
 }
@@ -1052,11 +1073,13 @@ function statusClass_(s){
 function renderConvs_(){
   var box=document.getElementById("tickets");
   var rows=convs.filter(function(c){
+    var aud=c.audience||"customer";
+    if (audFilter!=="all" && aud!==audFilter) return false;
     if (filter==="all") return true;
     if (filter==="done") return c.status==="完了";
     return c.status!=="完了";
   });
-  var vis = (filter==="done") ? [] : visitors;
+  var vis = (filter==="done"||audFilter==="cleaner") ? [] : visitors;
   var html="";
   // 閲覧中のお客様（未問い合わせ・繋がらなければ自動で消える）
   if (vis.length){
@@ -1075,10 +1098,13 @@ function renderConvs_(){
   html += rows.map(function(c){
     var sel=(current&&current.id===c.id)?" sel":"";
     var st=c.status||"未対応";
-    return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')">'
-      +'<div class="top"><div class="nm">'+esc_(c.customer_name||"（お客様）")+'</div>'
+    var isCl=(c.audience==="cleaner");
+    var audBadge=isCl?'<span class="badge" style="background:#fef3c7;color:#92400e;">🧹清掃委託者</span> ':'';
+    var tagLine=c.tag?('<span style="font-size:11px;color:#0369a1;">['+esc_(c.tag)+']</span> '):'';
+    return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')" style="'+(isCl?'border-left:3px solid #f59e0b;':'')+'">'
+      +'<div class="top"><div class="nm">'+audBadge+esc_(c.customer_name||"（お客様）")+'</div>'
       +'<span class="badge '+statusClass_(st)+'">'+esc_(st)+'</span></div>'
-      +'<div class="sit">'+esc_((c.store?("["+c.store+"] "):"")+c.id)+'</div>'
+      +'<div class="sit">'+tagLine+esc_((c.store?("["+c.store+"] "):"")+c.id)+'</div>'
       +'<div class="meta"><span>'+esc_(c.assigned_staff||"")+'</span><span>'+fmtTime_(c.last_message_at)+'</span></div>'
       +'</div>';
   }).join("");
