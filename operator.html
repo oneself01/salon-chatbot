@@ -5,6 +5,11 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ONESELF スタッフ対応コンソール</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0ea5e9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ONESELF">
+<link rel="apple-touch-icon" href="/images/Gemini_Generated_Image_z4qijfz4qijfz4qi.png">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
@@ -98,7 +103,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="openManuals_()">📖 マニュアル</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="openManuals_()">📖 マニュアル</button><button id="pushBtn" onclick="enablePush_()">🔔 通知ON</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -358,6 +363,37 @@
 var GOOGLE_CLIENT_ID = "203790194033-54sho0be0ou4o9o3kjmeiaevrcr5070a.apps.googleusercontent.com";  // ← Google OAuth クライアントID
 var WORKER_BASE      = "https://oneselfchatbot.0618-fmp.workers.dev";       // ← Worker のURL
 var WS_BASE          = WORKER_BASE.replace(/^http/, "ws");
+var VAPID_PUBLIC     = "BLXgSx6kULm6n96tAGEYSh9dn-nzluHd5Lrmrk72qJOJzQzHQYyKHKe6MkN9yuLmoB0yJ8UkyiZLipVDfo4tBfI";
+
+// Service Worker 登録（Web Push / PWA）
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function(){});
+}
+function urlB64ToUint8_(b64){
+  var pad="=".repeat((4-b64.length%4)%4);
+  var base=(b64+pad).replace(/-/g,"+").replace(/_/g,"/");
+  var raw=atob(base); var arr=new Uint8Array(raw.length);
+  for (var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+function refreshPushBtn_(){
+  var b=document.getElementById("pushBtn"); if(!b) return;
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)){ b.style.display="none"; return; }
+  b.textContent = (Notification.permission==="granted") ? "🔔 通知ON" : "🔔 通知を有効化";
+}
+async function enablePush_(){
+  try{
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)){ toast_("この端末は通知に対応していません"); return; }
+    var perm=await Notification.requestPermission();
+    if (perm!=="granted"){ toast_("通知が許可されませんでした"); return; }
+    var reg=await navigator.serviceWorker.ready;
+    var sub=await reg.pushManager.getSubscription();
+    if (!sub){ sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8_(VAPID_PUBLIC) }); }
+    var r=await httpPost_("/v2/staff/push-subscribe", { sub: sub.toJSON() });
+    if (r && r.ok){ toast_("通知をオンにしました（閉じていても届きます）"); refreshPushBtn_(); }
+    else toast_("通知の登録に失敗しました");
+  }catch(e){ toast_("通知の設定に失敗しました"); }
+}
 
 var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了"];
 
@@ -396,6 +432,16 @@ function enterConsole_(){
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="grid";
   startList_();
+  refreshPushBtn_();
+  // 既に許可済みなら購読をサーバへ再同期（購読が消えていても復活）
+  if (("Notification" in window) && Notification.permission==="granted" && ("serviceWorker" in navigator)){
+    navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.getSubscription().then(function(sub){
+        if (!sub){ return reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8_(VAPID_PUBLIC) }); }
+        return sub;
+      });
+    }).then(function(sub){ if (sub) httpPost_("/v2/staff/push-subscribe", { sub: sub.toJSON() }); }).catch(function(){});
+  }
 }
 function onCredential_(resp){
   idToken = resp.credential || "";

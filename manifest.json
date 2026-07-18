@@ -1,0 +1,13 @@
+{
+  "name": "ONESELF 対応コンソール",
+  "short_name": "ONESELF",
+  "start_url": "/operator.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    { "src": "/images/Gemini_Generated_Image_z4qijfz4qijfz4qi.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/Gemini_Generated_Image_z4qijfz4qijfz4qi.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
