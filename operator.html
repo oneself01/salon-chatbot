@@ -98,7 +98,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="openManuals_()">📖 マニュアル</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -192,6 +192,23 @@
       <button class="sc-btn" onclick="loadAnalytics_()">表示</button>
     </div>
     <div id="analyticsBody"></div>
+  </div>
+</div>
+
+<!-- 店舗マニュアル管理（清掃委託者用） -->
+<div id="manualsPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">📖 店舗マニュアル（清掃委託者用）</strong>
+      <button class="sc-btn" onclick="closeManuals_()">閉じる</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;margin-bottom:8px;">清掃委託者ページで「マニュアルを受け取る」際に、店舗ごとにこのリンクを渡します。</p>
+    <div style="display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap;">
+      <input id="mnStore" class="sc-input" type="text" placeholder="店舗名（例：沼津）" style="flex:1;min-width:120px;">
+      <input id="mnUrl" class="sc-input" type="url" placeholder="マニュアルのURL（https://…）" style="flex:2;min-width:180px;">
+      <button class="sc-primary" onclick="manualSave_()">保存</button>
+    </div>
+    <div id="manualsBody"></div>
   </div>
 </div>
 
@@ -474,6 +491,40 @@ function renderQaPager_(){
  * ========================================================= */
 function openSurvey_(){ document.getElementById("surveyPanel").style.display="flex"; loadSurvey_(); }
 function closeSurvey_(){ document.getElementById("surveyPanel").style.display="none"; }
+
+/* ===== 店舗マニュアル ===== */
+function openManuals_(){ document.getElementById("manualsPanel").style.display="flex"; loadManuals_(); }
+function closeManuals_(){ document.getElementById("manualsPanel").style.display="none"; }
+function loadManuals_(){
+  var body=document.getElementById("manualsBody");
+  body.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
+  httpPost_("/v2/staff/manuals", {}).then(function(r){
+    if (!r || !r.ok){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込み失敗</div>'; return; }
+    var ms=r.manuals||[];
+    body.innerHTML = ms.length ? ms.map(function(m){
+      return '<div class="sc-row"><span class="lbl"><strong>'+esc_(m.store)+'</strong> <a href="'+esc_(m.url||"")+'" target="_blank" rel="noopener" style="color:#0ea5e9;font-size:12px;">'+esc_((m.url||"").slice(0,40))+'…</a></span>'
+        +'<button class="sc-btn" onclick="manualEdit_(\''+esc_(m.store).replace(/'/g,"")+'\')">編集</button>'
+        +'<button class="sc-btn" onclick="manualDelete_(\''+esc_(m.store).replace(/'/g,"")+'\')">🗑</button></div>';
+    }).join("") : '<div style="font-size:12px;color:#94a3b8;">まだ登録がありません</div>';
+    window._manuals=ms;
+  }).catch(function(){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+function manualEdit_(store){
+  var m=(window._manuals||[]).find(function(x){return x.store===store;}); if(!m) return;
+  document.getElementById("mnStore").value=m.store; document.getElementById("mnUrl").value=m.url||"";
+}
+function manualSave_(){
+  var store=document.getElementById("mnStore").value.trim(), u=document.getElementById("mnUrl").value.trim();
+  if (!store){ toast_("店舗名を入力してください"); return; }
+  httpPost_("/v2/staff/manual-save", { store:store, url:u }).then(function(r){
+    if (r && r.ok){ toast_("保存しました"); document.getElementById("mnStore").value=""; document.getElementById("mnUrl").value=""; loadManuals_(); }
+    else toast_("保存に失敗");
+  });
+}
+function manualDelete_(store){
+  if (!confirm(store+" のマニュアルを削除しますか？")) return;
+  httpPost_("/v2/staff/manual-delete", { store:store }).then(function(r){ if(r&&r.ok){ toast_("削除しました"); loadManuals_(); } });
+}
 
 /* ===== 分析 ===== */
 function anYmd_(d){ var m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).slice(-2); return d.getFullYear()+"-"+m+"-"+day; }

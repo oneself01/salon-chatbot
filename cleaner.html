@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>ONESELF 清掃委託者サポート</title>
+<title>ONESELF 清掃業務サポート</title>
 <style>
   :root{ --brand:#0d9488; --brand-d:#0f766e; --grad:linear-gradient(135deg,#0f766e 0%,#0d9488 55%,#2dd4bf 100%); --ink:#0f172a; --sub:#64748b; --line:#e9eef3; --bg:#f4f7fb; --shadow:0 4px 16px rgba(13,148,136,.07); --shadow-lg:0 10px 30px rgba(13,148,136,.14); --r:14px; }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -19,19 +19,15 @@
   header .st{font-size:11px; opacity:.9; margin-left:auto;}
   header .back{background:rgba(255,255,255,.2); border:none; color:#fff; border-radius:8px; padding:5px 10px; font-size:13px; cursor:pointer;}
   #home{display:none; flex:1; flex-direction:column; overflow:hidden;}
-  #crumb{padding:10px 16px; font-size:12px; color:var(--sub); background:var(--bg); border-bottom:1px solid var(--line); min-height:38px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  #crumb .c{cursor:pointer; color:var(--brand);}
   #options{flex:1; overflow-y:auto; padding:16px 14px; display:flex; flex-direction:column; gap:13px; background:var(--bg); scroll-behavior:smooth;}
   .opt{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px; background:#fff; border:1px solid var(--line); border-radius:var(--r); font-size:15px; font-weight:500; text-align:left; cursor:pointer; box-shadow:var(--shadow); -webkit-tap-highlight-color:transparent; transition:transform .3s cubic-bezier(.16,1,.3,1), background .2s;}
   .opt:active{transform:scale(.97); background:#f8fafc; transition-duration:.06s;}
   .opt .arw{color:var(--brand); flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:#ccfbf1; border-radius:50%; font-size:15px; font-weight:700;}
   .answer{background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:17px; font-size:15px; line-height:1.7; white-space:pre-wrap; box-shadow:var(--shadow);}
-  .answer img{max-width:100%; height:auto; border-radius:8px; margin-top:10px;}
   .askBtn{width:100%; padding:15px; background:var(--grad); color:#fff; border:none; border-radius:var(--r); font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 6px 16px rgba(13,148,136,.26);}
   .askBtn.secondary{background:#eef2f7; color:#475569; box-shadow:none;}
   .fl{display:block; font-size:13px; font-weight:600; margin:10px 0 4px; color:#374151;}
   .fi{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; font-size:16px; font-family:inherit;}
-  textarea.fi{resize:vertical; min-height:90px;}
   #chat{display:none; flex:1; flex-direction:column; overflow:hidden;}
   #msgs{flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; background:var(--bg);}
   .row{display:flex; flex-direction:column; max-width:82%;}
@@ -42,31 +38,27 @@
   .row.customer .bubble{background:var(--grad); color:#fff; border-bottom-right-radius:6px;}
   .row.staff .bubble{background:#fff; color:var(--ink); border:1px solid var(--line); border-bottom-left-radius:6px;}
   .row.system .bubble{background:#eef2f7; color:#64748b; font-size:13px; border-radius:10px;}
-  .row .meta{font-size:11px; color:#94a3b8; margin-top:3px;}
   #typing{font-size:12px; color:#94a3b8; padding:0 16px 4px; min-height:18px; background:var(--bg);}
   #composer{display:flex; gap:8px; padding:10px; border-top:1px solid var(--line); background:#fff; align-items:flex-end; padding-bottom:calc(10px + env(safe-area-inset-bottom));}
   #composer textarea{flex:1; resize:none; height:52px; max-height:40vh; padding:12px 14px; border:1px solid var(--line); border-radius:18px; font-size:16px; font-family:inherit; line-height:1.5;}
   #composer button{width:46px; height:46px; border:none; border-radius:50%; background:var(--grad); color:#fff; font-size:18px; cursor:pointer; flex-shrink:0;}
   #composer button:disabled{background:#cbd5e1;}
-  #errBox{display:none; padding:16px; margin:16px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; font-size:14px;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
   @keyframes glideIn{from{opacity:0;transform:translateX(22px);}to{opacity:1;transform:translateX(0);}}
   .answer{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
   .opt{animation:glideIn .5s cubic-bezier(.16,1,.3,1) both;}
-  .row.customer{animation:fadeUp .26s ease both;} .row.staff{animation:fadeUp .26s ease both;}
+  .row.customer,.row.staff{animation:fadeUp .26s ease both;}
   @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
 </style>
 </head>
 <body>
 <div id="loading"><div class="spinner"></div><div style="letter-spacing:.08em;">Loading…</div></div>
-<div id="errBox"></div>
 
 <div id="home">
   <header>
-    <button class="back" id="homeBack" style="visibility:hidden;" onclick="goBack_()">← 戻る</button>
-    <span class="ttl">ONESELF 清掃委託者サポート</span>
+    <button class="back" id="homeBack" style="visibility:hidden;" onclick="screenStart_()">← 最初へ</button>
+    <span class="ttl">ONESELF 清掃業務サポート</span>
   </header>
-  <div id="crumb"></div>
   <div id="options"></div>
 </div>
 
@@ -78,7 +70,7 @@
   </header>
   <div id="msgs"></div>
   <div id="typing"></div>
-  <div id="endBar" style="padding:4px 10px 0;"><button onclick="cleanerEnd_()" style="width:100%;padding:11px;background:#fff;border:1px solid #cbd5e1;color:#0f172a;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">✓ 解決しました（終了）</button></div>
+  <div id="endBar" style="padding:4px 10px 0;"><button onclick="cleanerEnd_()" style="width:100%;padding:11px;background:#fff;border:1px solid #cbd5e1;color:#0f172a;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">✓ 終了する</button></div>
   <div id="pendingBar" style="display:none;align-items:center;gap:8px;padding:6px 12px;background:#f8fafc;border-top:1px solid var(--line);"></div>
   <div id="composer">
     <button id="attachBtn" onclick="document.getElementById('chatFile').click()" style="width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
@@ -91,181 +83,158 @@
 <script>
 var WORKER_BASE = "https://oneselfchatbot.0618-fmp.workers.dev";
 var WS_BASE     = WORKER_BASE.replace(/^http/, "ws");
-var tree=null, mediaData={}, stack=[], convId=null, accessToken=null, ws=null, seen=new Set(), pendingFile=null, pendingIntake=null, lastSend_=null, cleanerId="";
+var workDay="today", convId=null, accessToken=null, ws=null, seen=new Set(), pendingFile=null, lastSend_=null, cleanerId="";
+
+var INTRO_TEXT = "🧹 ワンセルフ清掃業務にご応募いただき、ありがとうございます！\nお手続きやご質問については、下の項目からご希望の内容をお選びください。\n\n📱清掃業務は、スマートフォンでマニュアルをご確認いただきながら、チャットでやり取りを進めていただく形となります。操作に不安がある方や、スマホ・チャットに慣れていない方は、無理せずキャンセルしていただいても大丈夫です◎\n\n業務の流れ👇\n１｜ワンセルフ予約LINEから会員登録後、業務枠を予約\n２｜マニュアルを受け取る\n３｜業務1H（マニュアルを見ながら清掃・補充 → 写真報告 → 弊社担当が写真チェックし指示 → 時間になったら退室）\n４｜退室後、修正依頼を行う";
 
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function linkify_(s){ return esc_(s).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--brand);">$1</a>'); }
 function ls_(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet_(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 function lsDel_(k){ try{ localStorage.removeItem(k); }catch(e){} }
+function v_(id){ var el=document.getElementById(id); return el?el.value:""; }
+function optBtn_(label, fn){ var b=document.createElement("button"); b.className="opt"; b.innerHTML='<span>'+esc_(label)+'</span><span class="arw">›</span>'; b.onclick=fn; return b; }
+function answerCard_(text){ var d=document.createElement("div"); d.className="answer"; d.textContent=text; return d; }
+function btn_(label, cls, fn){ var b=document.createElement("button"); b.className=cls; b.style.marginTop="8px"; b.textContent=label; b.onclick=fn; return b; }
 
 window.addEventListener("DOMContentLoaded", function(){
   cleanerId = ls_("cleanerId") || ("cl_"+Date.now().toString(36)+Math.random().toString(36).slice(2,8));
   lsSet_("cleanerId", cleanerId);
-  loadTree_();
+  document.getElementById("loading").style.display="none";
+  document.getElementById("home").style.display="flex";
+  screenStart_();
+  var ta=document.getElementById("input");
+  if (ta){
+    ta.addEventListener("input", function(){ ta.style.height="52px"; ta.style.height=Math.min(ta.scrollHeight,window.innerHeight*0.4)+"px"; });
+    ta.addEventListener("keydown", function(e){ if (e.key==="Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); send_(); } });
+  }
 });
 
-function loadTree_(){
-  fetch(WORKER_BASE+"/v2/tree?aud=cleaner").then(function(r){ return r.json(); }).then(function(d){
-    if (d && d.success && d.data){ tree=d.data; mediaData=d.media||{}; }
-    else { tree={ level0:[] }; mediaData={}; }
-    document.getElementById("loading").style.display="none";
-    document.getElementById("home").style.display="flex";
-    renderOptions_();
-  }).catch(function(){
-    document.getElementById("loading").style.display="none";
-    document.getElementById("home").style.display="flex";
-    tree={ level0:[] }; renderOptions_();
-  });
-}
-
-/* ===== FAQツリー ===== */
-function currentChildren_(){
-  if (!tree) return [];
-  if (!stack.length) return (tree.level0||[]).map(function(id){ return tree[id]; }).filter(Boolean);
-  var node=tree[stack[stack.length-1]];
-  if (node && node.children) return node.children.map(function(id){ return tree[id]; }).filter(Boolean);
-  return [];
-}
-function label_(node){ return String(node.value||"").replace(/【[^】]+】/g,"").trim(); }
-function body_(node){ return String((node&&node.body)||"").trim(); }
-function firstLine_(s){ s=String(s||"").split(/[\n。]/)[0].trim(); return s.length>40?s.slice(0,40)+"…":s; }
-
-function renderOptions_(){
-  renderCrumb_();
-  document.getElementById("homeBack").style.visibility = stack.length ? "visible" : "hidden";
-  var box=document.getElementById("options"); box.innerHTML="";
-  var answers=[], options=[];
-  currentChildren_().forEach(function(node){
-    var hasKids=node.children && node.children.length;
-    var isEmergency = node.type==="emergency";
-    var isAnswer = !hasKids && !isEmergency && (body_(node) || (node.media&&node.media.length) || label_(node).length>=18);
-    if (isAnswer) answers.push(node); else options.push(node);
-  });
-  answers.forEach(function(node){
-    var div=document.createElement("div"); div.className="answer";
-    div.textContent = body_(node) || label_(node);
-    renderNodeMedia_(div, node); box.appendChild(div);
-  });
-  options.forEach(function(node){
-    var b=document.createElement("button"); b.className="opt";
-    b.innerHTML='<span>'+esc_(firstLine_(label_(node)))+'</span><span class="arw">›</span>';
-    b.onclick=function(){ selectNode_(node.id); };
-    box.appendChild(b);
-  });
-  // トップには常に「スタッフに問い合わせる」導線
-  if (!stack.length){
-    var contact=document.createElement("button"); contact.className="askBtn"; contact.style.marginTop="6px";
-    contact.textContent="スタッフに問い合わせる"; contact.onclick=function(){ renderCleanerForm_(); };
-    box.appendChild(contact);
-  }
-  // 対応中の相談があれば再開ボタン
+/* ===== フロー ===== */
+function box_(){ var b=document.getElementById("options"); b.innerHTML=""; return b; }
+function screenStart_(){
+  showHomeView_();
+  document.getElementById("homeBack").style.visibility="hidden";
+  var box=box_();
+  var q=document.createElement("div"); q.className="answer"; q.style.fontWeight="700"; q.textContent="お仕事はいつですか？"; box.appendChild(q);
+  box.appendChild(optBtn_("本日のお仕事", function(){ workDay="today"; screenMenu_(); }));
+  box.appendChild(optBtn_("翌日以降のお仕事", function(){ workDay="future"; screenMenu_(); }));
   var savedC=ls_("cl_convId"), savedT=ls_("cl_token");
-  if (!stack.length && savedC && savedT){
-    var resume=document.createElement("button"); resume.className="askBtn secondary"; resume.style.marginTop="8px";
-    resume.textContent="🗨 対応中の相談を開く"; resume.onclick=function(){ convId=savedC; accessToken=savedT; showChat_(); loadHistory_().then(openWs_); };
-    box.appendChild(resume);
-  }
+  if (savedC && savedT){ box.appendChild(btn_("🗨 対応中の相談を開く","askBtn secondary",function(){ convId=savedC; accessToken=savedT; showChat_(); loadHistory_().then(openWs_); })); }
   box.scrollTop=0;
 }
-function renderNodeMedia_(div, node){
-  if (!(node.media && node.media.length)) return;
-  node.media.forEach(function(mid){
-    var m=mediaData[mid]; if (!m) return;
-    if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); div.appendChild(img); }
-    else { var a=document.createElement("a"); a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); a.style.cssText="display:inline-block;margin-top:8px;padding:9px 14px;background:var(--brand);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;"; div.appendChild(document.createElement("br")); div.appendChild(a); }
-  });
-}
-function renderCrumb_(){
-  var c=document.getElementById("crumb");
-  var html='<span class="c" onclick="goRoot_()">🏠 トップ</span>';
-  stack.forEach(function(id,i){ var n=tree[id]; if(!n) return; html+=' › <span class="c" onclick="goTo_('+i+')">'+esc_(label_(n))+'</span>'; });
-  c.innerHTML=html;
-}
-function selectNode_(id){
-  var node=tree[id]; if(!node) return;
-  var kids=node.children||[];
-  if (kids.length){
-    if (kids.length===1){
-      var only=tree[kids[0]];
-      if (only){ var onlyLeaf=!(only.children&&only.children.length); if (onlyLeaf && only.type!=="emergency"){ terminal_(only); return; } }
-    }
-    stack.push(id); renderOptions_(); return;
-  }
-  terminal_(node);
-}
-function terminal_(node){
-  if (node.type==="emergency"){ renderCleanerForm_(); return; }
-  renderAnswer_(node);
-}
-function renderAnswer_(node){
-  var box=document.getElementById("options"); box.innerHTML="";
-  var div=document.createElement("div"); div.className="answer";
-  div.textContent = body_(node) || label_(node);
-  renderNodeMedia_(div, node);
-  box.appendChild(div);
-  var back=document.createElement("button"); back.className="askBtn secondary"; back.style.marginTop="12px";
-  back.textContent="← 一覧へ戻る"; back.onclick=function(){ renderOptions_(); };
-  box.appendChild(back);
+function screenMenu_(){
+  document.getElementById("homeBack").style.visibility="visible";
+  var box=box_();
+  box.appendChild(answerCard_(INTRO_TEXT));
+  box.appendChild(optBtn_("📘 清掃マニュアルを受け取る（初回）", function(){ screenForm_("first"); }));
+  box.appendChild(optBtn_("⭐️ 2回目以降のお仕事（マニュアルをお持ちの方）", function(){ screenForm_("repeat"); }));
+  box.appendChild(optBtn_("❌ お仕事をキャンセルしたい", screenCancel_));
   box.scrollTop=0;
 }
-function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
-function goRoot_(){ stack=[]; renderOptions_(); }
-function goTo_(i){ stack=stack.slice(0,i+1); renderOptions_(); }
-
-/* ===== 問い合わせフォーム ===== */
-function v_(id){ var el=document.getElementById(id); return el?el.value:""; }
-function renderCleanerForm_(){
-  if (convId){ showChat_(); return; }
-  var box=document.getElementById("options"); box.innerHTML="";
-  var lastName=ls_("cl_name")||"", lastStore=ls_("cl_store")||"";
-  var wrap=document.createElement("div"); wrap.className="answer";
-  wrap.innerHTML='<div style="font-weight:700;margin-bottom:6px;">スタッフへの問い合わせ</div>'
-    +'<label class="fl">お名前 *</label><input id="cf_name" class="fi" type="text" value="'+esc_(lastName)+'" placeholder="例：山田 太郎">'
-    +'<label class="fl">担当店舗 *</label><input id="cf_store" class="fi" type="text" value="'+esc_(lastStore)+'" placeholder="例：沼津">'
-    +'<label class="fl">内容 *</label><textarea id="cf_sit" class="fi" placeholder="状況・ご用件をご記入ください"></textarea>'
-    +'<label class="fl">写真・動画（任意）</label><input id="cf_file" class="fi" type="file" accept="image/*,video/*" multiple style="padding:8px;">';
-  box.appendChild(wrap);
-  var submit=document.createElement("button"); submit.className="askBtn"; submit.id="cf_submit"; submit.style.marginTop="12px";
-  submit.textContent="送信してチャットを開始"; submit.onclick=submitCleaner_;
-  var back=document.createElement("button"); back.className="askBtn secondary"; back.style.marginTop="8px";
-  back.textContent="← 戻る"; back.onclick=function(){ renderOptions_(); };
-  box.appendChild(submit); box.appendChild(back);
+function screenCancel_(){
+  var box=box_();
+  box.appendChild(answerCard_("キャンセルをご希望の方は、タイミーからキャンセル手続きをお願いいたします。"));
+  box.appendChild(btn_("← 戻る","askBtn secondary",screenMenu_));
   box.scrollTop=0;
 }
-async function submitCleaner_(){
-  var name=v_("cf_name").trim(), store=v_("cf_store").trim(), situation=v_("cf_sit").trim();
-  if (!name || !store || !situation){ alert("お名前・担当店舗・内容は必須です。"); return; }
-  var btn=document.getElementById("cf_submit"); if (btn){ btn.disabled=true; btn.textContent="送信中…"; }
-  lsSet_("cl_name",name); lsSet_("cl_store",store);
-  var attachments=[];
-  var fi=document.getElementById("cf_file");
-  if (fi && fi.files && fi.files.length){
-    if (btn) btn.textContent="アップロード中…";
-    for (var i=0;i<fi.files.length;i++){
-      if (fi.files[i].size>20*1024*1024){ alert("「"+fi.files[i].name+"」は20MBを超えています。"); if(btn){btn.disabled=false;btn.textContent="送信してチャットを開始";} return; }
-      var up=await uploadFile_(fi.files[i]);
-      if (up && up.success){ attachments.push({ url:up.fileUrl, type:up.type, name:up.name }); }
-    }
+function screenForm_(mode){
+  var box=box_();
+  box.appendChild(answerCard_(mode==="first"
+    ? "対象店舗を選び、予約情報を入力してください。合致すると、店舗マニュアルと入室コードをお渡しします。"
+    : "予約情報を入力してください。合致すると、入室コードをお渡しします。"));
+  var f=document.createElement("div"); f.className="answer";
+  f.innerHTML='<label class="fl">対象店舗 *</label><select id="cf_store" class="fi"><option value="">読み込み中…</option></select>'
+    +'<label class="fl">タイミー登録時のお名前 *</label><input id="cf_name" class="fi" type="text" value="'+esc_(ls_("cl_name")||"")+'" placeholder="例：山田 太郎">'
+    +'<label class="fl">予約日 *</label><input id="cf_date" class="fi" type="date">'
+    +'<label class="fl">開始時刻 *</label><input id="cf_start" class="fi" type="time">'
+    +'<label class="fl">終了時刻 *</label><input id="cf_end" class="fi" type="time">';
+  box.appendChild(f);
+  var sub=btn_("照合する","askBtn",function(){ submitKey_(mode); }); sub.id="cf_submit"; sub.style.marginTop="12px";
+  box.appendChild(sub);
+  box.appendChild(btn_("← 戻る","askBtn secondary",screenMenu_));
+  box.scrollTop=0;
+  loadStores_();
+}
+function loadStores_(){
+  fetch(WORKER_BASE+"/v2/cleaner/stores").then(function(x){return x.json();}).then(function(r){
+    var sel=document.getElementById("cf_store"); if(!sel) return;
+    var stores=(r&&r.stores)||[];
+    if (stores.length){ sel.innerHTML='<option value="">選択してください</option>'+stores.map(function(s){return '<option value="'+esc_(s)+'">'+esc_(s)+'</option>';}).join(""); }
+    else replaceStoreInput_();
+  }).catch(function(){ replaceStoreInput_(); });
+}
+function replaceStoreInput_(){
+  var sel=document.getElementById("cf_store"); if(!sel) return;
+  var inp=document.createElement("input"); inp.id="cf_store"; inp.className="fi"; inp.type="text"; inp.placeholder="店舗名（予約通りに入力）";
+  sel.parentNode.replaceChild(inp, sel);
+}
+async function submitKey_(mode){
+  var store=v_("cf_store").trim(), name=v_("cf_name").trim(), date=v_("cf_date").trim(), start=v_("cf_start").trim(), end=v_("cf_end").trim();
+  if (!store||!name||!date||!start||!end){ alert("すべての項目を入力してください。"); return; }
+  lsSet_("cl_name", name);
+  var btn=document.getElementById("cf_submit"); if(btn){ btn.disabled=true; btn.textContent="照合中…"; }
+  var r=await fetch(WORKER_BASE+"/v2/cleaner/key-lookup", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ store:store, date:date, start:start, end:end }) }).then(function(x){return x.json();}).catch(function(){ return null; });
+  if(btn){ btn.disabled=false; btn.textContent="照合する"; }
+  if(!r||!r.ok){ alert("照合に失敗しました。時間をおいて再度お試しください。"); return; }
+  screenKeyResult_(mode, r, { store:store, name:name, date:date, start:start, end:end });
+}
+function screenKeyResult_(mode, res, form){
+  var box=box_();
+  if (mode==="first"){
+    var man=document.createElement("div"); man.className="answer";
+    if (res.manual){ man.innerHTML='<div style="font-weight:700;margin-bottom:6px;">📘 清掃マニュアル</div><a href="'+esc_(res.manual)+'" target="_blank" rel="noopener" style="display:inline-block;padding:11px 18px;background:var(--brand);color:#fff;border-radius:9px;text-decoration:none;font-weight:600;">マニュアルを開く</a>'; }
+    else { man.textContent="この店舗のマニュアルはまだ登録されていません。担当者にお問い合わせください。"; }
+    box.appendChild(man);
   }
-  var topCat=(stack.length && tree[stack[0]]) ? label_(tree[stack[0]]) : "";
-  var r=await fetch(WORKER_BASE+"/v2/cleaner/start", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ name:name, store:store, situation:situation, attachments:attachments, category:topCat, cleanerId:cleanerId }) }).then(function(x){return x.json();}).catch(function(){return null;});
-  if (btn){ btn.disabled=false; btn.textContent="送信してチャットを開始"; }
-  if (!r || !r.ok){ alert("送信に失敗しました。時間をおいて再度お試しください。"); return; }
-  convId=r.conversationId; accessToken=r.accessToken;
-  lsSet_("cl_convId",convId); lsSet_("cl_token",accessToken);
+  if (res.found){
+    var k=document.createElement("div"); k.className="answer"; k.style.textAlign="center";
+    k.innerHTML='<div style="font-size:13px;color:#64748b;">🔑 入室コード</div>'
+      +'<div style="font-size:34px;font-weight:800;letter-spacing:4px;color:var(--brand);margin:4px 0;">'+esc_(res.code)+'</div>'
+      +'<div style="font-size:12px;color:#64748b;">'+esc_(form.store)+' / '+esc_(form.date)+' '+esc_(form.start)+'〜'+esc_(form.end)+'</div>';
+    box.appendChild(k);
+    box.appendChild(btn_("📄 清掃報告を行う","askBtn",function(){ startCleanerChat_("report", form); }));
+    box.appendChild(btn_("💬 チャットで問い合わせる","askBtn secondary",function(){ tryInquiry_(form); }));
+  } else {
+    var nf=document.createElement("div"); nf.className="answer"; nf.style.borderColor="#fecaca"; nf.style.background="#fef2f2";
+    nf.textContent="予約情報が見つかりませんでした。店舗名・予約日・開始/終了時刻が予約通りかご確認ください。";
+    box.appendChild(nf);
+    box.appendChild(btn_("← 入力に戻る","askBtn secondary",function(){ screenForm_(mode); }));
+    box.appendChild(btn_("💬 チャットで問い合わせる","askBtn",function(){ tryInquiry_(form); }));
+  }
+  box.appendChild(btn_("🏠 最初に戻る","askBtn secondary",screenStart_));
+  box.scrollTop=0;
+}
+function inquiryOpen_(){
+  var h=new Date().getHours();
+  if (workDay==="future") return (h>=8 && h<18);
+  return (h<23); // 本日は23時まで
+}
+function tryInquiry_(form){
+  if (!inquiryOpen_()){ screenAbsent_(); return; }
+  startCleanerChat_("inquiry", form||{ store:"", name:ls_("cl_name")||"清掃委託者", date:"", start:"", end:"" });
+}
+function screenAbsent_(){
+  var box=box_();
+  box.appendChild(answerCard_("只今のお時間はスタッフが不在となります。\n翌日の8:00〜18:00の間にお問い合わせください。"));
+  box.appendChild(btn_("← 戻る","askBtn secondary",screenMenu_));
+  box.scrollTop=0;
+}
+async function startCleanerChat_(kind, form){
+  var head = (kind==="report" ? "【清掃報告】" : "【問い合わせ】");
+  var sit = head+" "+(form.store||"")+" "+(form.date||"")+" "+(form.start||"")+(form.end?("〜"+form.end):"");
+  var r=await fetch(WORKER_BASE+"/v2/cleaner/start", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ name:(form.name||"清掃委託者"), store:(form.store||""), situation:sit, category:(kind==="report"?"清掃報告":"問い合わせ"), cleanerId:cleanerId }) }).then(function(x){return x.json();}).catch(function(){ return null; });
+  if(!r||!r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
+  convId=r.conversationId; accessToken=r.accessToken; lsSet_("cl_convId",convId); lsSet_("cl_token",accessToken);
   showChat_(); setSt_("接続中…");
-  await loadHistory_(); openWs_();
-}
-async function uploadFile_(file){
-  try{
-    var r=await fetch(WORKER_BASE+"/v2/upload?aud=cleaner&name="+encodeURIComponent(file.name), { method:"POST", headers:{"content-type":file.type||"application/octet-stream"}, body:file });
-    return await r.json();
-  }catch(e){ return null; }
+  await loadHistory_();
+  if (kind==="report"){ append_("system","清掃ありがとうございます！マニュアル記載の報告写真をお送りください。\n確認後、清掃の直し等の指示をさせていただきますので、退室せずお待ちください。",Date.now()); scrollBottom_(); }
+  openWs_();
 }
 
 /* ===== チャット ===== */
-function showHome_(){ document.getElementById("chat").style.display="none"; document.getElementById("home").style.display="flex"; renderOptions_(); }
+function showHomeView_(){ document.getElementById("chat").style.display="none"; document.getElementById("home").style.display="flex"; }
+function showHome_(){ showHomeView_(); screenStart_(); }
 function showChat_(){ document.getElementById("home").style.display="none"; document.getElementById("chat").style.display="flex"; }
 function setSt_(t){ var e=document.getElementById("connSt"); if(e) e.textContent=t; }
 async function loadHistory_(){
@@ -275,7 +244,7 @@ async function loadHistory_(){
     document.getElementById("msgs").innerHTML="";
     if (r && r.ok && Array.isArray(r.messages) && r.messages.length){
       r.messages.forEach(function(m){ seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"")); append_(m.sender_type,m.body,m.created_at,m.attachments); });
-    } else { append_("system","ご用件を入力してください。スタッフが順次対応します。",Date.now()); }
+    } else { append_("system","ご用件を入力してください。担当者が順次対応します。",Date.now()); }
     scrollBottom_();
   }catch(e){}
 }
@@ -283,7 +252,7 @@ function openWs_(){
   if (ws){ try{ws.close();}catch(e){} }
   var url=WS_BASE+"/v2/ws?role=customer&aud=cleaner&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(accessToken);
   ws=new WebSocket(url);
-  ws.onopen=function(){ setSt_("● 接続中"); var ta=document.getElementById("input"); if(ta){ta.disabled=false;} var sb=document.getElementById("sendBtn"); if(sb) sb.disabled=false; };
+  ws.onopen=function(){ setSt_("● 接続中"); var ta=document.getElementById("input"); if(ta) ta.disabled=false; var sb=document.getElementById("sendBtn"); if(sb) sb.disabled=false; };
   ws.onclose=function(){ setSt_("再接続待ち"); setTimeout(function(){ if (convId && document.getElementById("chat").style.display!=="none"){ loadHistory_().then(openWs_); } }, 3000); };
   ws.onmessage=function(ev){
     var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
@@ -299,7 +268,7 @@ function openWs_(){
   };
 }
 var typingHideT=null;
-function showTyping_(){ document.getElementById("typing").textContent="スタッフが入力中…"; if(typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_,4000); }
+function showTyping_(){ document.getElementById("typing").textContent="担当者が入力中…"; if(typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_,4000); }
 function clearTyping_(){ document.getElementById("typing").textContent=""; }
 function append_(sender, text, ts, attachments){
   var msgs=document.getElementById("msgs");
@@ -324,6 +293,10 @@ function pickMedia_(input){
   bar.innerHTML='<span style="font-size:12px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(f.name)+'</span><button onclick="clearPending_()" style="border:none;background:#0f172a;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;">×</button>';
 }
 function clearPending_(){ pendingFile=null; var bar=document.getElementById("pendingBar"); bar.style.display="none"; bar.innerHTML=""; }
+async function uploadFile_(file){
+  try{ var r=await fetch(WORKER_BASE+"/v2/upload?aud=cleaner&name="+encodeURIComponent(file.name), { method:"POST", headers:{"content-type":file.type||"application/octet-stream"}, body:file }); return await r.json(); }
+  catch(e){ return null; }
+}
 async function send_(){
   var ta=document.getElementById("input"); var text=ta.value.trim();
   if (!pendingFile && !text) return;
@@ -343,13 +316,8 @@ function cleanerEnd_(){
   if (!confirm("チャットを終了します。よろしいですか？")) return;
   if (ws){ try{ws.close();}catch(e){} ws=null; }
   convId=null; accessToken=null; lsDel_("cl_convId"); lsDel_("cl_token");
-  stack=[]; showHome_();
+  showHome_();
 }
-document.addEventListener("DOMContentLoaded", function(){
-  var ta=document.getElementById("input"); if (!ta) return;
-  ta.addEventListener("input", function(){ ta.style.height="52px"; ta.style.height=Math.min(ta.scrollHeight,window.innerHeight*0.4)+"px"; });
-  ta.addEventListener("keydown", function(e){ if (e.key==="Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); send_(); } });
-});
 </script>
 </body>
 </html>
