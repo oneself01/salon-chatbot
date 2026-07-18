@@ -411,16 +411,18 @@ var SOUND_EVENTS=[
   {key:"emergency",label:"緊急チャット（お客様）"},
   {key:"cleanerInquiry",label:"清掃委託者の問い合わせ"},
   {key:"cleanerReport",label:"清掃報告"},
-  {key:"message",label:"対応中の新着メッセージ"}
+  {key:"message",label:"新着メッセージ（他のチャット含む）"}
 ];
 var SOUNDS=[{id:"chime",label:"チャイム"},{id:"bell",label:"ベル"},{id:"pin",label:"ピンポン"},{id:"alert",label:"アラート"},{id:"none",label:"なし"}];
-function defaultSound_(){ return { master:true, emergency:{on:true,sound:"chime"}, cleanerInquiry:{on:true,sound:"pin"}, cleanerReport:{on:true,sound:"bell"}, message:{on:false,sound:"pin"} }; }
+function defaultSound_(){ return { master:true, emergency:{on:true,sound:"chime"}, cleanerInquiry:{on:true,sound:"pin"}, cleanerReport:{on:true,sound:"bell"}, message:{on:true,sound:"pin"} }; }
 var soundSettings=defaultSound_();
 try{ var _ss=JSON.parse(localStorage.getItem("soundSettings")||"null"); if(_ss){ soundSettings=Object.assign(defaultSound_(),_ss); } }catch(e){}
 function saveSoundSettings_(){ try{ localStorage.setItem("soundSettings",JSON.stringify(soundSettings)); }catch(e){} }
 var audioCtx=null;
 function ensureAudio_(){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended") audioCtx.resume(); }catch(e){} }
 document.addEventListener("click", ensureAudio_);
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) ensureAudio_(); });
+window.addEventListener("focus", ensureAudio_);
 function tone_(freq,at,dur,type,gain){
   try{
     var o=audioCtx.createOscillator(), g=audioCtx.createGain();
@@ -448,10 +450,20 @@ function playSoundId_(id){
 }
 function playEvent_(key){ if(!soundSettings.master) return; var s=soundSettings[key]; if(s&&s.on&&s.sound&&s.sound!=="none") playSoundId_(s.sound); }
 function convEventKey_(c){ if((c.audience||"customer")==="cleaner"){ return (c.tag==="清掃報告")?"cleanerReport":"cleanerInquiry"; } return "emergency"; }
-var knownConvIds=null;
+var knownConv=null;   // id -> last_message_at
 function detectNewConvs_(list){
-  if(knownConvIds===null){ knownConvIds={}; list.forEach(function(c){ knownConvIds[c.id]=1; }); return; }
-  list.forEach(function(c){ if(!knownConvIds[c.id]){ knownConvIds[c.id]=1; if((c.status||"未対応")!=="完了") playEvent_(convEventKey_(c)); } });
+  if(knownConv===null){ knownConv={}; list.forEach(function(c){ knownConv[c.id]=c.last_message_at||0; }); return; }
+  list.forEach(function(c){
+    var lm=c.last_message_at||0, prev=knownConv[c.id];
+    if(prev===undefined){
+      knownConv[c.id]=lm;
+      if((c.status||"未対応")!=="完了") playEvent_(convEventKey_(c));   // 新規会話
+    } else {
+      // 既存会話の新着（今開いている会話以外＝別チャットの新着。完了は除く）
+      if(lm>prev && (!current||current.id!==c.id) && (c.status||"")!=="完了") playEvent_("message");
+      knownConv[c.id]=lm;
+    }
+  });
 }
 function openSound_(){ ensureAudio_(); document.getElementById("soundPanel").style.display="flex"; renderSound_(); }
 function closeSound_(){ document.getElementById("soundPanel").style.display="none"; }
