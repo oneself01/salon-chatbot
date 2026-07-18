@@ -103,7 +103,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="openManuals_()">📖 マニュアル</button><button id="pushBtn" onclick="enablePush_()">🔔 通知ON</button><button onclick="logout_()">ログアウト</button></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="openQA_()">🧠 AI学習</button><button onclick="openAnalytics_()">📈 分析</button><button onclick="openSurvey_()">📊 アンケート</button><button onclick="openGeneral_()">📋 一般チケット</button><button onclick="openStaff_()">👥 スタッフ</button><button onclick="openKnowledge_()">📚 ナレッジ</button><button onclick="openTemplates_()">💬 定型文</button><button onclick="openScenario_()">⚙ シナリオ</button><button onclick="openManuals_()">📖 マニュアル</button><button id="pushBtn" onclick="enablePush_()">🔔 通知ON</button><button onclick="openSound_()">🔊 音設定</button><button onclick="logout_()">ログアウト</button></div>
   </header>
 
   <div id="list">
@@ -197,6 +197,17 @@
       <button class="sc-btn" onclick="loadAnalytics_()">表示</button>
     </div>
     <div id="analyticsBody"></div>
+  </div>
+</div>
+
+<!-- サウンド設定 -->
+<div id="soundPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">🔊 サウンド設定</strong>
+      <button class="sc-btn" onclick="closeSound_()">閉じる</button>
+    </div>
+    <div id="soundBody"></div>
   </div>
 </div>
 
@@ -394,6 +405,64 @@ async function enablePush_(){
     else toast_("通知の登録に失敗しました");
   }catch(e){ toast_("通知の設定に失敗しました"); }
 }
+
+/* ===== アプリ内サウンド（コンソールを開いている時に鳴る・端末ごとに設定） ===== */
+var SOUND_EVENTS=[
+  {key:"emergency",label:"緊急チャット（お客様）"},
+  {key:"cleanerInquiry",label:"清掃委託者の問い合わせ"},
+  {key:"cleanerReport",label:"清掃報告"},
+  {key:"message",label:"対応中の新着メッセージ"}
+];
+var SOUNDS=[{id:"chime",label:"チャイム"},{id:"bell",label:"ベル"},{id:"pin",label:"ピンポン"},{id:"alert",label:"アラート"},{id:"none",label:"なし"}];
+function defaultSound_(){ return { master:true, emergency:{on:true,sound:"chime"}, cleanerInquiry:{on:true,sound:"pin"}, cleanerReport:{on:true,sound:"bell"}, message:{on:false,sound:"pin"} }; }
+var soundSettings=defaultSound_();
+try{ var _ss=JSON.parse(localStorage.getItem("soundSettings")||"null"); if(_ss){ soundSettings=Object.assign(defaultSound_(),_ss); } }catch(e){}
+function saveSoundSettings_(){ try{ localStorage.setItem("soundSettings",JSON.stringify(soundSettings)); }catch(e){} }
+var audioCtx=null;
+function ensureAudio_(){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended") audioCtx.resume(); }catch(e){} }
+document.addEventListener("click", ensureAudio_);
+function tone_(freq,at,dur,type,gain){
+  try{
+    var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type=type||"sine"; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,at); g.gain.exponentialRampToValueAtTime(gain||0.25,at+0.015); g.gain.exponentialRampToValueAtTime(0.0001,at+dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(at); o.stop(at+dur+0.03);
+  }catch(e){}
+}
+function playSoundId_(id){
+  ensureAudio_(); if(!audioCtx||id==="none"||!id) return;
+  var t=audioCtx.currentTime;
+  if(id==="chime"){ tone_(880,t,0.16); tone_(1174,t+0.16,0.28); }
+  else if(id==="bell"){ tone_(1568,t,0.5,"sine",0.28); tone_(2093,t+0.14,0.4,"sine",0.14); }
+  else if(id==="pin"){ tone_(1046,t,0.12); tone_(784,t+0.14,0.22); }
+  else if(id==="alert"){ tone_(660,t,0.1,"square",0.18); tone_(660,t+0.16,0.1,"square",0.18); tone_(660,t+0.32,0.16,"square",0.18); }
+}
+function playEvent_(key){ if(!soundSettings.master) return; var s=soundSettings[key]; if(s&&s.on&&s.sound&&s.sound!=="none") playSoundId_(s.sound); }
+function convEventKey_(c){ if((c.audience||"customer")==="cleaner"){ return (c.tag==="清掃報告")?"cleanerReport":"cleanerInquiry"; } return "emergency"; }
+var knownConvIds=null;
+function detectNewConvs_(list){
+  if(knownConvIds===null){ knownConvIds={}; list.forEach(function(c){ knownConvIds[c.id]=1; }); return; }
+  list.forEach(function(c){ if(!knownConvIds[c.id]){ knownConvIds[c.id]=1; if((c.status||"未対応")!=="完了") playEvent_(convEventKey_(c)); } });
+}
+function openSound_(){ ensureAudio_(); document.getElementById("soundPanel").style.display="flex"; renderSound_(); }
+function closeSound_(){ document.getElementById("soundPanel").style.display="none"; }
+function renderSound_(){
+  var body=document.getElementById("soundBody");
+  var html='<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;"><input type="checkbox" '+(soundSettings.master?"checked":"")+' onchange="soundMaster_(this.checked)"> サウンドを有効にする（このタブを開いている時）</label>';
+  SOUND_EVENTS.forEach(function(ev){
+    var s=soundSettings[ev.key]||{on:false,sound:"chime"};
+    html+='<div class="sc-row" style="flex-wrap:wrap;gap:6px;">'
+      +'<label style="flex:1;min-width:150px;display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" '+(s.on?"checked":"")+' onchange="soundToggle_(\''+ev.key+'\',this.checked)"> '+esc_(ev.label)+'</label>'
+      +'<select class="sc-input" style="width:108px;" onchange="soundPick_(\''+ev.key+'\',this.value)">'+SOUNDS.map(function(o){return '<option value="'+o.id+'"'+(s.sound===o.id?" selected":"")+'>'+o.label+'</option>';}).join("")+'</select>'
+      +'<button class="sc-btn" onclick="soundTest_(\''+ev.key+'\')">▶ テスト</button></div>';
+  });
+  html+='<p style="font-size:11px;color:#94a3b8;margin-top:10px;">※この設定はこの端末（ブラウザ）ごとに保存されます。コンソールを閉じている時はOSの通知音のみです。</p>';
+  body.innerHTML=html;
+}
+function soundMaster_(v){ soundSettings.master=v; saveSoundSettings_(); }
+function soundToggle_(k,v){ soundSettings[k].on=v; saveSoundSettings_(); }
+function soundPick_(k,v){ soundSettings[k].sound=v; saveSoundSettings_(); playSoundId_(v); }
+function soundTest_(k){ playSoundId_((soundSettings[k]||{}).sound); }
 
 var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了"];
 
@@ -1156,6 +1225,7 @@ function fetchConvs_(){
   httpPost_("/v2/staff/conversations", {}).then(function(r){
     if (!r || r.ok!==true) return;
     convs = Array.isArray(r.conversations) ? r.conversations : [];
+    detectNewConvs_(convs);
     renderConvs_();
   }).catch(function(){});
 }
@@ -1294,7 +1364,7 @@ function openWs_(id){
       seenKeys.add(key);
       appendMsg_(d.sender_type, d.body, d.created_at, d.attachments);
       scrollBottom_();
-      if (d.sender_type==="customer"){ clearTyping_(); fetchConvs_(); }
+      if (d.sender_type==="customer"){ clearTyping_(); playEvent_("message"); fetchConvs_(); }
     }
   };
 }
