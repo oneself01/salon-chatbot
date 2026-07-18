@@ -482,7 +482,7 @@ function showDeflectScreen_(body, faqs){
   // FAQツリーからの「これかも」
   (faqs||[]).forEach(function(f){
     var card=document.createElement("div"); card.className="answer"; card.style.marginBottom="10px";
-    card.innerHTML=linkify_(f.label||"");
+    card.innerHTML=(f.ai?'<div style="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;">🤖 過去の対応から</div>':'')+linkify_(f.label||"");
     if (f.media && f.media.length){
       f.media.forEach(function(m){
         if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.style.cssText="max-width:100%;border-radius:8px;margin-top:8px;display:block;"; card.appendChild(img); }
