@@ -86,30 +86,18 @@ var WS_BASE     = WORKER_BASE.replace(/^http/, "ws");
 var workDay="today", convId=null, accessToken=null, ws=null, seen=new Set(), pendingFile=null, lastSend_=null, cleanerId="";
 
 var sigCtx=null, sigDrawn=false;
-var CONSENT_TEXT = "以下の内容を確認し、同意したうえで勤務を開始してください。\n\n"
-+"1．始業時刻および勤怠申告について\n"
-+"当店舗は無人店舗です。原則として、指定された方法により店舗へ入室し、業務を開始した時刻を始業時刻とします。\n"
-+"タイミー上で勤務時間の修正を申請する場合は、実際の入退室時刻および業務時間に基づき、正確な内容を申告してください。\n"
-+"入退室記録、防犯カメラ、システム操作履歴、作業報告等と申告内容に相違がある場合は、事実関係を確認させていただきます。\n"
-+"故意に勤務時間を水増しするなど、虚偽の申告が確認された場合は、修正申請を承認せず、タイミーへの報告、今後の募集への申込み制限その他の必要な対応を行います。\n"
-+"悪質な虚偽申告により不正に賃金を受け取った、または受け取ろうとしたと判断される場合は、返還請求、警察・弁護士への相談その他の法的措置を検討することがあります。\n\n"
-+"2．終了時刻の厳守について\n"
-+"業務終了後は次のお客様が店舗を利用するため、募集に記載された終了時刻までに、清掃、写真撮影、作業報告および退室を完了してください。（通常丁寧に作業を行なっても30分程度でマニュアル内の仕事は終了します。残りの時間はその他気になる箇所やマニュアル外の清掃をお願いいたします）\n"
-+"終了時刻を超えそうな場合は、自己判断で作業を延長せず、終了時刻10分前に必ず担当者へ連絡してください。\n"
-+"担当者から延長の指示または承認がない限り、終了時刻を超えて新たな作業を行うことは禁止します。\n"
-+"やむを得ない事情により実際に終了時刻を超えて業務を行った場合は、その理由、作業内容および実際の終了時刻を正確に報告してください。\n\n"
-+"3．スタッフへの言動について\n"
-+"業務上の質問や意見がある場合は、事実に基づき、冷静かつ節度ある方法で連絡してください。以下の行為は禁止します。\n"
-+"・スタッフに対する暴言、侮辱、人格を否定する発言\n・大声、威圧的な口調、脅迫的な言動\n・同じ要求や連絡を必要以上に繰り返す行為\n・長時間にわたりスタッフを拘束する行為\n・正当な理由のない金銭、謝罪、特別対応等の要求\n・スタッフ個人への連絡、誹謗中傷またはSNS等への投稿\n・その他、社会通念上相当な範囲を超える行為\n"
-+"上記の行為が確認された場合は、対応を終了し、タイミーへの報告、今後の募集への申込み制限、警察または弁護士への相談その他の必要な措置を行うことがあります。\n\n"
-+"4．清掃品質および作業報告について\n"
-+"店内の状況は、防犯カメラ、清掃前後の写真、作業報告および次に利用されるお客様からの評価等により確認します。\n"
-+"お客様から低評価や清掃不備の申告があった場合は、評価のみで判断せず、写真、映像、入退室記録、作業内容その他の客観的な記録を確認します。\n"
-+"清掃漏れや手順違反が確認された場合は、タイミーへの事実報告および今後の募集への申込み制限を行うことがあります。\n"
-+"故意または重大な過失により、店舗設備の破損、備品の持ち出し、重大な清掃不備その他の具体的な損害が発生した場合は、事実関係および実際の損害額を確認したうえで、警察・弁護士への相談または損害賠償請求を検討することがあります。\n\n"
-+"5．禁止事項\n以下の行為は禁止します。\n"
-+"・勤務時間、休憩時間または作業内容の虚偽申告\n・業務を行わずに勤怠のみを記録する行為\n・指定された業務を正当な理由なく行わない行為\n・清掃前後の写真や作業報告を偽る行為\n・店舗内の備品、消耗品またはお客様の所有物を持ち出す行為\n・防犯カメラ、マニュアル外の鍵、通信機器その他の設備に無断で触れる行為\n・入室コード、店舗情報またはお客様の情報を第三者へ開示する行為\n・店内を私的に利用する行為\n・勤務中に無断で店舗を離れる行為\n・第三者を店舗へ入室させる行為\n・無断で写真、動画または音声をSNS等へ投稿する行為\n"
-+"違反が確認された場合は、事実関係を確認したうえで、タイミーへの報告、今後の募集への申込み制限、損害の返還・賠償請求または法的措置を行うことがあります。";
+var CONSENT_SECTIONS = [
+  { t:"1．始業時刻および勤怠申告について",
+    b:"当店舗は無人店舗です。原則として、指定された方法により店舗へ入室し、業務を開始した時刻を始業時刻とします。\nタイミー上で勤務時間の修正を申請する場合は、実際の入退室時刻および業務時間に基づき、正確な内容を申告してください。\n入退室記録、防犯カメラ、システム操作履歴、作業報告等と申告内容に相違がある場合は、事実関係を確認させていただきます。\n故意に勤務時間を水増しするなど、虚偽の申告が確認された場合は、修正申請を承認せず、タイミーへの報告、今後の募集への申込み制限その他の必要な対応を行います。\n悪質な虚偽申告により不正に賃金を受け取った、または受け取ろうとしたと判断される場合は、返還請求、警察・弁護士への相談その他の法的措置を検討することがあります。" },
+  { t:"2．終了時刻の厳守について",
+    b:"業務終了後は次のお客様が店舗を利用するため、募集に記載された終了時刻までに、清掃、写真撮影、作業報告および退室を完了してください。（通常丁寧に作業を行なっても30分程度でマニュアル内の仕事は終了します。残りの時間はその他気になる箇所やマニュアル外の清掃をお願いいたします）\n終了時刻を超えそうな場合は、自己判断で作業を延長せず、終了時刻10分前に必ず担当者へ連絡してください。\n担当者から延長の指示または承認がない限り、終了時刻を超えて新たな作業を行うことは禁止します。\nやむを得ない事情により実際に終了時刻を超えて業務を行った場合は、その理由、作業内容および実際の終了時刻を正確に報告してください。" },
+  { t:"3．スタッフへの言動について",
+    b:"業務上の質問や意見がある場合は、事実に基づき、冷静かつ節度ある方法で連絡してください。以下の行為は禁止します。\n・スタッフに対する暴言、侮辱、人格を否定する発言\n・大声、威圧的な口調、脅迫的な言動\n・同じ要求や連絡を必要以上に繰り返す行為\n・長時間にわたりスタッフを拘束する行為\n・正当な理由のない金銭、謝罪、特別対応等の要求\n・スタッフ個人への連絡、誹謗中傷またはSNS等への投稿\n・その他、社会通念上相当な範囲を超える行為\n上記の行為が確認された場合は、対応を終了し、タイミーへの報告、今後の募集への申込み制限、警察または弁護士への相談その他の必要な措置を行うことがあります。" },
+  { t:"4．清掃品質および作業報告について",
+    b:"店内の状況は、防犯カメラ、清掃前後の写真、作業報告および次に利用されるお客様からの評価等により確認します。\nお客様から低評価や清掃不備の申告があった場合は、評価のみで判断せず、写真、映像、入退室記録、作業内容その他の客観的な記録を確認します。\n清掃漏れや手順違反が確認された場合は、タイミーへの事実報告および今後の募集への申込み制限を行うことがあります。\n故意または重大な過失により、店舗設備の破損、備品の持ち出し、重大な清掃不備その他の具体的な損害が発生した場合は、事実関係および実際の損害額を確認したうえで、警察・弁護士への相談または損害賠償請求を検討することがあります。" },
+  { t:"5．禁止事項",
+    b:"以下の行為は禁止します。\n・勤務時間、休憩時間または作業内容の虚偽申告\n・業務を行わずに勤怠のみを記録する行為\n・指定された業務を正当な理由なく行わない行為\n・清掃前後の写真や作業報告を偽る行為\n・店舗内の備品、消耗品またはお客様の所有物を持ち出す行為\n・防犯カメラ、マニュアル外の鍵、通信機器その他の設備に無断で触れる行為\n・入室コード、店舗情報またはお客様の情報を第三者へ開示する行為\n・店内を私的に利用する行為\n・勤務中に無断で店舗を離れる行為\n・第三者を店舗へ入室させる行為\n・無断で写真、動画または音声をSNS等へ投稿する行為\n違反が確認された場合は、事実関係を確認したうえで、タイミーへの報告、今後の募集への申込み制限、損害の返還・賠償請求または法的措置を行うことがあります。" }
+];
 var INTRO_TEXT = "🧹 ワンセルフ清掃業務にご応募いただき、ありがとうございます！\nお手続きやご質問については、下の項目からご希望の内容をお選びください。\n\n📱清掃業務は、スマートフォンでマニュアルをご確認いただきながら、チャットでやり取りを進めていただく形となります。操作に不安がある方や、スマホ・チャットに慣れていない方は、無理せずキャンセルしていただいても大丈夫です◎\n\n業務の流れ👇\n１｜ワンセルフ予約LINEから会員登録後、業務枠を予約\n２｜マニュアルを受け取る\n３｜業務1H（マニュアルを見ながら清掃・補充 → 写真報告 → 弊社担当が写真チェックし指示 → 時間になったら退室）\n４｜退室後、修正依頼を行う";
 
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -175,14 +163,21 @@ function screenForm_(mode){
     +'<label class="fl">開始時刻 *</label><input id="cf_start" class="fi" type="time">'
     +'<label class="fl">終了時刻 *</label><input id="cf_end" class="fi" type="time">';
   box.appendChild(f);
-  // 勤務にあたっての確認事項＋同意＋署名（同意しないと照合に進めない）
+  // 勤務にあたっての確認事項＋項目ごとの同意＋署名（すべて同意しないと照合に進めない）
   var consent=document.createElement("div"); consent.className="answer";
-  consent.innerHTML='<div style="font-weight:700;margin-bottom:6px;">勤務にあたっての確認事項</div>'
-    +'<div style="max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:12px;line-height:1.7;white-space:pre-wrap;background:#fbfcfe;color:#334155;">'+esc_(CONSENT_TEXT)+'</div>'
-    +'<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:14px;font-weight:700;"><input type="checkbox" id="cf_agree" style="margin-top:3px;width:18px;height:18px;"> 上記内容を確認し、同意します</label>'
-    +'<div class="fl">署名（下の枠内に指でサインしてください）*</div>'
+  var secHtml='<div style="font-weight:700;margin-bottom:4px;">勤務にあたっての確認事項</div>'
+    +'<div style="font-size:12px;color:#64748b;margin-bottom:8px;">各項目をご確認のうえ、すべてにチェックしてください。</div>';
+  CONSENT_SECTIONS.forEach(function(s,i){
+    secHtml+='<div style="border:1px solid var(--line);border-radius:8px;padding:11px;margin-bottom:8px;background:#fbfcfe;">'
+      +'<div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:4px;">'+esc_(s.t)+'</div>'
+      +'<div style="font-size:12px;line-height:1.7;white-space:pre-wrap;color:#334155;">'+esc_(s.b)+'</div>'
+      +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:700;color:var(--brand-d);"><input type="checkbox" class="cf_agree" style="width:18px;height:18px;"> 確認・同意しました</label>'
+      +'</div>';
+  });
+  secHtml+='<div class="fl">署名（下の枠内に指でサインしてください）*</div>'
     +'<canvas id="cf_sig" style="width:100%;height:150px;border:1px dashed #94a3b8;border-radius:8px;background:#fff;touch-action:none;display:block;"></canvas>'
     +'<button type="button" class="askBtn secondary" style="margin-top:6px;padding:9px;" onclick="clearSig_()">署名をクリア</button>';
+  consent.innerHTML=secHtml;
   box.appendChild(consent);
   var sub=btn_("同意して照合する","askBtn",function(){ submitKey_(mode); }); sub.id="cf_submit"; sub.style.marginTop="12px";
   box.appendChild(sub);
@@ -223,8 +218,9 @@ function replaceStoreInput_(){
 async function submitKey_(mode){
   var store=v_("cf_store").trim(), name=v_("cf_name").trim(), date=v_("cf_date").trim(), start=v_("cf_start").trim(), end=v_("cf_end").trim();
   if (!store||!name||!date||!start||!end){ alert("すべての項目を入力してください。"); return; }
-  var ag=document.getElementById("cf_agree");
-  if (!ag||!ag.checked){ alert("「勤務にあたっての確認事項」に同意してください（チェックが必要です）。"); return; }
+  var boxes=document.querySelectorAll(".cf_agree");
+  var allChecked=boxes.length>0; for (var bi=0;bi<boxes.length;bi++){ if(!boxes[bi].checked){ allChecked=false; break; } }
+  if (!allChecked){ alert("すべての確認事項にチェック（同意）してください。"); return; }
   if (!sigDrawn){ alert("署名欄に指でサインしてください。"); return; }
   var signature=""; try{ signature=document.getElementById("cf_sig").toDataURL("image/png"); }catch(e){}
   lsSet_("cl_name", name);
