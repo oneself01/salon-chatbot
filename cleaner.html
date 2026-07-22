@@ -191,7 +191,8 @@ function screenForm_(mode){
   });
   secHtml+='<div class="fl">署名（下の枠内に指でサインしてください）*</div>'
     +'<canvas id="cf_sig" style="width:100%;height:150px;border:1px dashed #94a3b8;border-radius:8px;background:#fff;touch-action:none;display:block;"></canvas>'
-    +'<button type="button" class="askBtn secondary" style="margin-top:6px;padding:9px;" onclick="clearSig_()">署名をクリア</button>';
+    +'<button type="button" class="askBtn secondary" style="margin-top:6px;padding:9px;" onclick="clearSig_()">署名をクリア</button>'
+    +'<div style="margin-top:12px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:11px;line-height:1.6;">上記内容に同意ができない場合は、お手数ですがタイミー側からキャンセルをお願いいたします。</div>';
   consent.innerHTML=secHtml;
   box.appendChild(consent);
   var sub=btn_("同意して照合する","askBtn",function(){ submitKey_(mode); }); sub.id="cf_submit"; sub.style.marginTop="12px";
