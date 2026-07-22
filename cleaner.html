@@ -101,6 +101,7 @@ var CONSENT_SECTIONS = [
 var INTRO_TEXT = "🧹 ワンセルフ清掃業務にご応募いただき、ありがとうございます！\nお手続きやご質問については、下の項目からご希望の内容をお選びください。\n\n📱清掃業務は、スマートフォンでマニュアルをご確認いただきながら、チャットでやり取りを進めていただく形となります。操作に不安がある方や、スマホ・チャットに慣れていない方は、無理せずキャンセルしていただいても大丈夫です◎\n\n業務の流れ👇\n１｜ワンセルフ予約LINEから会員登録後、業務枠を予約\n２｜マニュアルを受け取る\n３｜業務1H（マニュアルを見ながら清掃・補充 → 写真報告 → 弊社担当が写真チェックし指示 → 時間になったら退室）\n４｜退室後、修正依頼を行う";
 
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtDateTime_(ts){ if(!ts) return ""; var d=new Date(ts); var p=function(n){return ("0"+n).slice(-2);}; return d.getFullYear()+"/"+p(d.getMonth()+1)+"/"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }
 function linkify_(s){ return esc_(s).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--brand);">$1</a>'); }
 function ls_(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet_(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -228,7 +229,7 @@ async function submitKey_(mode){
   var r=await fetch(WORKER_BASE+"/v2/cleaner/key-lookup", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ store:store, date:date, start:start, end:end, name:name, agreed:true, signature:signature }) }).then(function(x){return x.json();}).catch(function(){ return null; });
   if(btn){ btn.disabled=false; btn.textContent="同意して照合する"; }
   if(!r||!r.ok){ alert("照合に失敗しました。時間をおいて再度お試しください。"); return; }
-  screenKeyResult_(mode, r, { store:store, name:name, date:date, start:start, end:end });
+  screenKeyResult_(mode, r, { store:store, name:name, date:date, start:start, end:end, signature:signature, signedAt:Date.now() });
 }
 function screenKeyResult_(mode, res, form){
   var box=box_();
@@ -244,6 +245,16 @@ function screenKeyResult_(mode, res, form){
       +'<div style="font-size:34px;font-weight:800;letter-spacing:4px;color:var(--brand);margin:4px 0;">'+esc_(res.code)+'</div>'
       +'<div style="font-size:12px;color:#64748b;">'+esc_(form.store)+' / '+esc_(form.date)+' '+esc_(form.start)+'〜'+esc_(form.end)+'</div>';
     box.appendChild(k);
+    // 署名・同意の記録を表示（記録された意識づけ＝抑止）
+    if (form.signature){
+      var sg=document.createElement("div"); sg.className="answer";
+      sg.innerHTML='<div style="font-size:12px;color:#64748b;margin-bottom:4px;">✅ 確認事項に同意・署名済み</div>'
+        +'<div style="font-size:12px;color:#0f172a;">署名者：'+esc_(form.name||"")+'</div>'
+        +'<div style="font-size:12px;color:#0f172a;margin-bottom:6px;">署名日時：'+esc_(fmtDateTime_(form.signedAt))+'</div>'
+        +'<img src="'+esc_(form.signature)+'" style="max-width:240px;border:1px solid var(--line);border-radius:6px;background:#fff;">'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">この署名と日時は記録されています。</div>';
+      box.appendChild(sg);
+    }
     box.appendChild(btn_("📄 清掃報告を行う","askBtn",function(){ startCleanerChat_("report", form); }));
     box.appendChild(btn_("💬 チャットで問い合わせる","askBtn secondary",function(){ tryInquiry_(form); }));
   } else {
@@ -272,6 +283,8 @@ function screenAbsent_(){
   box.scrollTop=0;
 }
 async function startCleanerChat_(kind, form){
+  // 時間外は清掃報告・問い合わせとも繋がない（翌日以降=8-18、本日=23時まで）
+  if (!inquiryOpen_()){ screenAbsent_(); return; }
   var head = (kind==="report" ? "【清掃報告】" : "【問い合わせ】");
   var sit = head+" "+(form.store||"")+" "+(form.date||"")+" "+(form.start||"")+(form.end?("〜"+form.end):"");
   var r=await fetch(WORKER_BASE+"/v2/cleaner/start", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ name:(form.name||"清掃委託者"), store:(form.store||""), situation:sit, category:(kind==="report"?"清掃報告":"問い合わせ"), cleanerId:cleanerId }) }).then(function(x){return x.json();}).catch(function(){ return null; });
