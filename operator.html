@@ -86,9 +86,11 @@
     #chat{grid-column:1; display:none;}
     body.viewing #list{display:none;}
     body.viewing #chat{display:flex;}
-    #chatHead .back{display:inline-block;}
+    #chatHead .back{display:inline-flex; align-items:center; gap:5px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 16px; margin-bottom:10px; font-size:15px;}
+    .filters button{font-size:13px; padding:8px 13px;}
+    .filters{padding:12px 10px;}
   }
-  #chatHead .back{display:none; font-size:13px; color:var(--brand); cursor:pointer; margin-bottom:8px;}
+  #chatHead .back{display:none; font-size:14px; font-weight:700; color:var(--brand-d,#0369a1); cursor:pointer; margin-bottom:8px;}
 </style>
 </head>
 <body>
@@ -122,7 +124,7 @@
   <div id="chat">
     <div id="empty">← 左の一覧から会話を選んでください</div>
     <div id="chatHead" style="display:none;">
-      <div class="back" onclick="closeChat_()">← 一覧へ戻る</div>
+      <div class="back" onclick="closeChat_()">◀ チャット一覧に戻る</div>
       <div class="nm" id="chNm"></div>
       <div class="sub" id="chSub"></div>
       <div id="statusBar"></div>
@@ -1370,7 +1372,8 @@ function openConv_(id){
   document.getElementById("typing").textContent="";
   document.getElementById("msgs").innerHTML="";
   clearSuggest_();
-  document.getElementById("chNm").textContent=(c.customer_name||"（お客様）")+(c.store?("　"+c.store):"");
+  var audB=(c.audience==="cleaner")?'<span class="badge" style="background:#fef3c7;color:#92400e;">🧹清掃委託者</span> ':'<span class="badge" style="background:#e0f2fe;color:#0369a1;">お客様</span> ';
+  document.getElementById("chNm").innerHTML=audB+esc_(c.customer_name||"（お客様）")+(c.store?('　<span style="font-weight:400;color:#64748b;font-size:13px;">'+esc_(c.store)+'</span>'):"");
   var sub=[];
   if (c.email) sub.push(c.email);
   if (c.reservation) sub.push("予約:"+c.reservation);
