@@ -572,6 +572,7 @@ function openWs_(){
     setSt_("● 接続中");
     var ta=document.getElementById("input"); if (ta){ ta.disabled=false; ta.placeholder="メッセージを入力"; }
     var sb=document.getElementById("sendBtn"); if (sb) sb.disabled=false;
+    sendRead_();
   };
   ws.onclose=function(){ setSt_("再接続待ち"); setTimeout(function(){ if (convId && document.getElementById("chat").style.display!=="none"){ loadHistory_().then(openWs_); } }, 3000); };
   ws.onmessage=function(ev){
@@ -592,9 +593,12 @@ function openWs_(){
       seen.add(key);
       if (d.sender_type==="staff") clearTyping_();
       append_(d.sender_type, d.body, d.created_at, d.attachments); scrollBottom_();
+      if (d.sender_type==="staff") sendRead_();
     }
   };
 }
+function sendRead_(){ try{ if (ws && ws.readyState===1 && convId && document.getElementById("chat").style.display!=="none"){ ws.send(JSON.stringify({ type:"read", at:Date.now() })); } }catch(e){} }
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) sendRead_(); });
 function setSt_(t){ document.getElementById("connSt").textContent=t; }
 // お客様が「解決・終了」を押した時：完了にしてアンケートメールを送る
 function customerEnd_(){

@@ -534,6 +534,17 @@ var idToken="", me={email:"",name:""}, filter="active", audFilter="all";
 var convs=[], current=null;
 var convRead={}; try{ convRead=JSON.parse(localStorage.getItem("convRead")||"{}")||{}; }catch(e){ convRead={}; }
 function markRead_(id){ if(!id) return; convRead[id]=Date.now(); try{ localStorage.setItem("convRead", JSON.stringify(convRead)); }catch(e){} }
+var custReadAt=0, lastStaffRow=null, lastStaffAt=0;
+function updateReceipt_(){
+  var msgs=document.getElementById("msgs"); if(!msgs) return;
+  var old=msgs.querySelector(".rrcpt"); if(old) old.remove();
+  if(!lastStaffRow) return;
+  var read=(lastStaffAt>0)&&(custReadAt>=lastStaffAt);
+  var el=document.createElement("div"); el.className="rrcpt";
+  el.style.cssText="align-self:flex-end;font-size:11px;margin:1px 2px 4px 0;color:"+(read?"#0ea5e9":"#94a3b8")+";";
+  el.textContent=read?"既読":"未読";
+  if(lastStaffRow.nextSibling) msgs.insertBefore(el,lastStaffRow.nextSibling); else msgs.appendChild(el);
+}
 var ws=null, wsConvId=null, seenKeys=new Set();
 var listTimer=null, typingHideTimer=null, typingSendT=0;
 
@@ -1363,6 +1374,7 @@ function openConv_(id){
   if (!c) return;
   current=c; seenKeys.clear();
   markRead_(id);
+  custReadAt=c.customer_read_at||0; lastStaffRow=null; lastStaffAt=0;
   document.body.classList.add("viewing");
   document.getElementById("empty").style.display="none";
   document.getElementById("chatHead").style.display="block";
@@ -1426,6 +1438,7 @@ function openWs_(id){
     }
     if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
     if (d.type==="draft"){ showDraft_(d.body); return; }
+    if (d.type==="read"){ custReadAt=Math.max(custReadAt, d.at||0); updateReceipt_(); return; }
     if (d.type==="suggest"){ showSuggest_(d.items||[]); return; }
     if (d.type==="message"){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
@@ -1483,6 +1496,7 @@ function appendMsg_(senderType, body, createdAt, attachments){
   row.innerHTML='<div class="bubble">'+linkify_(body||"")+media+'</div>'
     +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
   document.getElementById("msgs").appendChild(row);
+  if (senderType==="staff"){ lastStaffRow=row; lastStaffAt=createdAt||Date.now(); updateReceipt_(); }
 }
 function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
 
