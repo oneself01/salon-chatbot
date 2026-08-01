@@ -137,7 +137,7 @@
     <div id="composer" style="display:none;">
       <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
       <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を選ぶ" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
-      <input type="file" id="opChatFile" accept="image/*,video/*" style="display:none;" onchange="opPickMedia_(this)">
+      <input type="file" id="opChatFile" accept="image/*,video/*,application/pdf" style="display:none;" onchange="opPickMedia_(this)">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
       <button id="sendBtn" onclick="sendReply_()">送信</button>
     </div>

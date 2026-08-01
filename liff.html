@@ -155,7 +155,7 @@
   <div id="pendingBar" style="display:none;align-items:center;gap:8px;padding:6px 12px;background:#f8fafc;border-top:1px solid var(--line);"></div>
   <div id="composer">
     <button id="attachBtn" onclick="document.getElementById('chatFile').click()" title="画像・動画を選ぶ" style="width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
-    <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="pickMedia_(this)">
+    <input type="file" id="chatFile" accept="image/*,video/*,application/pdf" style="display:none;" onchange="pickMedia_(this)">
     <textarea id="input" placeholder="メッセージを入力" rows="1"></textarea>
     <button id="sendBtn" onclick="send_()">➤</button>
   </div>
@@ -398,7 +398,7 @@ function renderEmergencyForm_(){
     + '<label class="fl">メールアドレス *</label><input id="ef_email" class="fi" type="email">'
     + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text" autocomplete="off" placeholder="例：沼津（「ぬ」でも検索できます）"><div id="ef_store_sug" class="sug"></div>'
     + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="状況を詳しく教えてください"></textarea>'
-    + '<label class="fl">画像・動画の添付（任意・複数可・各20MBまで）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*" multiple>'
+    + '<label class="fl">画像・動画・PDFの添付（任意・複数可・各20MBまで）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*,application/pdf" multiple>'
     + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
     + '<button class="askBtn secondary" style="margin-top:10px;" onclick="renderOptions_()">← 戻る</button>'
     + '</div>';

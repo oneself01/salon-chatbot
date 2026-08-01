@@ -74,7 +74,7 @@
   <div id="pendingBar" style="display:none;align-items:center;gap:8px;padding:6px 12px;background:#f8fafc;border-top:1px solid var(--line);"></div>
   <div id="composer">
     <button id="attachBtn" onclick="document.getElementById('chatFile').click()" style="width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">📎</button>
-    <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="pickMedia_(this)">
+    <input type="file" id="chatFile" accept="image/*,video/*,application/pdf" style="display:none;" onchange="pickMedia_(this)">
     <textarea id="input" placeholder="メッセージを入力" rows="1"></textarea>
     <button id="sendBtn" onclick="send_()">➤</button>
   </div>
@@ -335,6 +335,13 @@ async function loadHistory_(){
   try{
     var url=WORKER_BASE+"/v2/messages?role=customer&aud=cleaner&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(accessToken);
     var r=await fetch(url).then(function(x){return x.json();});
+    // 完了済みの会話は続きにしない（再開ボタンから開いても終了扱い）
+    if (r && r.status==="完了"){
+      lsDel_("cl_convId"); lsDel_("cl_token"); convId=null; accessToken=null;
+      showHome_();
+      alert("前回の対応は終了しました。ご用件があれば、最初の画面からお選びください。");
+      return;
+    }
     document.getElementById("msgs").innerHTML="";
     if (r && r.ok && Array.isArray(r.messages) && r.messages.length){
       r.messages.forEach(function(m){ seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"")); append_(m.sender_type,m.body,m.created_at,m.attachments); });
@@ -343,6 +350,7 @@ async function loadHistory_(){
   }catch(e){}
 }
 function openWs_(){
+  if (!convId || !accessToken) return;
   if (ws){ try{ws.close();}catch(e){} }
   var url=WS_BASE+"/v2/ws?role=customer&aud=cleaner&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(accessToken);
   ws=new WebSocket(url);
