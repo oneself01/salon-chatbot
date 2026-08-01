@@ -171,7 +171,7 @@ function screenForm_(mode){
   var f=document.createElement("div"); f.className="answer";
   f.innerHTML='<label class="fl">対象店舗 *</label><select id="cf_store" class="fi"><option value="">読み込み中…</option></select>'
     +'<label class="fl">タイミー登録時のお名前 *</label><input id="cf_name" class="fi" type="text" value="'+esc_(ls_("cl_name")||"")+'" placeholder="例：山田 太郎">'
-    +'<label class="fl">予約日 *</label><input id="cf_date" class="fi" type="date">'
+    +'<label class="fl">業務日 *</label><input id="cf_date" class="fi" type="date">'
     +'<label class="fl">開始時刻 *</label><input id="cf_start" class="fi" type="time">'
     +'<label class="fl">終了時刻 *</label><input id="cf_end" class="fi" type="time">';
   box.appendChild(f);
