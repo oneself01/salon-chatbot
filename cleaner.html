@@ -145,7 +145,14 @@ function screenStart_(){
   box.appendChild(optBtn_("本日のお仕事", function(){ workDay="today"; screenMenu_(); }));
   box.appendChild(optBtn_("翌日以降のお仕事", function(){ workDay="future"; screenMenu_(); }));
   var savedC=ls_("cl_convId"), savedT=ls_("cl_token");
-  if (savedC && savedT){ box.appendChild(btn_("🗨 対応中の相談を開く","askBtn secondary",function(){ convId=savedC; accessToken=savedT; showChat_(); loadHistory_().then(openWs_); })); }
+  if (savedC && savedT){
+    var resume=btn_("🗨 対応中の相談を開く","askBtn secondary",function(){ convId=savedC; accessToken=savedT; showChat_(); loadHistory_().then(function(){ if(convId) openWs_(); }); });
+    box.appendChild(resume);
+    // 完了済みならボタンを消す（引き継がない）
+    fetch(WORKER_BASE+"/v2/messages?role=customer&aud=cleaner&c="+encodeURIComponent(savedC)+"&token="+encodeURIComponent(savedT)).then(function(x){return x.json();}).then(function(r){
+      if (r && r.status==="完了"){ lsDel_("cl_convId"); lsDel_("cl_token"); if(resume&&resume.parentNode) resume.remove(); }
+    }).catch(function(){});
+  }
   box.scrollTop=0;
 }
 function screenMenu_(){
