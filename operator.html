@@ -204,10 +204,10 @@
 <div id="consentsPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
   <div class="sc-modal">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <strong style="font-size:16px;">📝 勤務確認事項の同意ログ</strong>
+      <strong style="font-size:16px;">📝 同意・パスコード取得ログ</strong>
       <button class="sc-btn" onclick="closeConsents_()">閉じる</button>
     </div>
-    <p style="font-size:12px;color:#64748b;margin-bottom:8px;">清掃委託者が入室コード取得時に同意・署名した記録です。</p>
+    <p style="font-size:12px;color:#64748b;margin-bottom:8px;">清掃委託者が確認事項に同意・署名し、入室コードを取得した記録です。</p>
     <div id="consentsBody"></div>
   </div>
 </div>
@@ -429,14 +429,21 @@ function loadConsents_(){
     var cs=r.consents||[];
     body.innerHTML = cs.length ? cs.map(function(c){
       var d=new Date(c.created_at); var dt=(d.getMonth()+1)+"/"+d.getDate()+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
-      var m=(c.matched? '<span style="color:#16a34a;">照合OK</span>':'<span style="color:#dc2626;">不一致</span>');
+      var got=(c.matched? '<span style="color:#16a34a;font-weight:700;">🔑 '+esc_(c.code||"")+' 取得</span>':'<span style="color:#dc2626;">不一致（未取得）</span>');
       return '<div style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;">'
         +'<div style="font-size:13px;"><strong>'+esc_(c.name||"(無名)")+'</strong> <span style="color:#64748b;">'+esc_(c.store||"")+' / '+esc_(c.res_date||"")+' '+esc_(c.start_t||"")+'〜'+esc_(c.end_t||"")+'</span></div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin:2px 0;">'+dt+'　'+m+'</div>'
-        +(c.signature? '<img src="'+esc_(c.signature)+'" style="max-width:220px;border:1px solid var(--line);border-radius:6px;background:#fff;margin-top:4px;">':'<span style="font-size:11px;color:#94a3b8;">署名なし</span>')
+        +'<div style="font-size:11px;color:#94a3b8;margin:2px 0;">'+dt+'　'+got+'</div>'
+        +(c.has_sig? '<button class="sc-btn" style="font-size:12px;" onclick="showSig_('+c.id+',this)">署名を見る</button>':'<span style="font-size:11px;color:#94a3b8;">署名なし</span>')
         +'</div>';
     }).join("") : '<div style="font-size:12px;color:#94a3b8;">まだ記録がありません</div>';
   }).catch(function(){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+function showSig_(id, btn){
+  btn.disabled=true; btn.textContent="読み込み中…";
+  httpPost_("/v2/staff/consent-sig", { id:id }).then(function(r){
+    if(r&&r.ok&&r.signature){ var img=document.createElement("img"); img.src=r.signature; img.style.cssText="max-width:240px;border:1px solid var(--line);border-radius:6px;background:#fff;margin-top:6px;display:block;"; btn.parentNode.appendChild(img); btn.remove(); }
+    else { btn.disabled=false; btn.textContent="署名を見る"; toast_("署名を取得できませんでした"); }
+  }).catch(function(){ btn.disabled=false; btn.textContent="署名を見る"; });
 }
 
 /* ===== アプリ内サウンド（コンソールを開いている時に鳴る・端末ごとに設定） ===== */
@@ -523,6 +530,8 @@ var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了
 /* 状態 */
 var idToken="", me={email:"",name:""}, filter="active", audFilter="all";
 var convs=[], current=null;
+var convRead={}; try{ convRead=JSON.parse(localStorage.getItem("convRead")||"{}")||{}; }catch(e){ convRead={}; }
+function markRead_(id){ if(!id) return; convRead[id]=Date.now(); try{ localStorage.setItem("convRead", JSON.stringify(convRead)); }catch(e){} }
 var ws=null, wsConvId=null, seenKeys=new Set();
 var listTimer=null, typingHideTimer=null, typingSendT=0;
 
@@ -1330,10 +1339,12 @@ function renderConvs_(){
     var sel=(current&&current.id===c.id)?" sel":"";
     var st=c.status||"未対応";
     var isCl=(c.audience==="cleaner");
+    var unread=((c.last_message_at||0) > (convRead[c.id]||0)) && (!current||current.id!==c.id) && st!=="完了";
+    var dot=unread?'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-right:6px;vertical-align:middle;"></span>':'';
     var audBadge=isCl?'<span class="badge" style="background:#fef3c7;color:#92400e;">🧹清掃委託者</span> ':'';
     var tagLine=c.tag?('<span style="font-size:11px;color:#0369a1;">['+esc_(c.tag)+']</span> '):'';
-    return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')" style="'+(isCl?'border-left:3px solid #f59e0b;':'')+'">'
-      +'<div class="top"><div class="nm">'+audBadge+esc_(c.customer_name||"（お客様）")+'</div>'
+    return '<div class="ticket'+sel+'" onclick="openConv_(\''+c.id+'\')" style="'+(isCl?'border-left:3px solid #f59e0b;':'')+(unread?'background:#fff7ed;':'')+'">'
+      +'<div class="top"><div class="nm">'+dot+audBadge+esc_(c.customer_name||"（お客様）")+'</div>'
       +'<span class="badge '+statusClass_(st)+'">'+esc_(st)+'</span></div>'
       +'<div class="sit">'+tagLine+esc_((c.store?("["+c.store+"] "):"")+c.id)+'</div>'
       +'<div class="meta"><span>'+esc_(c.assigned_staff||"")+'</span><span>'+fmtTime_(c.last_message_at)+'</span></div>'
@@ -1349,6 +1360,7 @@ function openConv_(id){
   var c=convs.find(function(x){ return x.id===id; });
   if (!c) return;
   current=c; seenKeys.clear();
+  markRead_(id);
   document.body.classList.add("viewing");
   document.getElementById("empty").style.display="none";
   document.getElementById("chatHead").style.display="block";
@@ -1418,6 +1430,7 @@ function openWs_(id){
       seenKeys.add(key);
       appendMsg_(d.sender_type, d.body, d.created_at, d.attachments);
       scrollBottom_();
+      markRead_(wsConvId);
       if (d.sender_type==="customer"){ clearTyping_(); playEvent_("message"); fetchConvs_(); }
     }
   };
