@@ -565,11 +565,34 @@ window.onload = function(){
   }
   initGis_();
 };
+var refreshMode=false, refreshTimer=null, _gisInit=false;
+function ensureGisInit_(){
+  if (window.google && google.accounts && !_gisInit){
+    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential_, auto_select: true });
+    _gisInit=true;
+  }
+  return _gisInit;
+}
 function initGis_(){
   if (!window.google || !google.accounts){ setTimeout(initGis_, 300); return; }
-  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential_, auto_select: true });
+  ensureGisInit_();
   google.accounts.id.renderButton(document.getElementById("gbtn"), { theme:"filled_blue", size:"large", text:"signin_with", shape:"pill" });
   google.accounts.id.prompt();
+}
+// トークン自動更新：期限の5分前に裏で再取得（開きっぱなしでも認証切れで止まらない）
+function scheduleTokenRefresh_(){
+  if (refreshTimer) clearTimeout(refreshTimer);
+  var exp=0; try{ exp=parseInt(localStorage.getItem("op_idtoken_exp")||"0",10); }catch(e){}
+  if (!exp) return;
+  var ms=(exp*1000)-Date.now()-(5*60*1000);
+  if (ms<15000) ms=15000;
+  refreshTimer=setTimeout(refreshToken_, ms);
+}
+function refreshToken_(){
+  if (!ensureGisInit_()){ setTimeout(refreshToken_, 2000); return; }
+  refreshMode=true;
+  try{ google.accounts.id.prompt(); }catch(e){}
+  setTimeout(function(){ if (refreshMode){ refreshMode=false; scheduleTokenRefresh_(); } }, 90000);
 }
 function clearStored_(){ try{ localStorage.removeItem("op_idtoken"); localStorage.removeItem("op_idtoken_exp"); }catch(e){} }
 function enterConsole_(){
@@ -578,6 +601,7 @@ function enterConsole_(){
   document.getElementById("app").style.display="grid";
   startList_();
   refreshPushBtn_();
+  ensureGisInit_(); scheduleTokenRefresh_();  // トークン自動更新を開始（認証切れで止まらない）
   // 既に許可済みなら購読をサーバへ再同期（購読が消えていても復活）
   if (("Notification" in window) && Notification.permission==="granted" && ("serviceWorker" in navigator)){
     navigator.serviceWorker.ready.then(function(reg){
@@ -590,9 +614,10 @@ function enterConsole_(){
 }
 function onCredential_(resp){
   idToken = resp.credential || "";
-  if (!idToken){ loginError_("トークンの取得に失敗しました。"); return; }
+  if (!idToken){ if (!refreshMode) loginError_("トークンの取得に失敗しました。"); refreshMode=false; return; }
   var ex=0; try{ ex=JSON.parse(atob(idToken.split('.')[1])).exp||0; }catch(e){}
   try{ localStorage.setItem("op_idtoken", idToken); localStorage.setItem("op_idtoken_exp", String(ex)); }catch(e){}
+  if (refreshMode){ refreshMode=false; scheduleTokenRefresh_(); return; }  // 裏更新：画面はそのまま継続
   httpPost_("/staff/me", {}).then(function(r){
     if (r && r.ok){ me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
     else loginError_(authMsg_(r));
