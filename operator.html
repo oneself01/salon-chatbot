@@ -544,7 +544,27 @@ var STATUSES = ["未対応","対応中","折り返し済","清掃依頼","完了
 var idToken="", me={email:"",name:""}, filter="active", audFilter="all";
 var convs=[], current=null;
 var convRead={}; try{ convRead=JSON.parse(localStorage.getItem("convRead")||"{}")||{}; }catch(e){ convRead={}; }
-function markRead_(id){ if(!id) return; convRead[id]=Date.now(); try{ localStorage.setItem("convRead", JSON.stringify(convRead)); }catch(e){} }
+function markRead_(id){ if(!id) return; convRead[id]=Date.now(); try{ localStorage.setItem("convRead", JSON.stringify(convRead)); }catch(e){} updateAppBadge_(); }
+// 未読件数（全区分・フィルタ無関係の合計）
+function unreadCount_(){
+  var n=0;
+  for (var i=0;i<convs.length;i++){
+    var c=convs[i], st=c.status||"未対応";
+    if (((c.last_message_at||0) > (convRead[c.id]||0)) && (!current||current.id!==c.id) && st!=="完了") n++;
+  }
+  return n;
+}
+// アプリアイコンに未読件数バッジを表示（ホーム画面追加/インストール時のみ反映。未対応環境では無害にスキップ）
+function updateAppBadge_(){
+  try{
+    var n=unreadCount_();
+    if (navigator.setAppBadge){ if(n>0){ navigator.setAppBadge(n); } else if(navigator.clearAppBadge){ navigator.clearAppBadge(); } }
+    // 開いている＝実数が正なので、SWが閉室中に数えたカウンタもリセット
+    if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({ type:"resetBadge", count:n }); }
+  }catch(e){}
+}
+// アプリを前面に出した瞬間にバッジを実数へ同期
+document.addEventListener("visibilitychange", function(){ if (document.visibilityState==="visible"){ try{ updateAppBadge_(); }catch(e){} } });
 var custReadAt=0, lastStaffRow=null, lastStaffAt=0;
 function updateReceipt_(){
   var msgs=document.getElementById("msgs"); if(!msgs) return;
@@ -1429,6 +1449,7 @@ function fetchConvs_(){
     convs = Array.isArray(r.conversations) ? r.conversations : [];
     detectNewConvs_(convs);
     renderConvs_();
+    updateAppBadge_();
   }).catch(function(){});
 }
 function setFilter_(f, btn){
