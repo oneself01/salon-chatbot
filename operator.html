@@ -159,6 +159,12 @@
       <input id="qaQ" class="sc-input" type="text" placeholder="質問・回答で検索" style="flex:1;" onkeydown="if(event.key==='Enter'){qaSearch_();}">
       <button class="sc-btn" onclick="qaSearch_()">検索</button>
     </div>
+    <div style="display:flex;gap:6px;margin:4px 0 8px;align-items:center;">
+      <span style="font-size:12px;color:#64748b;">区分:</span>
+      <button id="qaAudCustomer" class="sc-btn sc-primary" onclick="setQaAud_('customer')">お客様</button>
+      <button id="qaAudCleaner" class="sc-btn" onclick="setQaAud_('cleaner')">🧹清掃委託者</button>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">「採用」した事例は正解として永続保存＆AIが優先参照。未採用は30日で自動削除されます。</div>
     <div id="qaMeta" style="font-size:11px;color:#94a3b8;margin-bottom:6px;"></div>
     <div id="qaList"></div>
     <div id="qaEdit" style="display:none;"></div>
@@ -636,17 +642,26 @@ function logout_(){ try{google.accounts.id.disableAutoSelect();}catch(e){} clear
 /* =========================================================
  *  AI学習データ（qa_examples）管理
  * ========================================================= */
-var qaOffset=0, qaLimit=20, qaTotal=0, qaItems=[];
+var qaOffset=0, qaLimit=20, qaTotal=0, qaItems=[], qaAud="customer";
 function openQA_(){ document.getElementById("qaPanel").style.display="flex"; qaOffset=0; loadQA_(); }
 function closeQA_(){ document.getElementById("qaPanel").style.display="none"; }
 function qaSearch_(){ qaOffset=0; loadQA_(); }
+function setQaAud_(a){
+  qaAud=a; qaOffset=0;
+  var c=document.getElementById("qaAudCustomer"), cl=document.getElementById("qaAudCleaner");
+  if(c) c.className="sc-btn"+(a==="customer"?" sc-primary":""); if(cl) cl.className="sc-btn"+(a==="cleaner"?" sc-primary":"");
+  loadQA_();
+}
+function qaConfirm_(id, val){
+  httpPost_("/v2/staff/qa-confirm", { id:id, confirmed:val?1:0 }).then(function(r){ if(r&&r.ok){ toast_(val?"採用しました":"採用を解除しました"); loadQA_(); } else toast_("失敗"); });
+}
 function qaShowList_(){ document.getElementById("qaList").style.display="block"; document.getElementById("qaEdit").style.display="none"; document.getElementById("qaPager").style.display="flex"; }
 function loadQA_(){
   qaShowList_();
   var box=document.getElementById("qaList");
   box.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
   var q=document.getElementById("qaQ").value.trim();
-  httpPost_("/v2/staff/qa-list", { q:q, limit:qaLimit, offset:qaOffset }).then(function(r){
+  httpPost_("/v2/staff/qa-list", { q:q, limit:qaLimit, offset:qaOffset, aud:qaAud }).then(function(r){
     if (!r || !r.ok){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">読み込み失敗</div>'; return; }
     qaItems=r.items||[]; qaTotal=r.total||0;
     document.getElementById("qaMeta").textContent="全 "+qaTotal+" 件中 "+(qaTotal?qaOffset+1:0)+"〜"+Math.min(qaOffset+qaItems.length,qaTotal)+" 件";
@@ -654,14 +669,20 @@ function loadQA_(){
     box.innerHTML=qaItems.map(function(t){
       var vec = t.has_vec ? '' : ' <span style="color:#f59e0b;font-size:10px;">(未ベクトル化)</span>';
       var rate = (t.rating!=null) ? (' <span style="font-size:11px;color:'+(t.rating>=4?'#16a34a':(t.rating<=2?'#dc2626':'#64748b'))+';">'+("★★★★★".slice(0,t.rating))+(t.rating<=2?'（除外）':(t.rating>=4?'（優先）':''))+'</span>') : '';
-      return '<div style="padding:10px 12px;border:1px solid '+(t.rating!=null&&t.rating<=2?'#fecaca':'var(--line)')+';border-radius:10px;margin-bottom:8px;">'
-        +'<div style="font-size:12px;color:#0369a1;font-weight:700;">Q: '+esc_(t.question||"")+(t.store?(' <span style="color:#64748b;">['+esc_(t.store)+']</span>'):'')+vec+rate+'</div>'
+      var conf = t.confirmed ? ' <span style="font-size:11px;background:#dcfce7;color:#16a34a;border-radius:6px;padding:1px 6px;font-weight:700;">採用済み</span>' : ' <span style="font-size:10px;color:#94a3b8;">(未採用・30日で自動削除)</span>';
+      var confBtn = t.confirmed
+        ? '<button class="sc-btn" data-u="'+t.id+'">採用解除</button>'
+        : '<button class="sc-primary" style="padding:5px 10px;" data-c="'+t.id+'">✓ 採用</button>';
+      return '<div style="padding:10px 12px;border:1px solid '+(t.confirmed?'#bbf7d0':(t.rating!=null&&t.rating<=2?'#fecaca':'var(--line)'))+';border-radius:10px;margin-bottom:8px;'+(t.confirmed?'background:#f0fdf4;':'')+'">'
+        +'<div style="font-size:12px;color:#0369a1;font-weight:700;">Q: '+esc_(t.question||"")+(t.store?(' <span style="color:#64748b;">['+esc_(t.store)+']</span>'):'')+vec+rate+conf+'</div>'
         +'<div style="font-size:13px;color:#334155;margin-top:3px;white-space:pre-wrap;">A: '+esc_(String(t.answer||"").slice(0,200))+'</div>'
-        +'<div style="display:flex;gap:6px;margin-top:8px;"><button class="sc-btn" data-e="'+t.id+'">編集</button><button class="sc-btn" data-d="'+t.id+'">🗑 削除</button></div>'
+        +'<div style="display:flex;gap:6px;margin-top:8px;">'+confBtn+'<button class="sc-btn" data-e="'+t.id+'">編集</button><button class="sc-btn" data-d="'+t.id+'">🗑 削除</button></div>'
         +'</div>';
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ qaEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
     Array.prototype.forEach.call(box.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ qaDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-c]"), function(b){ b.onclick=function(){ qaConfirm_(parseInt(b.getAttribute("data-c"),10), true); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-u]"), function(b){ b.onclick=function(){ qaConfirm_(parseInt(b.getAttribute("data-u"),10), false); }; });
     renderQaPager_();
   }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
 }
@@ -688,7 +709,7 @@ function qaSave_(id){
   var q=document.getElementById("qa_q").value.trim(), a=document.getElementById("qa_a").value.trim();
   if (!q || !a){ toast_("質問と回答を入力してください"); return; }
   toast_("保存中…");
-  httpPost_("/v2/staff/qa-save", { id:id||0, question:q, answer:a, store:document.getElementById("qa_store").value }).then(function(r){
+  httpPost_("/v2/staff/qa-save", { id:id||0, question:q, answer:a, store:document.getElementById("qa_store").value, aud:qaAud }).then(function(r){
     if (r && r.ok){ toast_("保存しました"); loadQA_(); } else toast_("保存に失敗");
   });
 }
