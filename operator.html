@@ -802,6 +802,30 @@ function loadAnalytics_(){
       return '<div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;"><span>'+esc_(x.tag||"未分類")+'</span><span style="font-weight:700;">'+(x.c||0)+'</span></div>'
         +'<div style="height:7px;background:#e0f2fe;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+w+'%;background:#0ea5e9;"></div></div></div>';
     }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
+    // AI自動化の目安（②）
+    var ao=r.aiOverall||{}; var aiTot=ao.total||0;
+    var un=ao.ai_unchanged||0, ed=ao.ai_edited||0, au=ao.ai_auto||0;
+    var pct=aiTot?Math.round((un/aiTot)*100):0;
+    html+='<div style="font-weight:700;font-size:13px;margin:16px 0 6px;">🤖 AI自動化の目安</div>';
+    html+='<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">AIサジェストをそのまま送った割合＝自動化できる可能性の高さです。</div>';
+    html+='<div style="display:flex;gap:8px;margin-bottom:10px;">'
+      +anCard_("AI無修正送信率",pct+"%","#8b5cf6",un+"/"+aiTot+"件")
+      +anCard_("AI案を修正",ed+"件","#f59e0b")
+      +anCard_("AI自動応答",au+"件","#16a34a")
+      +'</div>';
+    var abt=r.aiByTag||[];
+    var cand=abt.filter(function(x){ return (x.total||0)>=5; }).map(function(x){
+      x._rate = x.total?Math.round(((x.ai_unchanged||0)/x.total)*100):0; return x;
+    }).sort(function(a,b){ return b._rate-a._rate; });
+    if(cand.length){
+      html+='<div style="font-weight:700;font-size:12px;margin:10px 0 6px;">カテゴリ別・自動化候補（無修正率が高い順／5件以上）</div>';
+      html+=cand.map(function(x){
+        var hot=x._rate>=70; var col=hot?"#8b5cf6":"#cbd5e1";
+        return '<div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;"><span>'+esc_(x.tag||"未分類")+(hot?' <span style="color:#8b5cf6;font-weight:700;">◎候補</span>':'')+'</span><span style="font-weight:700;">'+x._rate+'% <span style="color:#94a3b8;font-weight:400;">('+(x.ai_unchanged||0)+'/'+x.total+')</span></span></div>'
+          +'<div style="height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+x._rate+'%;background:'+col+';"></div></div></div>';
+      }).join("");
+    }
+    html+='<div id="autoReplyBox" style="margin:14px 0;padding:12px;border:1px solid #ede9fe;background:#faf5ff;border-radius:10px;"></div>';
     html+='<div style="font-weight:700;font-size:13px;margin:14px 0 6px;">店舗別</div>';
     var bs=r.byStore||[];
     html+= bs.length ? bs.map(function(x){
@@ -816,7 +840,47 @@ function loadAnalytics_(){
         +'<div style="font-size:13px;margin-top:3px;white-space:pre-wrap;">'+esc_(x.situation||"（内容なし）")+'</div></div>';
     }).join("") : '<div style="font-size:12px;color:#94a3b8;">データなし</div>';
     body.innerHTML=html;
+    loadAutoReply_();
   }).catch(function(){ body.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+function loadAutoReply_(){
+  var box=document.getElementById("autoReplyBox"); if(!box) return;
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;">設定を読み込み中…</div>';
+  httpPost_("/v2/staff/autoreply-get", {}).then(function(r){
+    if(!r||!r.ok){ box.innerHTML='<div style="font-size:12px;color:#b91c1c;">設定の読み込みに失敗</div>'; return; }
+    renderAutoReply_(r.on, r.threshold);
+  }).catch(function(){ box.innerHTML='<div style="font-size:12px;color:#b91c1c;">通信エラー</div>'; });
+}
+function renderAutoReply_(on, threshold){
+  var box=document.getElementById("autoReplyBox"); if(!box) return;
+  var thPct=Math.round((threshold||0.88)*100);
+  var h='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+    +'<div style="font-weight:700;font-size:13px;">🤖 AI自動応答</div>'
+    +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">'
+    +'<input type="checkbox" id="arToggle" '+(on?"checked":"")+' style="width:18px;height:18px;"> '+(on?'<span style="color:#16a34a;font-weight:700;">ON</span>':'<span style="color:#94a3b8;">OFF</span>')+'</label></div>';
+  h+='<div style="font-size:11px;color:#7c3aed;margin-top:6px;line-height:1.6;">「採用済み」の学習データと'+thPct+'%以上一致する質問に、AIが同じ回答を自動送信します。スタッフや電話・クレーム等を含む質問、既に人が対応した会話は自動応答しません。送信時はSlackに通知します。</div>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;">'
+    +'<span style="font-size:12px;">一致のきびしさ</span>'
+    +'<input type="range" id="arTh" min="80" max="98" step="1" value="'+thPct+'" style="flex:1;">'
+    +'<span id="arThV" style="font-size:12px;font-weight:700;width:38px;text-align:right;">'+thPct+'%</span></div>';
+  h+='<div style="text-align:right;margin-top:8px;"><button onclick="saveAutoReply_()" style="background:#8b5cf6;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">保存</button></div>';
+  box.innerHTML=h;
+  var th=document.getElementById("arTh"), thv=document.getElementById("arThV");
+  th.oninput=function(){ thv.textContent=th.value+"%"; };
+  document.getElementById("arToggle").onchange=function(e){
+    var sp=e.target.parentNode.querySelector("span");
+    if(e.target.checked){ sp.textContent="ON"; sp.style.color="#16a34a"; sp.style.fontWeight="700"; }
+    else { sp.textContent="OFF"; sp.style.color="#94a3b8"; sp.style.fontWeight="400"; }
+  };
+}
+function saveAutoReply_(){
+  var on=document.getElementById("arToggle").checked;
+  var th=(parseInt(document.getElementById("arTh").value,10)||88)/100;
+  if(on && !confirm("AI自動応答をONにします。採用済みデータと高一致の質問にAIが自動返信します。よろしいですか？")){ return; }
+  httpPost_("/v2/staff/autoreply-set", {on:on, threshold:th}).then(function(r){
+    if(r&&r.ok){ toast_("自動応答設定を保存しました"); renderAutoReply_(r.on, r.threshold); }
+    else toast_("保存に失敗しました");
+  }).catch(function(){ toast_("通信エラー"); });
 }
 function svStars_(avg){ var a=Math.round(avg||0); return "★★★★★".slice(0,a)+"☆☆☆☆☆".slice(0,5-a); }
 function loadSurvey_(){
@@ -1418,7 +1482,7 @@ function renderConvs_(){
 function openConv_(id){
   var c=convs.find(function(x){ return x.id===id; });
   if (!c) return;
-  current=c; seenKeys.clear();
+  current=c; seenKeys.clear(); aiDraft_="";
   markRead_(id);
   custReadAt=c.customer_read_at||0; lastStaffRow=null; lastStaffAt=0;
   document.body.classList.add("viewing");
@@ -1446,7 +1510,7 @@ function openConv_(id){
       r.messages.forEach(function(m){
         var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
         seenKeys.add(key);
-        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id);
       });
       scrollBottom_();
     }
@@ -1490,7 +1554,7 @@ function openWs_(id){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seenKeys.has(key)) return;
       seenKeys.add(key);
-      appendMsg_(d.sender_type, d.body, d.created_at, d.attachments);
+      appendMsg_(d.sender_type, d.body, d.created_at, d.attachments, d.sender_id);
       scrollBottom_();
       markRead_(wsConvId);
       if (d.sender_type==="customer"){ clearTyping_(); playEvent_("message"); fetchConvs_(); }
@@ -1504,7 +1568,7 @@ function reopenWithHistory_(id){
       r.messages.forEach(function(m){
         var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
         if (seenKeys.has(key)) return; seenKeys.add(key);
-        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id);
       });
       scrollBottom_();
     }
@@ -1533,13 +1597,15 @@ function attachHtml_(attachments){
     return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:underline;">📎 '+esc_(a.name||"ファイル")+'</a>';
   }).join("");
 }
-function appendMsg_(senderType, body, createdAt, attachments){
+function appendMsg_(senderType, body, createdAt, attachments, senderId){
   var side = senderType==="staff" ? "staff" : (senderType==="system" ? "system" : "customer");
-  var who  = senderType==="staff" ? "スタッフ" : (senderType==="system" ? "" : "お客様");
+  var isAuto = senderType==="staff" && senderId==="AI自動";
+  var who  = senderType==="staff" ? (isAuto?"🤖AI自動応答":"スタッフ") : (senderType==="system" ? "" : "お客様");
   var media=attachHtml_(attachments);
   var row=document.createElement("div");
   row.className="row "+side;
-  row.innerHTML='<div class="bubble">'+linkify_(body||"")+media+'</div>'
+  var badge = isAuto ? '<span style="display:inline-block;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;margin-bottom:3px;">AI自動</span> ' : '';
+  row.innerHTML='<div class="bubble">'+badge+linkify_(body||"")+media+'</div>'
     +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
   document.getElementById("msgs").appendChild(row);
   if (senderType==="staff"){ lastStaffRow=row; lastStaffAt=createdAt||Date.now(); updateReceipt_(); }
@@ -1595,7 +1661,7 @@ function showAiSuggest_(text, capped, corpus){
   bar.innerHTML='<span style="font-size:11px;color:#7c3aed;width:100%;">'+esc_(head)+'</span>';
   var b=document.createElement("button"); b.className="sc-btn"; b.style.cssText="max-width:100%;text-align:left;white-space:normal;line-height:1.5;";
   b.textContent=text;
-  b.onclick=function(){ var ta=document.getElementById("reply"); ta.value=text; ta.focus(); ta.style.height="60px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.45))+"px"; clearSuggest_(); };
+  b.onclick=function(){ var ta=document.getElementById("reply"); ta.value=text; aiDraft_=text; ta.focus(); ta.style.height="60px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.45))+"px"; clearSuggest_(); };
   bar.appendChild(b);
 }
 
@@ -1637,10 +1703,14 @@ function sendReply_(){
   if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
   if (opPendingFile){ opSendWithMedia_(text); return; }
   lastReply_={text:text};
-  ws.send(JSON.stringify({ type:"message", body:text }));
+  var origin="manual";
+  if (aiDraft_){ origin = (text === String(aiDraft_).trim()) ? "ai_unchanged" : "ai_edited"; }
+  ws.send(JSON.stringify({ type:"message", body:text, origin:origin }));
+  aiDraft_="";
   ta.value=""; ta.style.height="60px"; clearSuggest_();
 }
 var lastReply_=null;
+var aiDraft_="";
 var opPendingFile=null;
 function opPickMedia_(input){
   var f=input.files&&input.files[0]; input.value="";
@@ -1665,7 +1735,10 @@ async function opSendWithMedia_(text){
   }).then(function(x){return x.json();}).catch(function(){return null;});
   if (ab){ ab.disabled=false; ab.textContent="📎"; }
   if (r && r.success){
-    ws.send(JSON.stringify({ type:"message", body:text||"", attachments:[{ url:r.fileUrl, type:r.type, name:r.name }] }));
+    var origin="manual";
+    if (aiDraft_ && text){ origin = (text.trim() === String(aiDraft_).trim()) ? "ai_unchanged" : "ai_edited"; }
+    ws.send(JSON.stringify({ type:"message", body:text||"", origin:origin, attachments:[{ url:r.fileUrl, type:r.type, name:r.name }] }));
+    aiDraft_="";
     opClearPending_(); var ta=document.getElementById("reply"); ta.value=""; ta.style.height="60px"; clearSuggest_();
   } else toast_("送信に失敗しました");
 }
