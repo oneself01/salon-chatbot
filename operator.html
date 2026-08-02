@@ -204,6 +204,11 @@
       <input id="anTo" class="sc-input" type="date" style="flex:1;min-width:120px;">
       <button class="sc-btn" onclick="loadAnalytics_()">表示</button>
     </div>
+    <div id="anAudTabs" style="display:flex;gap:6px;margin:2px 0 8px;">
+      <button type="button" class="anaud-tab" data-aud="" onclick="setAnAud_('')">全区分</button>
+      <button type="button" class="anaud-tab" data-aud="customer" onclick="setAnAud_('customer')">お客様</button>
+      <button type="button" class="anaud-tab" data-aud="cleaner" onclick="setAnAud_('cleaner')">🧹清掃委託者</button>
+    </div>
     <div id="analyticsBody"></div>
   </div>
 </div>
@@ -780,11 +785,22 @@ function anCard_(label,val,color,sub){
     +'<div style="font-size:20px;font-weight:700;color:'+color+';">'+esc_(val)+'</div>'
     +(sub?'<div style="font-size:10px;color:#94a3b8;">'+esc_(sub)+'</div>':'')+'</div>';
 }
+var anAud_="";
+function setAnAud_(aud){ anAud_=aud||""; styleAnTabs_(); loadAnalytics_(); }
+function styleAnTabs_(){
+  var tabs=document.querySelectorAll("#anAudTabs .anaud-tab");
+  for(var i=0;i<tabs.length;i++){
+    var t=tabs[i], on=(t.getAttribute("data-aud")||"")===anAud_;
+    t.style.cssText="border:1px solid "+(on?"#0ea5e9":"var(--line)")+";background:"+(on?"#0ea5e9":"#fff")+";color:"+(on?"#fff":"#334155")+";border-radius:8px;padding:5px 12px;font-size:12px;font-weight:"+(on?"700":"400")+";cursor:pointer;";
+  }
+}
 function loadAnalytics_(){
   var body=document.getElementById("analyticsBody");
+  styleAnTabs_();
   body.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">読み込み中…</div>';
   var fromV=document.getElementById("anFrom").value, toV=document.getElementById("anTo").value;
   var req={};
+  if(anAud_) req.aud=anAud_;
   if(fromV) req.from=new Date(fromV+"T00:00:00").getTime();
   if(toV) req.to=new Date(toV+"T23:59:59").getTime();
   httpPost_("/v2/staff/analytics", req).then(function(r){
