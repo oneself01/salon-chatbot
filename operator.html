@@ -564,7 +564,7 @@ function updateAppBadge_(){
   }catch(e){}
 }
 // アプリを前面に出した瞬間にバッジを実数へ同期
-document.addEventListener("visibilitychange", function(){ if (document.visibilityState==="visible"){ try{ updateAppBadge_(); }catch(e){} } });
+document.addEventListener("visibilitychange", function(){ if (document.visibilityState==="visible"){ try{ updateAppBadge_(); }catch(e){} try{ maybeRefreshSession_(); }catch(e){} } });
 var custReadAt=0, lastStaffRow=null, lastStaffAt=0;
 function updateReceipt_(){
   var msgs=document.getElementById("msgs"); if(!msgs) return;
@@ -589,7 +589,7 @@ window.onload = function(){
   if (saved && exp > (Date.now()/1000)+60){
     idToken=saved;
     httpPost_("/staff/me", {}).then(function(r){
-      if (r && r.ok){ me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
+      if (r && r.ok){ if (r.session) storeSession_(r.session); me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
       else { clearStored_(); initGis_(); }
     }).catch(function(){ initGis_(); });
     return;
@@ -610,20 +610,28 @@ function initGis_(){
   google.accounts.id.renderButton(document.getElementById("gbtn"), { theme:"filled_blue", size:"large", text:"signin_with", shape:"pill" });
   google.accounts.id.prompt();
 }
-// トークン自動更新：期限の5分前に裏で再取得（開きっぱなしでも認証切れで止まらない）
+// 自前セッションを保存（初回Google認証後はこれで維持＝Googleの1時間切れの影響を受けない）
+function storeSession_(token){
+  if (!token) return;
+  idToken=token;
+  var ex=0;
+  try{ var p=token.split(".")[1]; ex=(JSON.parse(decodeURIComponent(escape(atob(p.replace(/-/g,"+").replace(/_/g,"/")))))||{}).exp||0; }catch(e){}
+  try{ localStorage.setItem("op_idtoken", token); localStorage.setItem("op_idtoken_exp", String(ex)); }catch(e){}
+}
+// セッションのスライド更新：開いている間は6時間ごとに/staff/meで新しい30日セッションを取り直す
 function scheduleTokenRefresh_(){
   if (refreshTimer) clearTimeout(refreshTimer);
-  var exp=0; try{ exp=parseInt(localStorage.getItem("op_idtoken_exp")||"0",10); }catch(e){}
-  if (!exp) return;
-  var ms=(exp*1000)-Date.now()-(5*60*1000);
-  if (ms<15000) ms=15000;
-  refreshTimer=setTimeout(refreshToken_, ms);
+  refreshTimer=setTimeout(refreshToken_, 6*3600*1000);
 }
 function refreshToken_(){
-  if (!ensureGisInit_()){ setTimeout(refreshToken_, 2000); return; }
-  refreshMode=true;
-  try{ google.accounts.id.prompt(); }catch(e){}
-  setTimeout(function(){ if (refreshMode){ refreshMode=false; scheduleTokenRefresh_(); } }, 90000);
+  httpPost_("/staff/me", {}).then(function(r){ if (r && r.ok && r.session){ storeSession_(r.session); } }).catch(function(){}).then(function(){ scheduleTokenRefresh_(); });
+}
+// アプリを前面に出したときも（10分に1回まで）セッションをスライド更新
+var _lastSessRefresh_=0;
+function maybeRefreshSession_(){
+  if (!idToken) return;
+  var now=Date.now(); if (now-_lastSessRefresh_ < 600000) return; _lastSessRefresh_=now;
+  httpPost_("/staff/me", {}).then(function(r){ if (r && r.ok && r.session){ storeSession_(r.session); } }).catch(function(){});
 }
 function clearStored_(){ try{ localStorage.removeItem("op_idtoken"); localStorage.removeItem("op_idtoken_exp"); }catch(e){} }
 function enterConsole_(){
@@ -644,15 +652,18 @@ function enterConsole_(){
   }
 }
 function onCredential_(resp){
-  idToken = resp.credential || "";
-  if (!idToken){ if (!refreshMode) loginError_("トークンの取得に失敗しました。"); refreshMode=false; return; }
-  var ex=0; try{ ex=JSON.parse(atob(idToken.split('.')[1])).exp||0; }catch(e){}
-  try{ localStorage.setItem("op_idtoken", idToken); localStorage.setItem("op_idtoken_exp", String(ex)); }catch(e){}
-  if (refreshMode){ refreshMode=false; scheduleTokenRefresh_(); return; }  // 裏更新：画面はそのまま継続
+  var gtoken = resp.credential || "";
+  if (!gtoken){ if (!refreshMode) loginError_("トークンの取得に失敗しました。"); refreshMode=false; return; }
+  idToken = gtoken;  // Googleトークンで一度だけ/staff/meを叩き、以後は自前セッションで維持
+  var wasRefresh = refreshMode; refreshMode=false;
   httpPost_("/staff/me", {}).then(function(r){
-    if (r && r.ok){ me.email=r.email; me.name=r.name||r.email; enterConsole_(); }
-    else loginError_(authMsg_(r));
-  }).catch(function(){ loginError_("接続に失敗しました。"); });
+    if (r && r.ok){
+      if (r.session) storeSession_(r.session);   // 30日セッションへ切り替え
+      me.email=r.email; me.name=r.name||r.email;
+      if (wasRefresh) return;   // 裏更新なら画面はそのまま
+      enterConsole_();
+    } else { if (!wasRefresh) loginError_(authMsg_(r)); }
+  }).catch(function(){ if (!wasRefresh) loginError_("接続に失敗しました。"); });
 }
 function authMsg_(r){
   var d=(r&&r.detail)||"";
