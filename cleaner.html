@@ -132,7 +132,8 @@ window.addEventListener("DOMContentLoaded", function(){
   screenStart_();
   var ta=document.getElementById("input");
   if (ta){
-    ta.addEventListener("input", function(){ ta.style.height="52px"; ta.style.height=Math.min(ta.scrollHeight,window.innerHeight*0.4)+"px"; });
+    ta.addEventListener("input", function(){ ta.style.height="52px"; ta.style.height=Math.min(ta.scrollHeight,window.innerHeight*0.4)+"px"; sendDraft_(); });
+    ta.addEventListener("compositionend", function(){ sendDraft_(); });
     ta.addEventListener("keydown", function(e){ if (e.key==="Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); send_(); } });
   }
 });
@@ -424,7 +425,15 @@ async function send_(){
   }
   lastSend_={text:text};
   ws.send(JSON.stringify({ type:"message", body:text }));
+  try{ ws.send(JSON.stringify({ type:"draft", body:"" })); }catch(e){}
   ta.value=""; ta.style.height="52px";
+}
+// 入力中テキストをリアルタイムでスタッフ画面へ（顧客対応と同じ挙動）。400msスロットル
+var draftT_=0;
+function sendDraft_(){
+  if (!ws || ws.readyState!==1) return;
+  var now=Date.now(); if (now-draftT_<400) return; draftT_=now;
+  try{ ws.send(JSON.stringify({ type:"draft", body:document.getElementById("input").value })); }catch(e){}
 }
 function cleanerEnd_(){
   if (!confirm("チャットを終了します。よろしいですか？")) return;
