@@ -268,8 +268,9 @@
     <div id="gtTplChips" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto;"></div>
     <label class="sc-field">本文</label>
     <textarea id="gtBody" class="sc-input" style="min-height:140px;"></textarea>
-    <button class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtMailto_()">📧 Gmailで作成する</button>
-    <p style="font-size:11px;color:#94a3b8;margin-top:8px;">Gmailの作成画面が新しいタブで開き、宛先・件名・本文が入った状態になります。内容を確認して送信してください。</p>
+    <button id="gtSendBtn" class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtSend_()">✅ この画面から送信する</button>
+    <p style="font-size:11px;color:#94a3b8;margin-top:8px;">「info@salon-oneself.com」から直接メールを送信します（Gmailは開きません）。送信後このチケットは「完了」になります。</p>
+    <button class="sc-btn" style="width:100%;margin-top:8px;" onclick="gtMailto_()">📧 かわりにGmailで作成する</button>
   </div>
 </div>
 
@@ -1012,8 +1013,10 @@ function gtStatusSet_(id, status){
   httpPost_("/v2/staff/general-status", { id:id, status:status }).then(function(r){ if (r&&r.ok){ toast_("→ "+status); loadGeneral_(); } else toast_("更新に失敗"); });
 }
 function gtReplyClose_(){ document.getElementById("gtReplyModal").style.display="none"; }
+var gtReplyId_=null;
 function gtReply_(id){
   var t=gtTickets.find(function(x){ return x.id===id; }); if (!t) return;
+  gtReplyId_=id;
   document.getElementById("gtReplyModal").style.display="flex";
   document.getElementById("gtTo").value=t.email||"";
   document.getElementById("gtSubject").value=(t.category? t.category : "")+"のお問い合わせについて";
@@ -1039,6 +1042,19 @@ function tplScore_(t, hint){
   var s=0; kws.forEach(function(k){ if (k && hint.indexOf(k)!==-1) s++; });
   if (t.category && hint.indexOf(String(t.category).toLowerCase())!==-1) s+=2;
   return s;
+}
+function gtSend_(){
+  var to=document.getElementById("gtTo").value.trim();
+  var subject=document.getElementById("gtSubject").value.trim();
+  var body=document.getElementById("gtBody").value.trim();
+  if (!to){ toast_("宛先がありません"); return; }
+  if (!body){ toast_("本文を入力してください"); return; }
+  if (!confirm(to+" にこの内容で送信します。よろしいですか？")) return;
+  var btn=document.getElementById("gtSendBtn"); if(btn){ btn.disabled=true; btn.textContent="送信中…"; }
+  httpPost_("/v2/staff/general-reply", { id:gtReplyId_, to:to, subject:subject, body:body }).then(function(r){
+    if (r && r.ok){ toast_("✅ 送信しました"); gtReplyClose_(); loadGeneral_(); }
+    else { toast_("送信に失敗しました"+((r&&r.error)?("（"+r.error+"）"):"")); }
+  }).catch(function(){ toast_("通信エラー"); }).then(function(){ if(btn){ btn.disabled=false; btn.textContent="✅ この画面から送信する"; } });
 }
 function gtMailto_(){
   var to=document.getElementById("gtTo").value.trim();
