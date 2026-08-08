@@ -139,6 +139,7 @@
     <div id="opPendingBar" style="display:none;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-top:1px solid var(--line);"></div>
     <div id="composer" style="display:none;">
       <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
+      <button id="tplBtn" onclick="openTplPicker_()" title="定型文から選ぶ" style="padding:11px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">💬</button>
       <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を選ぶ" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
       <input type="file" id="opChatFile" accept="image/*,video/*,application/pdf" style="display:none;" onchange="opPickMedia_(this)">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
@@ -253,6 +254,18 @@
       <button class="sc-primary" onclick="manualSave_()">保存</button>
     </div>
     <div id="manualsBody"></div>
+  </div>
+</div>
+
+<!-- 定型文ピッカー（チャット中に区分別の定型文を関連順で表示・検索・挿入） -->
+<div id="tplPickerModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:210; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong id="tplPickTitle" style="font-size:15px;">💬 定型文</strong>
+      <button class="sc-btn" onclick="closeTplPicker_()">閉じる</button>
+    </div>
+    <input id="tplPickSearch" class="sc-input" type="text" placeholder="キーワードで絞り込み…" oninput="renderTplPicker_()">
+    <div id="tplPickList" style="margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:60vh; overflow:auto;"></div>
   </div>
 </div>
 
@@ -1047,6 +1060,55 @@ function tplScore_(t, hint){
   if (t.category && hint.indexOf(String(t.category).toLowerCase())!==-1) s+=2;
   return s;
 }
+/* =========================================================
+ *  定型文ピッカー（チャット中・区分別・関連順・検索・挿入）
+ * ========================================================= */
+var convHint_="";           // いま開いている会話の直近お客様発言（関連度スコア用）
+var tplPickCache_=null;     // 取得した全定型文（押した時だけ取得してキャッシュ）
+var tplPickList_=[];        // 現在の区分の staff 定型文
+function openTplPicker_(){
+  if (!current){ toast_("会話を開いてから使ってください"); return; }
+  var aud=(current.audience==="cleaner")?"cleaner":"customer";
+  document.getElementById("tplPickTitle").textContent = (aud==="cleaner"?"💬 定型文（🧹清掃委託者用）":"💬 定型文（お客様用）");
+  document.getElementById("tplPickSearch").value="";
+  document.getElementById("tplPickerModal").style.display="flex";
+  var box=document.getElementById("tplPickList");
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:8px;">読み込み中…</div>';
+  var use=function(){
+    tplPickList_=(tplPickCache_||[]).filter(function(t){ return (t.kind||"staff")==="staff" && (t.audience||"customer")===aud; });
+    renderTplPicker_();
+  };
+  if (tplPickCache_){ use(); return; }
+  httpPost_("/v2/admin/templates", {}).then(function(r){
+    tplPickCache_=(r&&r.templates)||[];
+    use();
+  }).catch(function(){ box.innerHTML='<div style="font-size:12px;color:#b91c1c;padding:8px;">読み込みに失敗しました</div>'; });
+}
+function closeTplPicker_(){ document.getElementById("tplPickerModal").style.display="none"; }
+function renderTplPicker_(){
+  var box=document.getElementById("tplPickList"); if(!box) return;
+  var q=(document.getElementById("tplPickSearch").value||"").trim().toLowerCase();
+  var list=tplPickList_.slice();
+  if (q){ list=list.filter(function(t){ return ((t.body||"")+" "+(t.category||"")+" "+(t.keywords||"")).toLowerCase().indexOf(q)!==-1; }); }
+  // 関連度（直近のお客様発言に対するスコア）が高い順、その後は登録順
+  list.forEach(function(t){ t._sc=tplScore_(t, convHint_||""); });
+  list.sort(function(a,b){ return (b._sc-a._sc); });
+  if (!list.length){ box.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:8px;">該当する定型文がありません（💬 設定→定型文 で登録できます）</div>'; return; }
+  box.innerHTML=list.map(function(t,i){
+    var rel=(t._sc>0 && !q)?'<span style="font-size:10px;color:#1d4ed8;font-weight:700;margin-left:6px;">関連</span>':'';
+    var cat=t.category?('<span style="font-size:11px;color:#3730a3;">['+esc_(t.category)+']</span> '):'';
+    var preview=esc_(String(t.body||"").slice(0,120))+(String(t.body||"").length>120?"…":"");
+    return '<button class="sc-btn" data-pi="'+i+'" style="text-align:left;white-space:normal;line-height:1.5;padding:9px 11px;">'+cat+rel+'<div style="margin-top:3px;color:#334155;">'+preview+'</div></button>';
+  }).join("");
+  Array.prototype.forEach.call(box.querySelectorAll("[data-pi]"), function(b){ b.onclick=function(){ pickTpl_(list[parseInt(b.getAttribute("data-pi"),10)]); }; });
+}
+function pickTpl_(t){
+  if (!t) return;
+  var ta=document.getElementById("reply");
+  ta.value=(ta.value.trim()? ta.value.trim()+"\n\n":"")+String(t.body||"");
+  ta.style.height="60px"; ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*0.45))+"px";
+  closeTplPicker_(); ta.focus();
+}
 function gtSend_(){
   var to=document.getElementById("gtTo").value.trim();
   var subject=document.getElementById("gtSubject").value.trim();
@@ -1225,7 +1287,7 @@ function importTemplates_(){
   }).catch(function(){ tplMsg_("通信エラー",false); });
 }
 function loadTemplates_(){
-  httpPost_("/v2/admin/templates", {}).then(function(r){ if (r && r.ok){ tplItems=r.templates||[]; renderTpl_(); } else tplMsg_("読み込み失敗",false); });
+  httpPost_("/v2/admin/templates", {}).then(function(r){ if (r && r.ok){ tplItems=r.templates||[]; tplPickCache_=tplItems; renderTpl_(); } else tplMsg_("読み込み失敗",false); });
 }
 function tplShowList_(){ document.getElementById("tplList").style.display="block"; document.getElementById("tplEdit").style.display="none"; }
 function renderTpl_(){
@@ -1550,7 +1612,7 @@ function renderConvs_(){
 function openConv_(id){
   var c=convs.find(function(x){ return x.id===id; });
   if (!c) return;
-  current=c; seenKeys.clear(); aiDraft_="";
+  current=c; seenKeys.clear(); aiDraft_=""; convHint_="";
   markRead_(id);
   custReadAt=c.customer_read_at||0; lastStaffRow=null; lastStaffAt=0;
   document.body.classList.add("viewing");
@@ -1700,6 +1762,7 @@ function appendMsg_(senderType, body, createdAt, attachments, senderId){
     +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
   document.getElementById("msgs").appendChild(row);
   if (senderType==="staff"){ lastStaffRow=row; lastStaffAt=createdAt||Date.now(); updateReceipt_(); }
+  if (senderType==="customer" && body){ convHint_=(convHint_+" "+String(body)).toLowerCase().slice(-600); }
 }
 function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
 
