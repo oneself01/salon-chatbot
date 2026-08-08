@@ -108,7 +108,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="backToList_()" title="会話一覧に戻る／最新の状態に更新">↩ 一覧に戻る</button><button onclick="openQA_()">🧠 AI学習</button><button onclick="openGeneral_()" style="position:relative;">📋 一般チケット<span id="genBadge" class="hdr-badge" style="display:none;"></span></button><div style="position:relative; display:inline-block;"><button onclick="toggleSettings_(event)">⚙ 設定 ▾</button><div id="settingsMenu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; z-index:300; min-width:172px;"><button class="menu-item" onclick="openAnalytics_(); closeSettings_();">📈 分析</button><button class="menu-item" onclick="openSurvey_(); closeSettings_();">📊 アンケート</button><button class="menu-item" onclick="openStaff_(); closeSettings_();">👥 スタッフ</button><button class="menu-item" onclick="openKnowledge_(); closeSettings_();">📚 ナレッジ</button><button class="menu-item" onclick="openTemplates_(); closeSettings_();">💬 定型文</button><button class="menu-item" onclick="openScenario_(); closeSettings_();">⚙ シナリオ</button><button class="menu-item" onclick="openManuals_(); closeSettings_();">📖 マニュアル</button><button class="menu-item" onclick="openConsents_(); closeSettings_();">📝 同意ログ</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" id="pushBtn" onclick="enablePush_(); closeSettings_();">🔔 通知ON</button><button class="menu-item" onclick="openSound_(); closeSettings_();">🔊 音設定</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" style="color:#b91c1c;" onclick="logout_()">ログアウト</button></div></div></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="backToList_()" title="会話一覧に戻る／最新の状態に更新">↩ 一覧に戻る</button><button onclick="openQA_()">🧠 AI学習</button><button onclick="openGeneral_()" style="position:relative;">📋 一般チケット<span id="genBadge" class="hdr-badge" style="display:none;"></span></button><div style="position:relative; display:inline-block;"><button onclick="toggleSettings_(event)">⚙ 設定 ▾</button><div id="settingsMenu" style="display:none; position:fixed; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; z-index:9999; min-width:172px;"><button class="menu-item" onclick="openAnalytics_(); closeSettings_();">📈 分析</button><button class="menu-item" onclick="openSurvey_(); closeSettings_();">📊 アンケート</button><button class="menu-item" onclick="openStaff_(); closeSettings_();">👥 スタッフ</button><button class="menu-item" onclick="openKnowledge_(); closeSettings_();">📚 ナレッジ</button><button class="menu-item" onclick="openTemplates_(); closeSettings_();">💬 定型文</button><button class="menu-item" onclick="openScenario_(); closeSettings_();">⚙ シナリオ</button><button class="menu-item" onclick="openManuals_(); closeSettings_();">📖 マニュアル</button><button class="menu-item" onclick="openConsents_(); closeSettings_();">📝 同意ログ</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" id="pushBtn" onclick="enablePush_(); closeSettings_();">🔔 通知ON</button><button class="menu-item" onclick="openSound_(); closeSettings_();">🔊 音設定</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" style="color:#b91c1c;" onclick="logout_()">ログアウト</button></div></div></div>
   </header>
 
   <div id="list">
@@ -1589,7 +1589,16 @@ function closeChat_(){ document.body.classList.remove("viewing"); closeWs_(); cu
 // 「一覧に戻る」：チャットを見ているときは即座に一覧へ＋最新取得、一覧のときは画面リロード
 function backToList_(){ if (current){ closeChat_(); fetchConvs_(); } else { location.reload(); } }
 // 設定メニューの開閉
-function toggleSettings_(e){ if(e){ e.stopPropagation(); } var m=document.getElementById("settingsMenu"); m.style.display=(m.style.display==="none"||!m.style.display)?"block":"none"; }
+function toggleSettings_(e){
+  if(e){ e.stopPropagation(); }
+  var m=document.getElementById("settingsMenu");
+  var open=(m.style.display==="none"||!m.style.display);
+  if(open){
+    var btn=(e&&e.currentTarget)?e.currentTarget:document.querySelector('button[onclick^="toggleSettings_"]');
+    if(btn){ var r=btn.getBoundingClientRect(); m.style.top=(r.bottom+4)+"px"; m.style.right=Math.max(6,(window.innerWidth-r.right))+"px"; m.style.left="auto"; }
+    m.style.display="block";
+  } else { m.style.display="none"; }
+}
 function closeSettings_(){ var m=document.getElementById("settingsMenu"); if(m) m.style.display="none"; }
 document.addEventListener("click", function(e){ var m=document.getElementById("settingsMenu"); if(!m||m.style.display!=="block") return; if(!e.target.closest("#settingsMenu")){ m.style.display="none"; } });
 // 一般チケットの未対応件数を赤バッジで表示
