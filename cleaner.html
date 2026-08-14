@@ -266,7 +266,7 @@ async function submitKey_(mode){
   var signature=""; try{ signature=document.getElementById("cf_sig").toDataURL("image/png"); }catch(e){}
   lsSet_("cl_name", name);
   var btn=document.getElementById("cf_submit"); if(btn){ btn.disabled=true; btn.textContent="照合中…"; }
-  var r=await fetch(WORKER_BASE+"/v2/cleaner/key-lookup", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ store:store, date:date, start:start, end:end, name:name, agreed:true, signature:signature }) }).then(function(x){return x.json();}).catch(function(){ return null; });
+  var r=await fetch(WORKER_BASE+"/v2/cleaner/key-lookup", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ store:store, date:date, start:start, end:end, name:name, agreed:true, signature:signature, cleanerId:cleanerId }) }).then(function(x){return x.json();}).catch(function(){ return null; });
   if(btn){ btn.disabled=false; btn.textContent="同意して照合する"; }
   if(!r||!r.ok){ alert("照合に失敗しました。時間をおいて再度お試しください。"); return; }
   screenKeyResult_(mode, r, { store:store, name:name, date:date, start:start, end:end, signature:signature, signedAt:Date.now() });
