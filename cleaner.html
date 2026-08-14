@@ -354,7 +354,7 @@ async function loadHistory_(){
     }
     document.getElementById("msgs").innerHTML="";
     if (r && r.ok && Array.isArray(r.messages) && r.messages.length){
-      r.messages.forEach(function(m){ seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"")); append_(m.sender_type,m.body,m.created_at,m.attachments); });
+      r.messages.forEach(function(m){ seen.add((m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"")); append_(m.sender_type,m.body,m.created_at,m.attachments,m.id,m.retracted); });
     } else { append_("system","ご用件を入力してください。担当者が順次対応します。",Date.now()); }
     scrollBottom_();
   }catch(e){}
@@ -371,11 +371,12 @@ function openWs_(){
     if (d.type==="error"){ var ta=document.getElementById("input"); if (ta && lastSend_ && lastSend_.text && !ta.value.trim()){ ta.value=lastSend_.text; } alert("メッセージを送信できませんでした。もう一度お送りください。"); return; }
     if (d.type==="ended"){ append_("system","対応が終了しました。",Date.now()); return; }
     if (d.type==="typing"){ if (d.from==="staff") showTyping_(); return; }
+    if (d.type==="retract"){ markRetracted_(d.id); return; }
     if (d.type==="message"){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seen.has(key)) return; seen.add(key);
       if (d.sender_type==="staff") clearTyping_();
-      append_(d.sender_type,d.body,d.created_at,d.attachments); scrollBottom_();
+      append_(d.sender_type,d.body,d.created_at,d.attachments,d.id); scrollBottom_();
       if (d.sender_type==="staff") sendRead_();
     }
   };
@@ -385,10 +386,12 @@ document.addEventListener("visibilitychange", function(){ if(!document.hidden) s
 var typingHideT=null;
 function showTyping_(){ document.getElementById("typing").textContent="担当者が入力中…"; if(typingHideT) clearTimeout(typingHideT); typingHideT=setTimeout(clearTyping_,4000); }
 function clearTyping_(){ document.getElementById("typing").textContent=""; }
-function append_(sender, text, ts, attachments){
+function append_(sender, text, ts, attachments, mid, retracted){
   var msgs=document.getElementById("msgs");
   var row=document.createElement("div"); row.className="row "+(sender||"system");
+  if (mid) row.setAttribute("data-mid", mid);
   var bub=document.createElement("div"); bub.className="bubble";
+  if (retracted){ bub.innerHTML="メッセージが取り消されました"; bub.style.fontStyle="italic"; bub.style.color="#94a3b8"; bub.style.background="#f1f5f9"; row.appendChild(bub); msgs.appendChild(row); return; }
   if (text) bub.innerHTML=linkify_(text);
   if (attachments){ var arr=attachments; if (typeof arr==="string"){ try{arr=JSON.parse(arr);}catch(e){arr=[];} }
     (arr||[]).forEach(function(a){
@@ -398,6 +401,13 @@ function append_(sender, text, ts, attachments){
     });
   }
   row.appendChild(bub); msgs.appendChild(row);
+}
+function markRetracted_(mid){
+  if (!mid) return;
+  var row=document.querySelector('#msgs [data-mid="'+mid+'"]');
+  if (!row) return;
+  var b=row.querySelector(".bubble");
+  if (b){ b.innerHTML="メッセージが取り消されました"; b.style.fontStyle="italic"; b.style.color="#94a3b8"; b.style.background="#f1f5f9"; }
 }
 function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
 function pickMedia_(input){

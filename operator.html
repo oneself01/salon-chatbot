@@ -1655,7 +1655,7 @@ function openConv_(id){
       r.messages.forEach(function(m){
         var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
         seenKeys.add(key);
-        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id, m.id, m.retracted);
       });
       scrollBottom_();
     }
@@ -1717,12 +1717,13 @@ function openWs_(id){
     if (d.type==="typing"){ if (d.from==="customer") showTyping_(); return; }
     if (d.type==="draft"){ showDraft_(d.body); return; }
     if (d.type==="read"){ custReadAt=Math.max(custReadAt, d.at||0); updateReceipt_(); return; }
+    if (d.type==="retract"){ markRetracted_(d.id); return; }
     if (d.type==="suggest"){ showSuggest_(d.items||[]); return; }
     if (d.type==="message"){
       var key=(d.created_at||"")+"|"+(d.sender_type||"")+"|"+(d.body||"");
       if (seenKeys.has(key)) return;
       seenKeys.add(key);
-      appendMsg_(d.sender_type, d.body, d.created_at, d.attachments, d.sender_id);
+      appendMsg_(d.sender_type, d.body, d.created_at, d.attachments, d.sender_id, d.id);
       scrollBottom_();
       markRead_(wsConvId);
       if (d.sender_type==="customer"){ clearTyping_(); playEvent_("message"); fetchConvs_(); }
@@ -1736,7 +1737,7 @@ function reopenWithHistory_(id){
       r.messages.forEach(function(m){
         var key=(m.created_at||"")+"|"+(m.sender_type||"")+"|"+(m.body||"");
         if (seenKeys.has(key)) return; seenKeys.add(key);
-        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id);
+        appendMsg_(m.sender_type, m.body, m.created_at, m.attachments, m.sender_id, m.id, m.retracted);
       });
       scrollBottom_();
     }
@@ -1765,19 +1766,44 @@ function attachHtml_(attachments){
     return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:underline;">📎 '+esc_(a.name||"ファイル")+'</a>';
   }).join("");
 }
-function appendMsg_(senderType, body, createdAt, attachments, senderId){
+function appendMsg_(senderType, body, createdAt, attachments, senderId, mid, retracted){
   var side = senderType==="staff" ? "staff" : (senderType==="system" ? "system" : "customer");
   var isAuto = senderType==="staff" && senderId==="AI自動";
   var who  = senderType==="staff" ? (isAuto?"🤖AI自動応答":"スタッフ") : (senderType==="system" ? "" : "お客様");
   var media=attachHtml_(attachments);
   var row=document.createElement("div");
   row.className="row "+side;
+  if (mid) row.setAttribute("data-mid", mid);
+  if (retracted){
+    row.innerHTML='<div class="bubble" style="font-style:italic;color:#94a3b8;background:#f1f5f9;">🚫 メッセージを取り消しました</div>'
+      +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
+    document.getElementById("msgs").appendChild(row);
+    return;
+  }
   var badge = isAuto ? '<span style="display:inline-block;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;margin-bottom:3px;">AI自動</span> ' : '';
+  // スタッフ自身の送信メッセージには取り消しボタンを表示
+  var undo = (senderType==="staff" && mid) ? '<button onclick="retractMsg_('+mid+')" title="送信を取り消す" style="margin-left:8px;font-size:11px;color:#b91c1c;background:none;border:none;cursor:pointer;padding:0;">取り消し</button>' : '';
   row.innerHTML='<div class="bubble">'+badge+linkify_(body||"")+media+'</div>'
-    +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+'</div>';
+    +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+undo+'</div>';
   document.getElementById("msgs").appendChild(row);
   if (senderType==="staff"){ lastStaffRow=row; lastStaffAt=createdAt||Date.now(); updateReceipt_(); }
   if (senderType==="customer" && body){ convHint_=(convHint_+" "+String(body)).toLowerCase().slice(-600); }
+}
+// 送信取り消し（スタッフ）: サーバーへ通知→両サイドで取り消し表示に置換
+function retractMsg_(mid){
+  if (!mid) return;
+  if (!confirm("この送信を取り消します。お客様側でも「取り消しました」と表示されます。よろしいですか？")) return;
+  if (!ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  ws.send(JSON.stringify({ type:"retract", id:mid }));
+}
+// 取り消しイベント受信: 該当メッセージを取り消し表示へ置換
+function markRetracted_(mid){
+  if (!mid) return;
+  var row=document.querySelector('#msgs [data-mid="'+mid+'"]');
+  if (!row) return;
+  var b=row.querySelector(".bubble");
+  if (b){ b.innerHTML="🚫 メッセージを取り消しました"; b.style.fontStyle="italic"; b.style.color="#94a3b8"; b.style.background="#f1f5f9"; }
+  var undoBtn=row.querySelector(".rmeta button"); if (undoBtn) undoBtn.remove();
 }
 function scrollBottom_(){ var el=document.getElementById("msgs"); el.scrollTop=el.scrollHeight; }
 
