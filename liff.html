@@ -30,6 +30,7 @@
   .opt .arw{color:#0ea5e9; flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:#e0f2fe; border-radius:50%; font-size:15px; font-weight:700;}
   .answer{background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:17px; font-size:15px; line-height:1.7; white-space:pre-wrap; box-shadow:var(--shadow);}
   .answer img{max-width:100%; height:auto; border-radius:8px; margin-top:10px;}
+  .answer video{max-width:100%; height:auto; border-radius:8px; margin-top:10px; display:block;}
   .answer a.media{display:inline-block; margin-top:10px; padding:11px 18px; background:var(--brand); color:#fff; text-decoration:none; border-radius:9px; font-weight:600; font-size:14px;}
   .askBtn{width:100%; padding:15px; background:linear-gradient(135deg,#fb7185,#ef4444); color:#fff; border:none; border-radius:var(--r); font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 6px 16px rgba(239,68,68,.26);}
   .askBtn.secondary{background:#eef2f7; color:#475569; box-shadow:none;}
@@ -321,6 +322,7 @@ function renderNodeMedia_(div, node){
   node.media.forEach(function(mid){
     var m=mediaData[mid]; if (!m) return;
     if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.alt=String(m.text||""); div.appendChild(img); }
+    else if (m.type==="video"){ var vd=document.createElement("video"); vd.src=String(m.url||""); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; div.appendChild(vd); }
     else if (m.type==="form"){ var fb=document.createElement("a"); fb.className="media"; fb.textContent="📝 "+(m.text||"フォームを開く"); fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); }; div.appendChild(document.createElement("br")); div.appendChild(fb); }
     else { var a=document.createElement("a"); a.className="media"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); div.appendChild(document.createElement("br")); div.appendChild(a); }
   });
@@ -374,6 +376,8 @@ function renderAnswer_(node){
       var m=mediaData[mid]; if (!m) return;
       if (m.type==="image"){
         var img=document.createElement("img"); img.src=String(m.url||""); img.alt=String(m.text||""); div.appendChild(img);
+      } else if (m.type==="video"){
+        var vd=document.createElement("video"); vd.src=String(m.url||""); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; div.appendChild(vd);
       } else if (m.type==="form"){
         var fb=document.createElement("a"); fb.className="media"; fb.textContent="📝 "+(m.text||"フォームを開く");
         fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); };

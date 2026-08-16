@@ -1469,12 +1469,14 @@ function scEditNode_(id){
       +'<option value="emergency">緊急対応（スタッフチャットへ）</option>'
       +'<option value="form">フォーム</option>'
     +'</select>'
-    +'<label class="sc-field">画像・リンク</label>'
+    +'<label class="sc-field">画像・動画・リンク</label>'
     +'<div id="sc_media"></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px;">'
       +'<button class="sc-btn" onclick="scAddLink_()">＋ リンク追加</button>'
       +'<button class="sc-btn" onclick="document.getElementById(\'sc_img\').click()">＋ 画像追加</button>'
+      +'<button class="sc-btn" onclick="document.getElementById(\'sc_vid\').click()">＋ 動画追加</button>'
       +'<input type="file" id="sc_img" accept="image/*" style="display:none;" onchange="scAddImage_(this)">'
+      +'<input type="file" id="sc_vid" accept="video/*" style="display:none;" onchange="scAddVideo_(this)">'
     +'</div>'
     +'<div style="margin-top:16px;display:flex;gap:8px;">'
       +'<button class="sc-primary" onclick="scSaveEdit_(\''+n.id+'\')">保存</button>'
@@ -1491,7 +1493,7 @@ function renderScMedia_(){
   box.innerHTML="";
   scMediaTmp.forEach(function(m,i){
     var d=document.createElement("div"); d.className="sc-media-item";
-    var icon = m.type==="image" ? "🖼" : (m.type==="form" ? "📝" : "🔗");
+    var icon = m.type==="image" ? "🖼" : (m.type==="video" ? "🎬" : (m.type==="form" ? "📝" : "🔗"));
     d.innerHTML='<span>'+icon+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(m.text||m.url||"")+'</span><button class="sc-btn" data-i="'+i+'">削除</button>';
     d.querySelector("button").onclick=function(){ scMediaTmp.splice(i,1); renderScMedia_(); };
     box.appendChild(d);
@@ -1511,6 +1513,18 @@ function scAddImage_(input){
   }).then(function(x){return x.json();}).then(function(r){
     input.value="";
     if (r && r.success){ scMediaTmp.push({ type:"image", url:r.fileUrl, text:f.name }); renderScMedia_(); toast_("追加しました"); }
+    else toast_("アップロード失敗");
+  }).catch(function(){ input.value=""; toast_("通信エラー"); });
+}
+function scAddVideo_(input){
+  var f=input.files&&input.files[0]; if(!f) return;
+  if (f.size>50*1024*1024){ alert("動画は50MBまで（長い動画はリンクでの案内を推奨）"); input.value=""; return; }
+  toast_("動画アップロード中…（サイズにより時間がかかります）");
+  fetch(WORKER_BASE+"/v2/admin/upload?name="+encodeURIComponent(f.name), {
+    method:"POST", headers:{ "content-type":f.type||"application/octet-stream", "authorization":"Bearer "+idToken }, body:f
+  }).then(function(x){return x.json();}).then(function(r){
+    input.value="";
+    if (r && r.success){ scMediaTmp.push({ type:"video", url:r.fileUrl, text:f.name }); renderScMedia_(); toast_("追加しました"); }
     else toast_("アップロード失敗");
   }).catch(function(){ input.value=""; toast_("通信エラー"); });
 }
