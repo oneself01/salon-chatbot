@@ -31,6 +31,9 @@
   .answer{background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:17px; font-size:15px; line-height:1.7; white-space:pre-wrap; box-shadow:var(--shadow);}
   .answer img{max-width:100%; height:auto; border-radius:8px; margin-top:10px;}
   .answer video{max-width:100%; height:auto; border-radius:8px; margin-top:10px; display:block;}
+  .answer strong{font-weight:700;}
+  .answer .hl{background:#fff3bf; padding:0 3px; border-radius:3px;}
+  .answer .em-red{color:#dc2626; font-weight:700;}
   .answer a.media{display:inline-block; margin-top:10px; padding:11px 18px; background:var(--brand); color:#fff; text-decoration:none; border-radius:9px; font-weight:600; font-size:14px;}
   .askBtn{width:100%; padding:15px; background:linear-gradient(135deg,#fb7185,#ef4444); color:#fff; border:none; border-radius:var(--r); font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 6px 16px rgba(239,68,68,.26);}
   .askBtn.secondary{background:#eef2f7; color:#475569; box-shadow:none;}
@@ -770,8 +773,15 @@ document.addEventListener("DOMContentLoaded", function(){
 function showErr_(msg){ document.getElementById("loading").style.display="none"; var el=document.getElementById("errBox"); el.style.display="block"; el.textContent="⚠️ "+msg; }
 function esc_(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function linkify_(s){ return esc_(s).replace(/(https?:\/\/[^\s<]+)/g, function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;word-break:break-all;">'+u+'</a>'; }); }
-// FAQ回答本文用：URLをリンク化し、クリックでアプリ内モーダル表示
-function linkifyAnswer_(s){ return esc_(s).replace(/(https?:\/\/[^\s<]+)/g, function(u){ return '<a href="'+u+'" onclick="openLinkModal_(this.href);return false;">'+u+'</a>'; }); }
+// FAQ回答本文用：URLリンク化（アプリ内モーダル）＋軽い装飾（**太字** ==強調== !!重要!!）
+function linkifyAnswer_(s){
+  var t=esc_(s);
+  t=t.replace(/(https?:\/\/[^\s<]+)/g, function(u){ return '<a href="'+u+'" onclick="openLinkModal_(this.href);return false;">'+u+'</a>'; });
+  t=t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  t=t.replace(/==([^=\n]+)==/g, '<span class="hl">$1</span>');
+  t=t.replace(/!!([^!\n]+)!!/g, '<span class="em-red">$1</span>');
+  return t;
+}
 var linkLoadT=null;
 function openLinkModal_(url){
   if(!url) return;
