@@ -300,8 +300,7 @@ function renderOptions_(){
   // 内容（回答）を先に表示 → そのあとに選択肢・緊急ボタン
   answers.forEach(function(node){
     var div=document.createElement("div"); div.className="answer";
-    div.innerHTML = linkifyAnswer_(body_(node) || label_(node));
-    renderNodeMedia_(div, node);
+    fillAnswer_(div, node);
     box.appendChild(div);
   });
   options.forEach(function(node){
@@ -316,6 +315,32 @@ function renderOptions_(){
 function firstLine_(s){
   s=String(s||"").split(/[\n。]/)[0].trim();
   return s.length>40 ? s.slice(0,40)+"…" : s;
+}
+// メディア1件をDOM要素にする
+function mediaEl_(m){
+  if(!m) return null;
+  if(m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.alt=String(m.text||""); return img; }
+  if(m.type==="video"){ var vd=document.createElement("video"); vd.src=String(m.url||""); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; return vd; }
+  var wrap=document.createElement("div"); wrap.style.marginTop="10px";
+  if(m.type==="form"){ var fb=document.createElement("a"); fb.className="media"; fb.style.marginTop="0"; fb.textContent="📝 "+(m.text||"フォームを開く"); fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); }; wrap.appendChild(fb); return wrap; }
+  var a=document.createElement("a"); a.className="media"; a.style.marginTop="0"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); wrap.appendChild(a); return wrap;
+}
+// 回答本文＋メディアを描画。本文中の [[1]] [[2]] はその位置にメディアを差し込み、未参照分は末尾に
+function fillAnswer_(div, node){
+  var text = body_(node) || label_(node) || "";
+  var ids = (node.media || []);
+  var used = {};
+  var parts = String(text).split(/\[\[(\d+)\]\]/);
+  for (var i=0;i<parts.length;i++){
+    if (i%2===1){
+      var idx=parseInt(parts[i],10)-1;
+      var m=mediaData[ids[idx]];
+      if (m){ var el=mediaEl_(m); if(el) div.appendChild(el); used[idx]=1; }
+    } else if (parts[i]){
+      var span=document.createElement("span"); span.innerHTML=linkifyAnswer_(parts[i]); div.appendChild(span);
+    }
+  }
+  ids.forEach(function(mid,idx){ if(!used[idx]){ var m=mediaData[mid]; if(m){ var el=mediaEl_(m); if(el) div.appendChild(el); } } });
 }
 function renderNodeMedia_(div, node){
   if (!(node.media && node.media.length)) return;
@@ -367,27 +392,8 @@ function renderAnswer_(node){
   box.innerHTML="";
   var div=document.createElement("div");
   div.className="answer";
-  // 本文があれば本文を、なければ題名を回答として表示（URLはリンク化＝タップでアプリ内モーダル）
-  var text=body_(node) || label_(node);
-  div.innerHTML = linkifyAnswer_(text || "");
-  // メディア
-  if (node.media && node.media.length){
-    node.media.forEach(function(mid){
-      var m=mediaData[mid]; if (!m) return;
-      if (m.type==="image"){
-        var img=document.createElement("img"); img.src=String(m.url||""); img.alt=String(m.text||""); div.appendChild(img);
-      } else if (m.type==="video"){
-        var vd=document.createElement("video"); vd.src=String(m.url||""); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; div.appendChild(vd);
-      } else if (m.type==="form"){
-        var fb=document.createElement("a"); fb.className="media"; fb.textContent="📝 "+(m.text||"フォームを開く");
-        fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); };
-        div.appendChild(document.createElement("br")); div.appendChild(fb);
-      } else {
-        var a=document.createElement("a"); a.className="media"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener";
-        a.textContent="🔗 "+(m.text||"リンクを開く"); div.appendChild(document.createElement("br")); div.appendChild(a);
-      }
-    });
-  }
+  // 本文＋メディア（本文中の [[1]] [[2]] はその位置に差し込み、未参照は末尾）
+  fillAnswer_(div, node);
   box.appendChild(div);
   // 操作ボタン（自己解決を促す：戻るのみ。緊急対応はツリーの専用項目から）
   var back=document.createElement("button"); back.className="askBtn secondary"; back.style.marginTop="12px";

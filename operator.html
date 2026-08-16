@@ -1494,10 +1494,14 @@ function renderScMedia_(){
   scMediaTmp.forEach(function(m,i){
     var d=document.createElement("div"); d.className="sc-media-item";
     var icon = m.type==="image" ? "🖼" : (m.type==="video" ? "🎬" : (m.type==="form" ? "📝" : "🔗"));
-    d.innerHTML='<span>'+icon+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(m.text||m.url||"")+'</span><button class="sc-btn" data-i="'+i+'">削除</button>';
+    d.innerHTML='<span style="font-weight:700;color:#1d4ed8;">'+(i+1)+'.</span><span>'+icon+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc_(m.text||m.url||"")+'</span><button class="sc-btn" data-i="'+i+'">削除</button>';
     d.querySelector("button").onclick=function(){ scMediaTmp.splice(i,1); renderScMedia_(); };
     box.appendChild(d);
   });
+  var hint=document.createElement("div");
+  hint.style.cssText="font-size:11px;color:#64748b;margin-top:6px;line-height:1.6;";
+  hint.innerHTML='本文の途中に差し込みたいときは、その位置に <code style="background:#eef2ff;color:#1d4ed8;padding:1px 4px;border-radius:4px;">[[1]]</code> のように上の番号を書いてください（例：手順の説明… [[1]] …続き）。書かなかったメディアは末尾にまとめて表示されます。';
+  box.appendChild(hint);
 }
 function scAddLink_(){
   var text=prompt("リンクの表示テキスト（例：予約はこちら）"); if (text===null) return;
