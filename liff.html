@@ -558,17 +558,23 @@ function showDeflectScreen_(body, faqs){
   var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="6px";
   b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
   window.expandDeflectFaq_=function(btn, f){
-    // ツリーのFAQ（id有り）はそのFAQへ遷移。AI候補（id無し）はその場で本文を開く
-    if (f && f.id && tree[f.id]){
-      pendingIntake=null;                 // 相談フローを抜けてFAQ閲覧へ（必要なら緊急からやり直せる）
-      stack = pathTo_(f.id);
-      selectNode_(f.id);
-      return;
-    }
+    // その場で回答を開く（画面は離れない＝他の候補にそのまま戻れる）
     var ans=document.createElement("div"); ans.className="answer"; ans.style.marginBottom="10px";
-    if (f.ai){ var t=document.createElement("div"); t.style.cssText="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;"; t.textContent="🤖 過去の対応から"; ans.appendChild(t); }
-    var txt=document.createElement("div"); txt.innerHTML=linkifyAnswer_(f.body||f.label||""); ans.appendChild(txt);
-    (f.media||[]).forEach(function(m){ var el=mediaEl_(m); if(el) ans.appendChild(el); });
+    var head=document.createElement("div"); head.style.cssText="font-weight:700;margin-bottom:6px;color:#0f172a;"; head.textContent=(f.ai?"🤖 ":"")+firstLine_(f.label||""); ans.appendChild(head);
+    var body=(f.body!=null?String(f.body):"").trim();
+    var hasBody = body && body!==String(f.label||"").trim();
+    if (hasBody){
+      var txt=document.createElement("div"); txt.innerHTML=linkifyAnswer_(body); ans.appendChild(txt);
+      (f.media||[]).forEach(function(m){ var el=mediaEl_(m); if(el) ans.appendChild(el); });
+    } else if (f.id && tree[f.id] && (tree[f.id].children||[]).length){
+      // 本文が無いカテゴリ：中の項目へ入るボタン（押すとFAQ閲覧へ）
+      var go=document.createElement("button"); go.className="askBtn secondary"; go.style.marginTop="4px"; go.textContent="▶ このFAQの項目を見る";
+      go.onclick=function(){ pendingIntake=null; stack=pathTo_(f.id); selectNode_(f.id); };
+      ans.appendChild(go);
+    } else {
+      var txt2=document.createElement("div"); txt2.innerHTML=linkifyAnswer_(body||f.label||""); ans.appendChild(txt2);
+      (f.media||[]).forEach(function(m){ var el=mediaEl_(m); if(el) ans.appendChild(el); });
+    }
     if (btn && btn.parentNode) btn.parentNode.replaceChild(ans, btn);
   };
   var b2=document.createElement("button"); b2.className="askBtn"; b2.style.marginTop="10px";
