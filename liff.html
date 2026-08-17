@@ -238,11 +238,11 @@ async function boot_(){
     // アクセストークン優先（LIFFが自動更新）。取れなければIDトークン
     refreshAuth_();
     if (!idToken){ showErr_("認証トークンが取得できませんでした。LINEアプリから開き直してください。"); return; }
-    // トークンの有効性を検証。無効（開き直しで古い等）なら1回だけ再ログインして取り直す
+    // トークンの有効性を検証。
     var valid = await validateAuth_();
     if (!valid){
-      if (reauth_()) return;   // 再ログインへ（このあとページが読み込み直される）
-      showErr_("認証の有効期限が切れています。お手数ですが、LINEのメニューから開き直してください。"); return;
+      var _d = await authDbg_();
+      showErr_("認証エラー[診断] "+_d); return;   // ← 一時診断（特定後に削除）
     }
     try{ localStorage.removeItem("li_reauth_at"); }catch(e){}
     profile = await liff.getProfile();
@@ -264,6 +264,16 @@ function refreshAuth_(){
 // トークンが本当に有効かサーバーで確認（無効なら false）
 function validateAuth_(){
   return httpPost_("/v2/profile", {}).then(function(r){ return !!(r && r.ok); }).catch(function(){ return false; });
+}
+// 一時診断：トークン種別・アクセストークン有無・LIFF内外・profile検証結果
+async function authDbg_(){
+  var tk=(idToken.split(".").length===3)?"idJWT":"access";
+  var at="?"; try{ at = liff.getAccessToken()? "Y":"N"; }catch(e){ at="err"; }
+  var inc="?"; try{ inc = liff.isInClient()? "inClient":"external"; }catch(e){ inc="?"; }
+  var os="?"; try{ os = liff.getOS?liff.getOS():"?"; }catch(e){ os="?"; }
+  var prof="";
+  try{ var r=await fetch(WORKER_BASE+"/v2/profile",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+idToken},body:"{}"}); prof="HTTP"+r.status+" "+(await r.text()).slice(0,120); }catch(e){ prof="fetch-fail"; }
+  return "tk="+tk+" len="+idToken.length+" access="+at+" "+inc+"/"+os+" | "+prof;
 }
 // 期限切れ等のときに再ログインして新トークンを取得（30秒に1回まで＝ループ防止）。実行したら true
 function reauth_(){
