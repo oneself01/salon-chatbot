@@ -1709,7 +1709,14 @@ function showReminderDebug_(){
       L.push("・"+x.store+" "+x.start+"〜"+x.end+" 鍵"+(x.hasCode?"有":"無")+(x.canceled?"[取消]":"")+" 開始まで"+x.startInMin+"分/終了まで"+x.endInMin+"分 受取"+(x["受取済み"]?"済":"未")+" 未取得窓"+(x["未取得通知の窓内"]?"◯":"×")+" 報告遅れ窓"+(x["報告遅れ窓内"]?"◯":"×"));
     });
     if(!(r.rows||[]).length) L.push("（今日の予約が0件です）");
-    alert(L.join("\n"));
+    L.push("");
+    L.push("OKを押すと『今すぐ判定を実行』して、対象があればSlack/プッシュに通知を送ります。");
+    if(confirm(L.join("\n"))){
+      httpPost_("/v2/staff/reminder-debug", { run:true }).then(function(r2){
+        if(r2 && r2.ok){ alert("実行しました。送信数: "+(r2.sent||0)+"件\n（0件の場合＝今この瞬間に窓に入った未通知の対象が無い、です）"); }
+        else alert("実行に失敗しました");
+      }).catch(function(){ alert("通信エラー"); });
+    }
   }).catch(function(){ alert("通信エラー"); });
 }
 document.addEventListener("click", function(e){ var m=document.getElementById("settingsMenu"); if(!m||m.style.display!=="block") return; if(!e.target.closest("#settingsMenu")){ m.style.display="none"; } });
