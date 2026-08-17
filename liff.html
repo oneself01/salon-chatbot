@@ -235,9 +235,10 @@ async function boot_(){
   try{
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()){ liff.login(); return; }
-    idToken = liff.getIDToken() || "";
+    // アクセストークン優先（LIFFが自動更新＝長い滞在でも期限切れしない）。取れなければIDトークン
+    refreshAuth_();
     profile = await liff.getProfile();
-    if (!idToken){ showErr_("IDトークンが取得できませんでした。LIFFのスコープに openid を追加してください。"); return; }
+    if (!idToken){ showErr_("認証トークンが取得できませんでした。LINEアプリから開き直してください。"); return; }
     await loadTree_();
     loadProfile_();
     document.getElementById("loading").style.display="none";
@@ -248,9 +249,19 @@ async function boot_(){
   }catch(e){ showErr_("初期化エラー: "+(e&&e.message?e.message:e)); }
 }
 
+// 認証トークンを最新化：アクセストークン（自動更新）を優先、無ければIDトークン
+function refreshAuth_(){
+  try{ var t=liff.getAccessToken(); if(t){ idToken=t; return; } }catch(e){}
+  try{ var it=liff.getIDToken(); if(it) idToken=it; }catch(e){}
+}
 var savedProfile={name:"",store:"",email:""};
 function loadProfile_(){
-  return httpPost_("/v2/profile", {}).then(function(r){ if (r && r.ok){ savedProfile={ name:r.name||"", store:r.store||"", email:r.email||"" }; } }).catch(function(){});
+  return httpPost_("/v2/profile", {}).then(function(r){
+    if (r && r.ok){ savedProfile={ name:r.name||"", store:r.store||"", email:r.email||"" }; return; }
+    // 失敗時はトークンを取り直して1回だけ再試行（開き直し等でトークンが古かった場合の保険）
+    refreshAuth_();
+    return httpPost_("/v2/profile", {}).then(function(r2){ if (r2 && r2.ok){ savedProfile={ name:r2.name||"", store:r2.store||"", email:r2.email||"" }; } });
+  }).catch(function(){});
 }
 async function loadTree_(){
   try{
@@ -540,8 +551,16 @@ async function proceedToChat_(){
   chatStarting_=true;
   try{
     var p=pendingIntake;
-    var r=await httpPost_("/v2/conversations", { emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category });
-    if (!r || !r.ok){ alert("接続に失敗しました。時間をおいて再度お試しください。"); return; }
+    refreshAuth_();   // 送信直前に最新トークンへ
+    var payload={ emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category };
+    var r=await httpPost_("/v2/conversations", payload);
+    if (!r || !r.ok){
+      // トークンを取り直して1回だけ自動リトライ（期限切れ・一時的な通信断の保険）
+      refreshAuth_();
+      await new Promise(function(res){ setTimeout(res, 800); });
+      r=await httpPost_("/v2/conversations", payload);
+    }
+    if (!r || !r.ok){ alert("接続に失敗しました。通信状況をご確認のうえ、もう一度お試しください。"); return; }
     convId=r.conversationId; pendingIntake=null; staffSeen=false;
     showChat_(); setSt_("接続中…"); sendNav_();
     await loadHistory_(); openWs_();
@@ -583,6 +602,7 @@ function httpPost_(path, body){
 }
 async function loadHistory_(){
   try{
+    refreshAuth_();
     var url=WORKER_BASE+"/v2/messages?role=customer&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(idToken);
     var r=await fetch(url).then(function(x){ return x.json(); });
     document.getElementById("msgs").innerHTML="";
@@ -599,6 +619,7 @@ async function loadHistory_(){
 }
 function openWs_(){
   if (ws){ try{ws.close();}catch(e){} }
+  refreshAuth_();
   var url=WS_BASE+"/v2/ws?role=customer&c="+encodeURIComponent(convId)+"&token="+encodeURIComponent(idToken);
   ws=new WebSocket(url);
   ws.onopen=function(){
