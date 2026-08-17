@@ -560,7 +560,7 @@ function showDeflectScreen_(body, faqs){
   window.expandDeflectFaq_=function(btn, f){
     // その場で回答を開く（画面は離れない＝他の候補にそのまま戻れる）
     var ans=document.createElement("div"); ans.className="answer"; ans.style.marginBottom="10px";
-    var head=document.createElement("div"); head.style.cssText="font-weight:700;margin-bottom:6px;color:#0f172a;"; head.textContent=(f.ai?"🤖 ":"")+firstLine_(f.label||""); ans.appendChild(head);
+    if (f.ai){ var t=document.createElement("div"); t.style.cssText="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;"; t.textContent="🤖 過去の対応から"; ans.appendChild(t); }
     var body=(f.body!=null?String(f.body):"").trim();
     var hasBody = body && body!==String(f.label||"").trim();
     if (hasBody){
