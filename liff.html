@@ -558,6 +558,7 @@ function showDeflectScreen_(body, faqs){
   var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="6px";
   b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
   window.expandDeflectFaq_=function(btn, f){
+    try{ alert("[診断] body="+JSON.stringify((f&&f.body)||null)+"\nlabel="+JSON.stringify((f&&f.label)||null)); }catch(e){}
     var ans=document.createElement("div"); ans.className="answer"; ans.style.marginBottom="10px";
     if (f.ai){ var t=document.createElement("div"); t.style.cssText="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;"; t.textContent="🤖 過去の対応から"; ans.appendChild(t); }
     var txt=document.createElement("div"); txt.innerHTML=linkifyAnswer_(f.body||f.label||""); ans.appendChild(txt);
