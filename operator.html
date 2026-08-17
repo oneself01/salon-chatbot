@@ -1703,6 +1703,7 @@ function showReminderDebug_(){
     if(!r||!r.ok){ alert("取得に失敗しました"+((r&&r.error)?("（"+r.error+"）"):"")); return; }
     var L=[];
     L.push("JST "+r.jstHour+"時 / GAS="+(r.gas_ok?"OK":("NG "+(r.gas_error||""))));
+    L.push("cron前回="+(r["cron前回分前"]==null?"未実行":(r["cron前回分前"]+"分前"))+" / 相乗り前回="+(r["相乗り前回分前"]==null?"未実行":(r["相乗り前回分前"]+"分前")));
     L.push("今日の予約="+(r["予約件数"]||0)+"件 / 受取記録="+(r["受取記録件数"]||0)+"件");
     L.push("※通知はSlackとスタッフのプッシュに届きます（この画面には出ません）");
     (r.rows||[]).forEach(function(x){
