@@ -558,7 +558,13 @@ function showDeflectScreen_(body, faqs){
   var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="6px";
   b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
   window.expandDeflectFaq_=function(btn, f){
-    try{ alert("[診断] body="+JSON.stringify((f&&f.body)||null)+"\nlabel="+JSON.stringify((f&&f.label)||null)); }catch(e){}
+    // ツリーのFAQ（id有り）はそのFAQへ遷移。AI候補（id無し）はその場で本文を開く
+    if (f && f.id && tree[f.id]){
+      pendingIntake=null;                 // 相談フローを抜けてFAQ閲覧へ（必要なら緊急からやり直せる）
+      stack = pathTo_(f.id);
+      selectNode_(f.id);
+      return;
+    }
     var ans=document.createElement("div"); ans.className="answer"; ans.style.marginBottom="10px";
     if (f.ai){ var t=document.createElement("div"); t.style.cssText="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;"; t.textContent="🤖 過去の対応から"; ans.appendChild(t); }
     var txt=document.createElement("div"); txt.innerHTML=linkifyAnswer_(f.body||f.label||""); ans.appendChild(txt);
@@ -598,6 +604,14 @@ async function proceedToChat_(){
     await loadHistory_(); openWs_();
     if (!staffSeen) startCalling_();
   } finally { chatStarting_=false; }
+}
+// 指定ノードまでの祖先ID配列（stack用）を返す
+function pathTo_(id){
+  var parent={};
+  (function walk(kids){ (kids||[]).forEach(function(cid){ var n=tree[cid]; if(!n) return; (n.children||[]).forEach(function(c){ parent[c]=cid; }); walk(n.children); }); })(tree.level0||[]);
+  var chain=[], cur=id, guard=0;
+  while(parent[cur]!=null && guard++<50){ chain.unshift(parent[cur]); cur=parent[cur]; }
+  return chain;
 }
 function goBack_(){ if (stack.length){ stack.pop(); renderOptions_(); } }
 function goRoot_(){ stack=[]; renderOptions_(); }
