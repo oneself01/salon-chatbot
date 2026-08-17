@@ -412,10 +412,16 @@ function selectNode_(id){
   }
   terminal_(node);
 }
+var emgLabel="";
 function terminal_(node){
   var v=String(node.value||"");
   // 緊急 → 必要事項フォーム → ライブチャット（種類=emergency優先、旧データは文言で判定）
-  if (node.type==="emergency" || (v.indexOf("緊急対応")!==-1 && v.indexOf("スタッフが直対応")!==-1)){ renderEmergencyForm_(); return; }
+  if (node.type==="emergency" || (v.indexOf("緊急対応")!==-1 && v.indexOf("スタッフが直対応")!==-1)){
+    // 通知用に「どの緊急項目から来たか」を記録（例：それでも開かない場合）
+    var deep=(stack.length && tree[stack[stack.length-1]]) ? label_(tree[stack[stack.length-1]]) : "";
+    emgLabel = firstLine_(label_(node)||"") || firstLine_(deep) || "";
+    renderEmergencyForm_(); return;
+  }
   // 回答表示
   renderAnswer_(node);
 }
@@ -520,7 +526,7 @@ async function submitEmergency_(){
 
   // 入力内容を保持（チャットへ進む時に使う）。categoryはFAQ入口の大項目＝自動タグ
   var topCat=(stack.length && tree[stack[0]]) ? label_(tree[stack[0]]) : "";
-  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments, category:topCat };
+  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments, category:topCat, emgCat:emgLabel };
 
   // 会話作成・スタッフ通知の前に「もしかして」案内を判定（通ってきたセクションは除外）
   var pathLabels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
@@ -570,7 +576,7 @@ async function proceedToChat_(){
   try{
     var p=pendingIntake;
     refreshAuth_();   // 送信直前に最新トークンへ
-    var payload={ emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category };
+    var payload={ emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category, emgCat:p.emgCat };
     var r=await httpPost_("/v2/conversations", payload);
     if (!r || !r.ok){
       // トークンを取り直して1回だけ自動リトライ（期限切れ・一時的な通信断の保険）
