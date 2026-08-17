@@ -560,7 +560,15 @@ async function proceedToChat_(){
       await new Promise(function(res){ setTimeout(res, 800); });
       r=await httpPost_("/v2/conversations", payload);
     }
-    if (!r || !r.ok){ alert("接続に失敗しました。通信状況をご確認のうえ、もう一度お試しください。"); return; }
+    if (!r || !r.ok){
+      // ===== 一時診断（原因特定後に削除）=====
+      var _dbg="";
+      try{ var _rp=await fetch(WORKER_BASE+"/v2/profile",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+idToken},body:"{}"}); _dbg="HTTP"+_rp.status+" "+(await _rp.text()).slice(0,140); }catch(e){ _dbg="fetch-fail:"+(e&&e.message?e.message:e); }
+      var _tk=(idToken.split(".").length===3)?"idJWT":"access";
+      var _conv = r ? ("conv="+(r.error||"")+"/"+(r.detail||"")) : "conv=no-response";
+      alert("接続に失敗しました。\n[診断] token="+_tk+" len="+idToken.length+"\n"+_conv+"\nprofile="+_dbg);
+      return;
+    }
     convId=r.conversationId; pendingIntake=null; staffSeen=false;
     showChat_(); setSt_("接続中…"); sendNav_();
     await loadHistory_(); openWs_();
