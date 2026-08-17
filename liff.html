@@ -547,20 +547,23 @@ function showDeflectScreen_(body, faqs){
     var div=document.createElement("div"); div.className="answer"; div.style.marginBottom="10px";
     div.innerHTML=linkify_(body); box.appendChild(div);
   }
-  // FAQツリーからの「これかも」
+  // FAQツリーからの「これかも」：タップで回答を開く（選択式）
   (faqs||[]).forEach(function(f){
-    var card=document.createElement("div"); card.className="answer"; card.style.marginBottom="10px";
-    card.innerHTML=(f.ai?'<div style="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;">🤖 過去の対応から</div>':'')+linkify_(f.label||"");
-    if (f.media && f.media.length){
-      f.media.forEach(function(m){
-        if (m.type==="image"){ var img=document.createElement("img"); img.src=String(m.url||""); img.style.cssText="max-width:100%;border-radius:8px;margin-top:8px;display:block;"; card.appendChild(img); }
-        else { var a=document.createElement("a"); a.className="media"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); a.style.cssText="display:inline-block;margin-top:8px;padding:9px 14px;background:var(--brand);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;"; card.appendChild(document.createElement("br")); card.appendChild(a); }
-      });
-    }
-    box.appendChild(card);
+    var btn=document.createElement("button"); btn.className="opt"; btn.style.marginBottom="8px";
+    var ttl=(f.ai?"🤖 ":"")+firstLine_(f.label||"");
+    btn.innerHTML='<span>'+esc_(ttl)+'</span><span class="arw">›</span>';
+    btn.onclick=function(){ expandDeflectFaq_(btn, f); };
+    box.appendChild(btn);
   });
   var b1=document.createElement("button"); b1.className="askBtn secondary"; b1.style.marginTop="6px";
   b1.textContent="解決しました（FAQへ戻る）"; b1.onclick=function(){ pendingIntake=null; renderOptions_(); };
+  window.expandDeflectFaq_=function(btn, f){
+    var ans=document.createElement("div"); ans.className="answer"; ans.style.marginBottom="10px";
+    if (f.ai){ var t=document.createElement("div"); t.style.cssText="font-size:11px;color:#0ea5e9;font-weight:700;margin-bottom:4px;"; t.textContent="🤖 過去の対応から"; ans.appendChild(t); }
+    var txt=document.createElement("div"); txt.innerHTML=linkifyAnswer_(f.body||f.label||""); ans.appendChild(txt);
+    (f.media||[]).forEach(function(m){ var el=mediaEl_(m); if(el) ans.appendChild(el); });
+    if (btn && btn.parentNode) btn.parentNode.replaceChild(ans, btn);
+  };
   var b2=document.createElement("button"); b2.className="askBtn"; b2.style.marginTop="10px";
   b2.textContent="解決しない・スタッフに相談する"; b2.onclick=function(){ proceedToChat_(); };
   box.appendChild(b1); box.appendChild(b2);
