@@ -1020,15 +1020,22 @@ function loadGeneral_(){
         +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;align-items:center;"><span>'+esc_(t.email||"")+' '+att+'</span><span>'+fmtTime_(t.created_at)+'</span></div>'
         +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'
           +(t.email?'<button class="sc-btn" data-rep="'+t.id+'" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">✉️ メール返信</button>':'')
-          +'<button class="sc-btn" data-id="'+t.id+'" data-s="確認中">確認中</button>'
-          +'<button class="sc-btn" data-id="'+t.id+'" data-s="完了">完了</button>'
-          +'<button class="sc-btn" data-id="'+t.id+'" data-s="未対応">未対応に戻す</button>'
+          +gtStBtn_(t.id,"確認中","確認中",st)
+          +gtStBtn_(t.id,"完了","完了",st)
+          +gtStBtn_(t.id,"未対応","未対応に戻す",st)
         +'</div></div>';
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-s]"), function(b){ b.onclick=function(){ gtStatusSet_(parseInt(b.getAttribute("data-id"),10), b.getAttribute("data-s")); }; });
     Array.prototype.forEach.call(box.querySelectorAll("[data-rep]"), function(b){ b.onclick=function(){ gtReply_(parseInt(b.getAttribute("data-rep"),10)); }; });
     renderGtPager_();
   }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
+}
+// ステータスボタン：今のステータスと一致するものだけ色を付ける
+function gtStColor_(s){ return s==="完了" ? "#16a34a" : (s==="未対応" ? "#b91c1c" : "#d97706"); }
+function gtStBtn_(id, sVal, label, curSt){
+  var on=(curSt===sVal);
+  var stl = on ? (' style="background:'+gtStColor_(sVal)+';color:#fff;border-color:'+gtStColor_(sVal)+';font-weight:700;"') : '';
+  return '<button class="sc-btn" data-id="'+id+'" data-s="'+sVal+'"'+stl+'>'+label+'</button>';
 }
 function gtStatusSet_(id, status){
   httpPost_("/v2/staff/general-status", { id:id, status:status }).then(function(r){ if (r&&r.ok){ toast_("→ "+status); loadGeneral_(); refreshGeneralBadge_(); } else toast_("更新に失敗"); });
