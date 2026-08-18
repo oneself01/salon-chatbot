@@ -355,7 +355,9 @@ function mediaEl_(m){
   if(m.type==="video"){ var vd=document.createElement("video"); vd.src=String(m.url||""); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; return vd; }
   var wrap=document.createElement("div"); wrap.style.marginTop="10px";
   if(m.type==="form"){ var fb=document.createElement("a"); fb.className="media"; fb.style.marginTop="0"; fb.textContent="📝 "+(m.text||"フォームを開く"); fb.href="#"; fb.onclick=function(e){ e.preventDefault(); openForm_(String(m.url||""), String(m.text||"")); }; wrap.appendChild(fb); return wrap; }
-  var a=document.createElement("a"); a.className="media"; a.style.marginTop="0"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く"); wrap.appendChild(a); return wrap;
+  var a=document.createElement("a"); a.className="media"; a.style.marginTop="0"; a.href=String(m.url||""); a.target="_blank"; a.rel="noopener"; a.textContent="🔗 "+(m.text||"リンクを開く");
+  if(isGoogleLink_(m.url)){ a.onclick=function(e){ e.preventDefault(); openExternal_(String(m.url||"")); }; }   // Googleフォーム系のみ外部ブラウザへ
+  wrap.appendChild(a); return wrap;
 }
 // 回答本文＋メディアを描画。本文中の [[1]] [[2]] はその位置にメディアを差し込み、未参照分は末尾に
 function fillAnswer_(div, node){
@@ -856,8 +858,12 @@ function linkifyAnswer_(s){
   return t;
 }
 var linkLoadT=null;
+// Googleフォーム/ドキュメント系のリンクだけ、外部ブラウザ(Chrome/Safari)で開く（LINE内ブラウザのログイン要求回避）
+function isGoogleLink_(url){ return /docs\.google\.com|forms\.gle|drive\.google\.com/i.test(String(url||"")); }
+function openExternal_(url){ if(!url) return; try{ liff.openWindow({ url:url, external:true }); }catch(e){ try{ window.open(url,"_blank"); }catch(_){} } }
 function openLinkModal_(url){
   if(!url) return;
+  if(isGoogleLink_(url)){ openExternal_(url); return; }   // Googleフォーム系のみ外部ブラウザへ
   var v=document.getElementById("linkView"), f=document.getElementById("linkFrame"), ot=document.getElementById("linkOpenTab"), ld=document.getElementById("linkLoading");
   if(ot) ot.href=url;
   if(ld) ld.style.display="flex";
