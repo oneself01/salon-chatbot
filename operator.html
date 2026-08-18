@@ -1022,7 +1022,7 @@ function loadGeneral_(){
           +(t.email?'<button class="sc-btn" data-rep="'+t.id+'" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">✉️ メール返信</button>':'')
           +gtStBtn_(t.id,"確認中","確認中",st)
           +gtStBtn_(t.id,"完了","完了",st)
-          +gtStBtn_(t.id,"未対応","未対応に戻す",st)
+          +gtStBtn_(t.id,"未対応","未対応",st)
         +'</div></div>';
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-s]"), function(b){ b.onclick=function(){ gtStatusSet_(parseInt(b.getAttribute("data-id"),10), b.getAttribute("data-s")); }; });
