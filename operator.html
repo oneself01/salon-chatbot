@@ -120,6 +120,7 @@
       <button data-a="all" class="on" onclick="setAud_('all',this)">全区分</button>
       <button data-a="customer" onclick="setAud_('customer',this)">お客様</button>
       <button data-a="cleaner" onclick="setAud_('cleaner',this)">🧹清掃</button>
+      <button onclick="openSearch_()" title="過去の会話を名前・メール・本文で検索" style="margin-left:auto;background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">🔍 検索</button>
     </div>
     <div id="tickets"></div>
   </div>
@@ -287,6 +288,34 @@
     <button id="gtSendBtn" class="sc-primary" style="width:100%;margin-top:14px;" onclick="gtSend_()">✅ この画面から送信する</button>
     <p style="font-size:11px;color:#94a3b8;margin-top:8px;">「info@salon-oneself.com」から直接メールを送信します（Gmailは開きません）。送信後このチケットは「完了」になります。</p>
     <button class="sc-btn" style="width:100%;margin-top:8px;" onclick="gtMailto_()">📧 かわりにGmailで作成する</button>
+  </div>
+</div>
+
+<!-- 会話検索パネル -->
+<div id="searchPanel" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:200; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:16px;">🔍 会話検索</strong>
+      <button class="sc-btn" onclick="closeSearch_()">閉じる</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <input id="sqText" class="sc-input" type="text" placeholder="名前・メール・本文で検索" style="flex:1;min-width:150px;" onkeydown="if(event.key==='Enter')doSearch_()">
+      <select id="sqField" class="sc-input" style="width:104px;">
+        <option value="all">すべて</option>
+        <option value="name">名前</option>
+        <option value="email">メール</option>
+        <option value="body">本文</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:#64748b;">期間:</span>
+      <input id="sqFrom" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <span style="font-size:12px;">〜</span>
+      <input id="sqTo" class="sc-input" type="date" style="flex:1;min-width:120px;">
+      <button class="sc-primary" onclick="doSearch_()">検索</button>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">期間を短くするほど速く検索できます（本文検索は期間内のメッセージが対象）。</div>
+    <div id="searchResults"></div>
   </div>
 </div>
 
@@ -1018,6 +1047,7 @@ function loadGeneral_(){
         +(t.category?'<div style="font-size:12px;color:#3730a3;margin-top:2px;">'+esc_(t.category)+'</div>':'')
         +'<div style="font-size:13px;color:#334155;margin-top:4px;white-space:pre-wrap;">'+linkify_(t.body||"")+'</div>'
         +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between;align-items:center;"><span>'+esc_(t.email||"")+' '+att+'</span><span>'+fmtTime_(t.created_at)+'</span></div>'
+        +((t.replies&&t.replies.length)?('<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px;">'+t.replies.map(function(r){ return '<div style="font-size:12px;margin-bottom:6px;"><span style="color:#16a34a;font-weight:700;">↩ 返信済</span> <span style="color:#94a3b8;">'+esc_(r.staff||"")+'　'+fmtTime_(r.created_at)+'</span><div style="white-space:pre-wrap;color:#334155;margin-top:2px;background:#f8fafc;border-radius:6px;padding:6px 8px;">'+esc_(r.body||"")+'</div></div>'; }).join("")+'</div>'):'')
         +'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'
           +(t.email?'<button class="sc-btn" data-rep="'+t.id+'" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">✉️ メール返信</button>':'')
           +gtStBtn_(t.id,"確認中","確認中",st)
@@ -1703,6 +1733,47 @@ function toggleSettings_(e){
   } else { m.style.display="none"; }
 }
 function closeSettings_(){ var m=document.getElementById("settingsMenu"); if(m) m.style.display="none"; }
+// 会話検索（名前・メール・本文／期間で絞る）
+function openSearch_(){
+  closeSettings_();
+  document.getElementById("searchPanel").style.display="flex";
+  var f=document.getElementById("sqFrom"), t=document.getElementById("sqTo");
+  if(!t.value) t.value=new Date().toISOString().slice(0,10);
+  if(!f.value) f.value=new Date(Date.now()-30*24*3600*1000).toISOString().slice(0,10);
+  setTimeout(function(){ document.getElementById("sqText").focus(); },50);
+}
+function closeSearch_(){ document.getElementById("searchPanel").style.display="none"; }
+function doSearch_(){
+  var q=document.getElementById("sqText").value.trim();
+  var box=document.getElementById("searchResults");
+  if(!q){ box.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:8px;">キーワードを入力してください</div>'; return; }
+  var field=document.getElementById("sqField").value;
+  var fv=document.getElementById("sqFrom").value, tv=document.getElementById("sqTo").value;
+  var req={ q:q, field:field };
+  if(fv) req.from=new Date(fv+"T00:00:00").getTime();
+  if(tv) req.to=new Date(tv+"T23:59:59").getTime();
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:8px;">検索中…</div>';
+  httpPost_("/v2/staff/search", req).then(function(r){
+    if(!r||!r.ok){ box.innerHTML='<div style="font-size:12px;color:#b91c1c;padding:8px;">検索に失敗</div>'; return; }
+    var res=r.results||[];
+    if(!res.length){ box.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:8px;">該当なし（期間を広げると見つかることがあります）</div>'; return; }
+    box.innerHTML='<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">'+res.length+'件</div>'+res.map(function(c){
+      var aud=(c.audience==="cleaner")?'🧹':'👤';
+      var snip=c.snippet?('<div style="font-size:12px;color:#64748b;margin-top:3px;white-space:pre-wrap;">'+esc_(c.snippet)+'…</div>'):'';
+      return '<div class="srow" data-id="'+c.id+'" style="padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:600;font-size:13px;">'+aud+' '+esc_(c.customer_name||"（お客様）")+(c.store?('　<span style="font-weight:400;color:#64748b;font-size:12px;">'+esc_(c.store)+'</span>'):'')+'</span><span style="font-size:11px;color:#94a3b8;">'+fmtTime_(c.last_message_at)+'</span></div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+esc_(c.email||"")+(c.status?('　'+esc_(c.status)):'')+'</div>'+snip
+        +'</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".srow"), function(el){ el.onclick=function(){ var id=el.getAttribute("data-id"); openFromSearch_(res.find(function(x){return String(x.id)===id;})); }; });
+  }).catch(function(){ box.innerHTML='<div style="font-size:12px;color:#b91c1c;padding:8px;">通信エラー</div>'; });
+}
+function openFromSearch_(c){
+  if(!c) return;
+  if(!convs.find(function(x){return x.id===c.id;})){ convs.unshift(c); }
+  closeSearch_();
+  openConv_(c.id);
+}
 // 清掃リマインドの動作確認：今日の予約・時刻の窓・受取状況を表示
 function showReminderDebug_(){
   closeSettings_(); toast_("清掃リマインドを確認中…");
