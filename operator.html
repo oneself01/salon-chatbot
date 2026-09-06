@@ -141,6 +141,7 @@
     <div id="composer" style="display:none;">
       <button id="aiBtn" onclick="aiSuggest_()" title="AIに返信案を作らせる" style="padding:11px 12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">🤖</button>
       <button id="tplBtn" onclick="openTplPicker_()" title="定型文から選ぶ" style="padding:11px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">💬</button>
+      <button id="stampBtn" onclick="toggleStampPicker_(event)" title="スタンプを送る" style="padding:11px 12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:10px;font-weight:700;cursor:pointer;flex-shrink:0;">😊</button>
       <button id="opAttachBtn" onclick="document.getElementById('opChatFile').click()" title="画像・動画を選ぶ" style="padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;flex-shrink:0;">📎</button>
       <input type="file" id="opChatFile" accept="image/*,video/*,application/pdf" style="display:none;" onchange="opPickMedia_(this)">
       <textarea id="reply" placeholder="返信を入力（Enterで送信 / Shift+Enterで改行）"></textarea>
@@ -289,6 +290,11 @@
     <p style="font-size:11px;color:#94a3b8;margin-top:8px;">「info@salon-oneself.com」から直接メールを送信します（Gmailは開きません）。送信後このチケットは「完了」になります。</p>
     <button class="sc-btn" style="width:100%;margin-top:8px;" onclick="gtMailto_()">📧 かわりにGmailで作成する</button>
   </div>
+</div>
+
+<!-- スタンプ選択（送信欄の上にポップアップ。レイアウトは動かさない） -->
+<div id="stampPicker" style="display:none; position:fixed; z-index:9998; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,.16); padding:10px;">
+  <div id="stampGrid" style="display:grid; grid-template-columns:repeat(4,64px); gap:8px;"></div>
 </div>
 
 <!-- 会話検索パネル -->
@@ -2030,6 +2036,41 @@ var lastReply_=null;
 var aiDraft_="";
 var tplDraft_="";
 var opPendingFile=null;
+// ===== スタンプ（画像を添付メッセージとして送信。既存の画像表示をそのまま使う）=====
+var STAMP_BASE="https://support.oneself-inc.co.jp/images/stamps/";
+var STAMPS=["stamp01","stamp02","stamp03","stamp04","stamp05","stamp06","stamp07","stamp08"];
+var _stampBuilt=false;
+function buildStampGrid_(){
+  if(_stampBuilt) return; _stampBuilt=true;
+  var g=document.getElementById("stampGrid"); if(!g) return;
+  g.innerHTML=STAMPS.map(function(n){ return '<img src="'+STAMP_BASE+n+'.png" data-u="'+STAMP_BASE+n+'.png" style="width:64px;height:64px;object-fit:contain;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff;padding:2px;">'; }).join("");
+  Array.prototype.forEach.call(g.querySelectorAll("img[data-u]"), function(im){ im.onclick=function(){ sendStamp_(im.getAttribute("data-u")); }; });
+}
+function toggleStampPicker_(e){
+  if(e){ e.stopPropagation(); }
+  var p=document.getElementById("stampPicker");
+  var open=(p.style.display==="none"||!p.style.display);
+  if(open){
+    if(!current){ toast_("会話を開いてから使ってください"); return; }
+    buildStampGrid_();
+    var btn=(e&&e.currentTarget)?e.currentTarget:document.getElementById("stampBtn");
+    var r=btn.getBoundingClientRect();
+    p.style.display="block";
+    // 送信欄ボタンの上に出す（画面外に出ないよう調整）
+    var pw=p.offsetWidth||300, ph=p.offsetHeight||160;
+    var left=Math.max(6, Math.min(r.left, window.innerWidth-pw-6));
+    var top=Math.max(6, r.top-ph-8);
+    p.style.left=left+"px"; p.style.top=top+"px";
+  } else { p.style.display="none"; }
+}
+function closeStampPicker_(){ var p=document.getElementById("stampPicker"); if(p) p.style.display="none"; }
+document.addEventListener("click", function(e){ var p=document.getElementById("stampPicker"); if(!p||p.style.display!=="block") return; if(!e.target.closest("#stampPicker") && !(e.target.id==="stampBtn")){ p.style.display="none"; } });
+function sendStamp_(url){
+  if(!url) return;
+  if(!current || !ws || ws.readyState!==1){ toast_("接続が切れています。会話を開き直してください"); return; }
+  ws.send(JSON.stringify({ type:"message", body:"", attachments:[{ url:url, type:"image", name:"stamp" }] }));
+  closeStampPicker_();
+}
 function opPickMedia_(input){
   var f=input.files&&input.files[0]; input.value="";
   if (!f) return;
