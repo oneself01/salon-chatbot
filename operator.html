@@ -2052,12 +2052,12 @@ var tplDraft_="";
 var opPendingFile=null;
 // ===== スタンプ（画像を添付メッセージとして送信。既存の画像表示をそのまま使う）=====
 var STAMP_BASE="https://support.oneself-inc.co.jp/images/stamps/";
-var STAMPS=["stamp01","stamp02","stamp03","stamp04","stamp05","stamp06","stamp07","stamp08"];
-var _stampBuilt=false;
+var STAMPS_CUSTOMER=["stamp01","stamp02","stamp03","stamp04","stamp05","stamp06","stamp07","stamp08"];
+var STAMPS_CLEANER=["stampc01","stampc02","stampc03","stampc04","stampc05","stampc06","stampc07","stampc08"];
 function buildStampGrid_(){
-  if(_stampBuilt) return; _stampBuilt=true;
   var g=document.getElementById("stampGrid"); if(!g) return;
-  g.innerHTML=STAMPS.map(function(n){ return '<img src="'+STAMP_BASE+n+'.png" data-u="'+STAMP_BASE+n+'.png" style="width:64px;height:64px;object-fit:contain;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff;padding:2px;">'; }).join("");
+  var set=(current && current.audience==="cleaner") ? STAMPS_CLEANER : STAMPS_CUSTOMER;   // 会話の区分で出し分け
+  g.innerHTML=set.map(function(n){ return '<img src="'+STAMP_BASE+n+'.png" data-u="'+STAMP_BASE+n+'.png" style="width:64px;height:64px;object-fit:contain;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff;padding:2px;">'; }).join("");
   Array.prototype.forEach.call(g.querySelectorAll("img[data-u]"), function(im){ im.onclick=function(){ sendStamp_(im.getAttribute("data-u")); }; });
 }
 function toggleStampPicker_(e){
