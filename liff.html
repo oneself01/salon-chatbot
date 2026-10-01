@@ -755,9 +755,21 @@ function append_(senderType, body, createdAt, attachments, mid, retracted){
     document.getElementById("msgs").appendChild(row);
     return;
   }
+  var su=stampUrl_(attachments);
+  if (su && !String(body||"").trim()){
+    row.innerHTML='<img src="'+esc_(su)+'" alt="スタンプ" style="width:140px;max-width:60%;display:block;">'+metaHtml;
+    document.getElementById("msgs").appendChild(row);
+    return;
+  }
   var media=attachHtml_(attachments);
   row.innerHTML='<div class="bubble">'+linkify_(body||"")+media+'</div>'+metaHtml;
   document.getElementById("msgs").appendChild(row);
+}
+function stampUrl_(attachments){
+  var arr=attachments;
+  if(typeof arr==="string"){ try{arr=JSON.parse(arr);}catch(e){return null;} }
+  if(Array.isArray(arr) && arr.length===1 && arr[0] && arr[0].type==="image" && String(arr[0].url||"").indexOf("/images/stamps/")!==-1) return arr[0].url;
+  return null;
 }
 function markRetracted_(mid){
   if (!mid) return;

@@ -1893,6 +1893,13 @@ function attachHtml_(attachments){
     return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:underline;">📎 '+esc_(a.name||"ファイル")+'</a>';
   }).join("");
 }
+// スタンプ判定：画像1枚でURLが /images/stamps/ を含むならそのURL（枠なし表示用）
+function stampUrl_(attachments){
+  var arr=attachments;
+  if(typeof arr==="string"){ try{arr=JSON.parse(arr);}catch(e){return null;} }
+  if(Array.isArray(arr) && arr.length===1 && arr[0] && arr[0].type==="image" && String(arr[0].url||"").indexOf("/images/stamps/")!==-1) return arr[0].url;
+  return null;
+}
 function appendMsg_(senderType, body, createdAt, attachments, senderId, mid, retracted){
   var side = senderType==="staff" ? "staff" : (senderType==="system" ? "system" : "customer");
   var isAuto = senderType==="staff" && senderId==="AI自動";
@@ -1910,8 +1917,15 @@ function appendMsg_(senderType, body, createdAt, attachments, senderId, mid, ret
   var badge = isAuto ? '<span style="display:inline-block;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;margin-bottom:3px;">AI自動</span> ' : '';
   // スタッフ自身の送信メッセージには取り消しボタンを表示
   var undo = (senderType==="staff" && mid) ? '<button onclick="retractMsg_('+mid+')" title="送信を取り消す" style="margin-left:8px;font-size:11px;color:#b91c1c;background:none;border:none;cursor:pointer;padding:0;">取り消し</button>' : '';
-  row.innerHTML='<div class="bubble">'+badge+linkify_(body||"")+media+'</div>'
-    +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+undo+'</div>';
+  var su=stampUrl_(attachments);
+  if (su && !String(body||"").trim()){
+    // スタンプは吹き出しなしで表示
+    row.innerHTML='<img src="'+esc_(su)+'" alt="スタンプ" style="width:140px;max-width:60%;display:block;">'
+      +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+undo+'</div>';
+  } else {
+    row.innerHTML='<div class="bubble">'+badge+linkify_(body||"")+media+'</div>'
+      +'<div class="rmeta">'+who+(createdAt?(who?" ・ ":"")+fmtTime_(createdAt):"")+undo+'</div>';
+  }
   document.getElementById("msgs").appendChild(row);
   if (senderType==="staff"){ lastStaffRow=row; lastStaffAt=createdAt||Date.now(); updateReceipt_(); }
   if (senderType==="customer" && body){ convHint_=(convHint_+" "+String(body)).toLowerCase().slice(-600); }
