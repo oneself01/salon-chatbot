@@ -449,6 +449,12 @@ function renderAnswer_(node){
 function isOffHours_(){ var h=new Date().getHours(); return (h>=23 || h<8); }
 function v_(id){ var el=document.getElementById(id); return el?el.value:""; }
 
+// いまの経路が「鍵が開かない／入室できない」系か（＝予約番号を聞く）
+function isLockTrouble_(){
+  var parts=[emgLabel||""];
+  try{ stack.forEach(function(id){ if(tree[id]) parts.push(label_(tree[id])||""); }); }catch(e){}
+  return /鍵|カギ|入室|入れ|開か|開錠|解錠|ロック|ドア|扉/.test(parts.join(" "));
+}
 function renderEmergencyForm_(){
   if (convId){ showChat_(); return; }                 // 既に相談中なら戻る
   var box=document.getElementById("options"); box.innerHTML="";
@@ -467,6 +473,7 @@ function renderEmergencyForm_(){
     + '<label class="fl">予約者名（ご予約時のお名前）*</label><input id="ef_name" class="fi" type="text" placeholder="例：山田 花子">'
     + '<label class="fl">メールアドレス *</label><input id="ef_email" class="fi" type="email">'
     + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text" autocomplete="off" placeholder="例：沼津（「ぬ」でも検索できます）"><div id="ef_store_sug" class="sug"></div>'
+    + (isLockTrouble_() ? '<label class="fl">予約番号 *</label><input id="ef_res" class="fi" type="text" inputmode="numeric" autocomplete="off" placeholder="例：123456"><div style="font-size:12px;color:#64748b;margin:-2px 0 6px;">入室コードのご案内に必要です。予約確認メール等でご確認ください。</div>' : '')
     + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="状況を詳しく教えてください"></textarea>'
     + '<label class="fl">画像・動画・PDFの添付（任意・複数可・各20MBまで）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*,application/pdf" multiple>'
     + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
@@ -476,6 +483,7 @@ function renderEmergencyForm_(){
   if (savedProfile.name)  document.getElementById("ef_name").value=savedProfile.name;
   if (savedProfile.email) document.getElementById("ef_email").value=savedProfile.email;
   if (savedProfile.store) document.getElementById("ef_store").value=savedProfile.store;
+  if (savedProfile.reservation && document.getElementById("ef_res")) document.getElementById("ef_res").value=savedProfile.reservation;
   var si=document.getElementById("ef_store");
   if (si) si.addEventListener("input", renderStoreSug_);
   box.scrollTop=0;
@@ -506,7 +514,9 @@ function uploadFile_(f){
 async function submitEmergency_(){
   var name=v_("ef_name").trim(), email=v_("ef_email").trim(), store=v_("ef_store").trim();
   var situation=v_("ef_sit").trim();
+  var reservation=v_("ef_res").trim();
   if (!name || !email || !store || !situation){ alert("予約者名・メール・店舗・状況は必須です。"); return; }
+  if (document.getElementById("ef_res") && !reservation){ alert("入室コードのご案内に予約番号が必要です。ご入力をお願いします。"); return; }
   var btn=document.getElementById("ef_submit"); if (btn){ btn.disabled=true; btn.textContent="送信中…"; }
 
   // 添付（画像・動画／複数可）をR2へアップロード
@@ -528,7 +538,7 @@ async function submitEmergency_(){
 
   // 入力内容を保持（チャットへ進む時に使う）。categoryはFAQ入口の大項目＝自動タグ
   var topCat=(stack.length && tree[stack[0]]) ? label_(tree[stack[0]]) : "";
-  pendingIntake={ name:name, email:email, store:store, situation:situation, attachments:attachments, category:topCat, emgCat:emgLabel };
+  pendingIntake={ name:name, email:email, store:store, reservation:reservation, situation:situation, attachments:attachments, category:topCat, emgCat:emgLabel };
 
   // 会話作成・スタッフ通知の前に「もしかして」案内を判定（通ってきたセクションは除外）
   var pathLabels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
@@ -594,7 +604,7 @@ async function proceedToChat_(){
   try{
     var p=pendingIntake;
     refreshAuth_();   // 送信直前に最新トークンへ
-    var payload={ emergency:true, name:p.name, email:p.email, store:p.store, situation:p.situation, attachments:p.attachments, category:p.category, emgCat:p.emgCat };
+    var payload={ emergency:true, name:p.name, email:p.email, store:p.store, reservation:p.reservation, situation:p.situation, attachments:p.attachments, category:p.category, emgCat:p.emgCat };
     var r=await httpPost_("/v2/conversations", payload);
     if (!r || !r.ok){
       // トークンを取り直して1回だけ自動リトライ（期限切れ・一時的な通信断の保険）
