@@ -279,12 +279,14 @@
       <strong style="font-size:15px;">🔑 入室コード取得</strong>
       <button class="sc-btn" onclick="closeEntryKey_()">閉じる</button>
     </div>
-    <p style="font-size:12px;color:#64748b;line-height:1.6;margin:0 0 8px;">予約番号と店舗名で、いまの時間に有効な入室コードを取得します。内容を確認してからお客様へ案内してください（取得した番号はその日限りで、夜に自動で別番号へ変わります）。</p>
-    <label class="sc-field">予約番号</label>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;margin:0 0 8px;">予約番号から「開かない」原因を診断し、原因別の候補（正しいコード／常設コード／物理キー）を表示します。内容を確認してからお客様へ案内してください（案内したコードはその日限りで、夜に自動で別番号へ変わります）。</p>
+    <label class="sc-field">予約番号 *</label>
     <input id="ekRes" class="sc-input" type="text" placeholder="例：123456">
-    <label class="sc-field">店舗名</label>
+    <label class="sc-field">店舗名（通常不要・予約から自動判定）</label>
     <input id="ekStore" class="sc-input" type="text" placeholder="例：沼津">
-    <button id="ekGetBtn" class="sc-primary" style="width:100%;margin-top:12px;" onclick="fetchEntryKey_()">コードを取得する</button>
+    <label class="sc-field">お客様が入力した番号（任意）</label>
+    <input id="ekTyped" class="sc-input" type="text" inputmode="numeric" placeholder="分かれば。番号違いの判定に使います">
+    <button id="ekGetBtn" class="sc-primary" style="width:100%;margin-top:12px;" onclick="fetchEntryKey_()">診断する</button>
     <div id="ekResult" style="margin-top:12px;"></div>
   </div>
 </div>
@@ -1754,6 +1756,7 @@ function openEntryKey_(){
   if (!current){ toast_("会話を開いてから使ってください"); return; }
   document.getElementById("ekRes").value = current.reservation || "";
   document.getElementById("ekStore").value = current.store || "";
+  document.getElementById("ekTyped").value = "";
   document.getElementById("ekResult").innerHTML = "";
   document.getElementById("entryKeyModal").style.display = "flex";
   if (!current.reservation){ document.getElementById("ekRes").focus(); }
@@ -1762,36 +1765,83 @@ function closeEntryKey_(){ document.getElementById("entryKeyModal").style.displa
 function fetchEntryKey_(){
   var res_no=(document.getElementById("ekRes").value||"").trim();
   var store=(document.getElementById("ekStore").value||"").trim();
+  var typed=(document.getElementById("ekTyped").value||"").trim();
   var box=document.getElementById("ekResult");
-  if (!res_no || !store){ box.innerHTML='<div style="font-size:13px;color:#b91c1c;">予約番号と店舗名を入力してください。</div>'; return; }
-  var btn=document.getElementById("ekGetBtn"); btn.disabled=true; var ot=btn.textContent; btn.textContent="取得中…";
-  box.innerHTML='<div style="font-size:12px;color:#94a3b8;">取得中…</div>';
-  httpPost_("/v2/staff/entry-key", { res_no:res_no, store:store }).then(function(r){
+  if (!res_no){ box.innerHTML='<div style="font-size:13px;color:#b91c1c;">予約番号を入力してください。</div>'; return; }
+  var btn=document.getElementById("ekGetBtn"); btn.disabled=true; var ot=btn.textContent; btn.textContent="診断中…";
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;">診断中…</div>';
+  httpPost_("/v2/staff/entry-diag", { res_no:res_no, store:store, typed:typed }).then(function(r){
     btn.disabled=false; btn.textContent=ot;
-    if (r && r.ok && Array.isArray(r.keys) && r.keys.length){
-      var storeLabel = r.store || store;
-      var html='<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;">';
-      html+='<div style="font-size:12px;color:#047857;font-weight:700;margin-bottom:6px;">✅ '+esc_(storeLabel)+'：いま有効な入室コード</div>';
-      r.keys.forEach(function(k){
-        var code=String(k.code||""); var label=String(k.label||"");
-        var guide="入室コードは【"+code+"】です。お手数ですが番号をご入力のうえご入室ください。";
-        html+='<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">';
-        html+='<span style="font-size:20px;font-weight:800;letter-spacing:2px;color:#065f46;">'+esc_(code)+'</span>';
-        if (label) html+='<span style="font-size:12px;color:#64748b;">'+esc_(label)+'</span>';
-        html+='<button class="sc-btn" style="margin-left:auto;" onclick="ekInsert_('+JSON.stringify(guide).replace(/"/g,"&quot;")+')">返信欄に入れる</button>';
-        html+='</div>';
-      });
-      html+='<p style="font-size:11px;color:#64748b;margin:6px 0 0;">内容を確認してからお客様へ送信してください。この番号は本日限りで、夜に自動で別番号へ変わります。</p>';
-      html+='</div>';
-      box.innerHTML=html;
-    } else {
-      var msg=(r && r.message) ? r.message : "入室コードを取得できませんでした。";
-      box.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;color:#b91c1c;line-height:1.6;">'+esc_(msg)+'</div>';
-    }
+    if (r && r.ok && r.diag){ renderDiag_(r.diag); return; }
+    var msg=(r && r.message) ? r.message : "診断できませんでした。";
+    box.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;color:#b91c1c;line-height:1.6;">'+esc_(msg)+'</div>';
   }).catch(function(){
     btn.disabled=false; btn.textContent=ot;
-    box.innerHTML='<div style="font-size:13px;color:#b91c1c;">取得に失敗しました。通信環境を確認して再度お試しください。</div>';
+    box.innerHTML='<div style="font-size:13px;color:#b91c1c;">診断に失敗しました。通信環境を確認して再度お試しください。</div>';
   });
+}
+// 候補カード（コード＋ラベル＋「返信欄に入れる」）
+function ekCand_(label, code, reply, accent){
+  var a=accent||"#065f46";
+  var h='<div style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:8px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">';
+  h+='<div style="min-width:0;"><div style="font-size:11px;color:#64748b;">'+esc_(label)+'</div>';
+  h+='<div style="font-size:20px;font-weight:800;letter-spacing:2px;color:'+a+';">'+esc_(String(code))+'</div></div>';
+  h+='<button class="sc-btn" style="margin-left:auto;flex-shrink:0;" onclick="ekInsert_('+JSON.stringify(reply).replace(/"/g,"&quot;")+')">返信欄に入れる</button>';
+  h+='</div>';
+  return h;
+}
+// 診断結果を原因別に表示（番号違い/同期遅延/OK/予約なし ＋ 物理キー）
+function renderDiag_(d){
+  var box=document.getElementById("ekResult");
+  d=d||{}; var v=d.verdict||{}; var level=String(v.level||"");
+  var guestPin = (d.guest && d.guest.pin) ? String(d.guest.pin) : "";
+  var codes = Array.isArray(d.codes) ? d.codes : [];
+  var userKeys = codes.filter(function(c){ return !c.auto; });   // 常設コード（ユーザーキー）
+  var keyNo = d.key_no ? String(d.key_no) : "";
+  var bannerColor = level==="mismatch" ? "#b45309" : (level==="sync" ? "#1d4ed8" : (level==="ok" ? "#047857" : "#b91c1c"));
+  var bannerBg    = level==="mismatch" ? "#fffbeb" : (level==="sync" ? "#eff6ff" : (level==="ok" ? "#ecfdf5" : "#fef2f2"));
+  var bannerBd    = level==="mismatch" ? "#fcd34d" : (level==="sync" ? "#bfdbfe" : (level==="ok" ? "#a7f3d0" : "#fecaca"));
+  var levelLabel  = level==="mismatch" ? "番号違いの可能性" : (level==="sync" ? "同期遅延の可能性" : (level==="ok" ? "コードは有効" : (level==="noguest" ? "予約が特定できません" : "診断結果")));
+  var html='';
+  // 予約情報
+  if (d.res){ html+='<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">'+esc_((d.res.store||"")+(d.res.start?("　"+d.res.start):""))+'</div>'; }
+  // 判定バナー
+  html+='<div style="background:'+bannerBg+';border:1px solid '+bannerBd+';border-radius:8px;padding:10px;margin-bottom:8px;">';
+  html+='<div style="font-size:12px;font-weight:700;color:'+bannerColor+';margin-bottom:4px;">'+esc_(levelLabel)+'</div>';
+  if (v.msg) html+='<div style="font-size:13px;color:#334155;line-height:1.6;">'+esc_(v.msg)+'</div>';
+  html+='</div>';
+  // 原因別の候補
+  if (level==="mismatch" && guestPin){
+    html+=ekCand_("正しい入室コード（ゲストキー）", guestPin, "お待たせしております。正しい入室コードは【"+guestPin+"】です。お手数ですが、こちらの番号をご入力のうえご入室ください。", "#b45309");
+  } else if (level==="sync"){
+    if (userKeys.length){
+      userKeys.forEach(function(c){ html+=ekCand_((c.label||"常設コード（ユーザーキー）"), c.code, "恐れ入ります。常設の入室コード【"+c.code+"】をご入力のうえご入室ください。", "#1d4ed8"); });
+    } else if (guestPin){
+      html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#1d4ed8");
+    }
+  } else if (level==="ok"){
+    if (guestPin) html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#047857");
+  }
+  // 物理キー（電池切れ時・directのみ key_no あり）
+  if (keyNo){
+    html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, "恐れ入ります。ロックの電池切れの可能性がございます。入口のキーボックスからお鍵（番号【"+keyNo+"】）を取り出し、ご入室ください。", "#7c3aed");
+  }
+  // 候補が1つも無いとき（noguest 等）
+  if (html.indexOf("返信欄に入れる")===-1){
+    html+='<div style="font-size:12px;color:#64748b;line-height:1.6;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">自動で出せる候補がありませんでした。予約番号・店舗名をご確認のうえ、必要なら手動でご対応ください。</div>';
+  }
+  // 直近ログ（参考・最大3件）
+  if (Array.isArray(d.logs) && d.logs.length){
+    var kindJa=function(k){ return k==="unlock"?"解錠":(k==="lock"?"施錠":(k==="denied"?"⛔拒否":(k||""))); };
+    html+='<details style="margin-top:8px;"><summary style="font-size:12px;color:#64748b;cursor:pointer;">直近の入退室ログ</summary>';
+    html+='<div style="font-size:12px;color:#475569;margin-top:6px;">';
+    d.logs.slice(0,3).forEach(function(l){
+      html+='<div style="padding:3px 0;border-bottom:1px solid #f1f5f9;">'+esc_(l.entered_at||"")+'　'+esc_(kindJa(l.kind))+(l.code?('　番号:'+esc_(String(l.code))):"")+(l.method?('　'+esc_(l.method)):"")+'</div>';
+    });
+    html+='</div></details>';
+  }
+  html+='<p style="font-size:11px;color:#94a3b8;margin:8px 0 0;">内容を確認してからお客様へ送信してください。案内したコードは本日限りで、夜に自動で別番号へ変わります。</p>';
+  box.innerHTML=html;
 }
 function ekInsert_(text){
   var ta=document.getElementById("reply"); if(!ta) return;
