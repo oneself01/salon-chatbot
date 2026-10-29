@@ -133,6 +133,7 @@
       <div class="sub" id="chSub"></div>
       <div id="statusBar"></div>
       <button id="endBtn" onclick="endConv_()" style="margin-top:8px;font-size:12px;padding:6px 12px;border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;">✓ 会話を終了する</button>
+      <button id="entryKeyBtn" onclick="openEntryKey_()" style="display:none;margin-top:8px;margin-left:6px;font-size:12px;padding:6px 12px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;border-radius:6px;cursor:pointer;">🔑 入室コード取得</button>
     </div>
     <div id="msgs" style="display:none;"></div>
     <div id="typing" style="display:none;"></div>
@@ -268,6 +269,23 @@
     </div>
     <input id="tplPickSearch" class="sc-input" type="text" placeholder="キーワードで絞り込み…" oninput="renderTplPicker_()">
     <div id="tplPickList" style="margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:60vh; overflow:auto;"></div>
+  </div>
+</div>
+
+<!-- 入室コード取得モーダル（鍵が開かない緊急チャット用・フェーズ1＝社員確認） -->
+<div id="entryKeyModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:215; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:15px;">🔑 入室コード取得</strong>
+      <button class="sc-btn" onclick="closeEntryKey_()">閉じる</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;margin:0 0 8px;">予約番号と店舗名で、いまの時間に有効な入室コードを取得します。内容を確認してからお客様へ案内してください（取得した番号はその日限りで、夜に自動で別番号へ変わります）。</p>
+    <label class="sc-field">予約番号</label>
+    <input id="ekRes" class="sc-input" type="text" placeholder="例：123456">
+    <label class="sc-field">店舗名</label>
+    <input id="ekStore" class="sc-input" type="text" placeholder="例：沼津">
+    <button id="ekGetBtn" class="sc-primary" style="width:100%;margin-top:12px;" onclick="fetchEntryKey_()">コードを取得する</button>
+    <div id="ekResult" style="margin-top:12px;"></div>
   </div>
 </div>
 
@@ -1709,6 +1727,7 @@ function openConv_(id){
   if (c.reservation_time) sub.push(c.reservation_time);
   sub.push(c.id);
   document.getElementById("chSub").textContent=sub.join("　");
+  var ekBtn=document.getElementById("entryKeyBtn"); if(ekBtn){ ekBtn.style.display=(c.audience==="cleaner")?"none":"inline-block"; }
   renderStatusBar_(); renderConvs_();
 
   // 履歴を取得
@@ -1727,6 +1746,60 @@ function openConv_(id){
 function closeChat_(){ document.body.classList.remove("viewing"); closeWs_(); current=null; renderConvs_(); }
 // 「一覧に戻る」：チャットを見ているときは即座に一覧へ＋最新取得、一覧のときは画面リロード
 function backToList_(){ if (current){ closeChat_(); fetchConvs_(); } else { location.reload(); } }
+/* =========================================================
+ *  入室コード取得（来店管理システム連携・フェーズ1）
+ *  取得した候補コードは社員が確認してから案内文に入れて送る
+ * ========================================================= */
+function openEntryKey_(){
+  if (!current){ toast_("会話を開いてから使ってください"); return; }
+  document.getElementById("ekRes").value = current.reservation || "";
+  document.getElementById("ekStore").value = current.store || "";
+  document.getElementById("ekResult").innerHTML = "";
+  document.getElementById("entryKeyModal").style.display = "flex";
+  if (!current.reservation){ document.getElementById("ekRes").focus(); }
+}
+function closeEntryKey_(){ document.getElementById("entryKeyModal").style.display="none"; }
+function fetchEntryKey_(){
+  var res_no=(document.getElementById("ekRes").value||"").trim();
+  var store=(document.getElementById("ekStore").value||"").trim();
+  var box=document.getElementById("ekResult");
+  if (!res_no || !store){ box.innerHTML='<div style="font-size:13px;color:#b91c1c;">予約番号と店舗名を入力してください。</div>'; return; }
+  var btn=document.getElementById("ekGetBtn"); btn.disabled=true; var ot=btn.textContent; btn.textContent="取得中…";
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;">取得中…</div>';
+  httpPost_("/v2/staff/entry-key", { res_no:res_no, store:store }).then(function(r){
+    btn.disabled=false; btn.textContent=ot;
+    if (r && r.ok && Array.isArray(r.keys) && r.keys.length){
+      var storeLabel = r.store || store;
+      var html='<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;">';
+      html+='<div style="font-size:12px;color:#047857;font-weight:700;margin-bottom:6px;">✅ '+esc_(storeLabel)+'：いま有効な入室コード</div>';
+      r.keys.forEach(function(k){
+        var code=String(k.code||""); var label=String(k.label||"");
+        var guide="入室コードは【"+code+"】です。お手数ですが番号をご入力のうえご入室ください。";
+        html+='<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">';
+        html+='<span style="font-size:20px;font-weight:800;letter-spacing:2px;color:#065f46;">'+esc_(code)+'</span>';
+        if (label) html+='<span style="font-size:12px;color:#64748b;">'+esc_(label)+'</span>';
+        html+='<button class="sc-btn" style="margin-left:auto;" onclick="ekInsert_('+JSON.stringify(guide).replace(/"/g,"&quot;")+')">返信欄に入れる</button>';
+        html+='</div>';
+      });
+      html+='<p style="font-size:11px;color:#64748b;margin:6px 0 0;">内容を確認してからお客様へ送信してください。この番号は本日限りで、夜に自動で別番号へ変わります。</p>';
+      html+='</div>';
+      box.innerHTML=html;
+    } else {
+      var msg=(r && r.message) ? r.message : "入室コードを取得できませんでした。";
+      box.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;color:#b91c1c;line-height:1.6;">'+esc_(msg)+'</div>';
+    }
+  }).catch(function(){
+    btn.disabled=false; btn.textContent=ot;
+    box.innerHTML='<div style="font-size:13px;color:#b91c1c;">取得に失敗しました。通信環境を確認して再度お試しください。</div>';
+  });
+}
+function ekInsert_(text){
+  var ta=document.getElementById("reply"); if(!ta) return;
+  ta.value = text;
+  closeEntryKey_();
+  ta.focus();
+  toast_("返信欄に入れました。内容を確認して送信してください");
+}
 // 設定メニューの開閉
 function toggleSettings_(e){
   if(e){ e.stopPropagation(); }
