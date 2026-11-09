@@ -108,7 +108,7 @@
 <div id="app">
   <header>
     <div class="title">🎧 対応コンソール</div>
-    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="backToList_()" title="会話一覧に戻る／最新の状態に更新">↩ 一覧に戻る</button><button onclick="openQA_()">🧠 AI学習</button><button onclick="openGeneral_()">📋 一般チケット<span id="genBadge" class="hdr-badge" style="display:none;"></span></button><div style="position:relative; display:inline-block;"><button onclick="toggleSettings_(event)">⚙ 設定 ▾</button><div id="settingsMenu" style="display:none; position:fixed; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; z-index:9999; min-width:172px;"><button class="menu-item" onclick="openAnalytics_(); closeSettings_();">📈 分析</button><button class="menu-item" onclick="openSurvey_(); closeSettings_();">📊 アンケート</button><button class="menu-item" onclick="openStaff_(); closeSettings_();">👥 スタッフ</button><button class="menu-item" onclick="openKnowledge_(); closeSettings_();">📚 ナレッジ</button><button class="menu-item" onclick="openTemplates_(); closeSettings_();">💬 定型文</button><button class="menu-item" onclick="openScenario_(); closeSettings_();">⚙ シナリオ</button><button class="menu-item" onclick="openManuals_(); closeSettings_();">📖 マニュアル</button><button class="menu-item" onclick="openConsents_(); closeSettings_();">📝 同意ログ</button><button class="menu-item" onclick="showReminderDebug_();">🧹 清掃リマインド確認</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" id="pushBtn" onclick="enablePush_(); closeSettings_();">🔔 通知ON</button><button class="menu-item" onclick="openSound_(); closeSettings_();">🔊 音設定</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" style="color:#b91c1c;" onclick="logout_()">ログアウト</button></div></div></div>
+    <div class="who"><span id="conn" class="conn">接続待ち</span><span id="whoami"></span><button onclick="backToList_()" title="会話一覧に戻る／最新の状態に更新">↩ 一覧に戻る</button><button onclick="openQA_()">🧠 AI学習</button><button onclick="openGeneral_()">📋 一般チケット<span id="genBadge" class="hdr-badge" style="display:none;"></span></button><div style="position:relative; display:inline-block;"><button onclick="toggleSettings_(event)">⚙ 設定 ▾</button><div id="settingsMenu" style="display:none; position:fixed; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; z-index:9999; min-width:172px;"><button class="menu-item" onclick="openAnalytics_(); closeSettings_();">📈 分析</button><button class="menu-item" onclick="openSurvey_(); closeSettings_();">📊 アンケート</button><button class="menu-item" onclick="openStaff_(); closeSettings_();">👥 スタッフ</button><button class="menu-item" onclick="openKnowledge_(); closeSettings_();">📚 ナレッジ</button><button class="menu-item" onclick="openTemplates_(); closeSettings_();">💬 定型文</button><button class="menu-item" onclick="openScenario_(); closeSettings_();">⚙ シナリオ</button><button class="menu-item" onclick="openManuals_(); closeSettings_();">📖 マニュアル</button><button class="menu-item" onclick="openConsents_(); closeSettings_();">📝 同意ログ</button><button class="menu-item" onclick="showReminderDebug_();">🧹 清掃リマインド確認</button><button class="menu-item" onclick="openExport_(); closeSettings_();">⬇ エクスポート(CSV)</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" id="pushBtn" onclick="enablePush_(); closeSettings_();">🔔 通知ON</button><button class="menu-item" onclick="openSound_(); closeSettings_();">🔊 音設定</button><div style="border-top:1px solid var(--line); margin:5px 2px;"></div><button class="menu-item" style="color:#b91c1c;" onclick="logout_()">ログアウト</button></div></div></div>
   </header>
 
   <div id="list">
@@ -288,6 +288,37 @@
     <input id="ekTyped" class="sc-input" type="text" inputmode="numeric" placeholder="分かれば。番号違いの判定に使います">
     <button id="ekGetBtn" class="sc-primary" style="width:100%;margin-top:12px;" onclick="fetchEntryKey_()">診断する</button>
     <div id="ekResult" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<!-- エクスポート（緊急チャット＋一般チケットを1行1件CSV） -->
+<div id="exportModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:215; align-items:flex-start; justify-content:center; padding:24px 8px; overflow:auto;">
+  <div class="sc-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:15px;">⬇ エクスポート（CSV）</strong>
+      <button class="sc-btn" onclick="closeExport_()">閉じる</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;margin:0 0 8px;">緊急チャットと一般チケットを1行1件の一覧でCSVに書き出します（Excel・スプレッドシートで開けます）。期間は短いほど速く書き出せます。</p>
+    <label class="sc-field">対象</label>
+    <select id="exScope" class="sc-input">
+      <option value="both">緊急チャット＋一般チケット（両方）</option>
+      <option value="chat">緊急チャットだけ</option>
+      <option value="ticket">一般チケットだけ</option>
+    </select>
+    <label class="sc-field">期間</label>
+    <select id="exPeriod" class="sc-input" onchange="exPeriodChange_()">
+      <option value="7">直近7日</option>
+      <option value="30" selected>直近30日</option>
+      <option value="90">直近90日</option>
+      <option value="365">直近1年</option>
+      <option value="custom">期間を指定</option>
+    </select>
+    <div id="exCustom" style="display:none;gap:8px;margin-top:8px;">
+      <div style="flex:1;"><label class="sc-field">開始</label><input id="exFrom" class="sc-input" type="date"></div>
+      <div style="flex:1;"><label class="sc-field">終了</label><input id="exTo" class="sc-input" type="date"></div>
+    </div>
+    <button id="exBtn" class="sc-primary" style="width:100%;margin-top:14px;" onclick="doExport_()">CSVをダウンロード</button>
+    <div id="exMsg" style="font-size:12px;color:#64748b;margin-top:8px;"></div>
   </div>
 </div>
 
@@ -1849,6 +1880,52 @@ function ekInsert_(text){
   closeEntryKey_();
   ta.focus();
   toast_("返信欄に入れました。内容を確認して送信してください");
+}
+/* =========================================================
+ *  エクスポート（緊急チャット＋一般チケット → 1行1件CSV）
+ * ========================================================= */
+function openExport_(){
+  document.getElementById("exMsg").textContent="";
+  document.getElementById("exPeriod").value="30";
+  document.getElementById("exCustom").style.display="none";
+  document.getElementById("exportModal").style.display="flex";
+}
+function closeExport_(){ document.getElementById("exportModal").style.display="none"; }
+function exPeriodChange_(){
+  document.getElementById("exCustom").style.display=(document.getElementById("exPeriod").value==="custom")?"flex":"none";
+}
+function doExport_(){
+  var scope=document.getElementById("exScope").value||"both";
+  var period=document.getElementById("exPeriod").value;
+  var to=Date.now(), from;
+  if (period==="custom"){
+    var fv=document.getElementById("exFrom").value, tv=document.getElementById("exTo").value;
+    if (!fv || !tv){ document.getElementById("exMsg").innerHTML='<span style="color:#b91c1c;">開始日と終了日を指定してください。</span>'; return; }
+    from=new Date(fv+"T00:00:00+09:00").getTime();
+    to  =new Date(tv+"T23:59:59+09:00").getTime();
+    if (from>to){ document.getElementById("exMsg").innerHTML='<span style="color:#b91c1c;">期間の開始が終了より後になっています。</span>'; return; }
+  } else {
+    from=to - (parseInt(period,10)||30)*24*3600*1000;
+  }
+  var btn=document.getElementById("exBtn"); btn.disabled=true; var ot=btn.textContent; btn.textContent="書き出し中…";
+  document.getElementById("exMsg").textContent="書き出し中…";
+  fetch(WORKER_BASE+"/v2/staff/export?scope="+encodeURIComponent(scope)+"&from="+from+"&to="+to, { headers:{ "authorization":"Bearer "+idToken } })
+    .then(function(r){ if (r.status===401){ handle401_(); throw new Error("unauthorized"); } if(!r.ok) throw new Error("http "+r.status); return r.text(); })
+    .then(function(csv){
+      btn.disabled=false; btn.textContent=ot;
+      var rowCount=Math.max(0, (csv.split("\n").length-1));
+      var blob=new Blob([csv], { type:"text/csv;charset=utf-8" });
+      var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+      var d=new Date(); var p=function(n){return String(n).padStart(2,"0");};
+      a.download="oneself_export_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+".csv";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+      document.getElementById("exMsg").innerHTML='<span style="color:#047857;">ダウンロードしました（約'+rowCount+'件）。</span>';
+    })
+    .catch(function(e){
+      btn.disabled=false; btn.textContent=ot;
+      if (String(e&&e.message)!=="unauthorized"){ document.getElementById("exMsg").innerHTML='<span style="color:#b91c1c;">書き出しに失敗しました。期間を短くして再度お試しください。</span>'; }
+    });
 }
 // 設定メニューの開閉
 function toggleSettings_(e){
