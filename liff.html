@@ -542,7 +542,7 @@ async function submitEmergency_(){
 
   // 会話作成・スタッフ通知の前に「もしかして」案内を判定（通ってきたセクションは除外）
   var pathLabels=stack.map(function(id){ return tree[id]?label_(tree[id]):""; }).filter(Boolean);
-  var dc=await httpPost_("/v2/deflect-check", { situation:situation, path:pathLabels });
+  var dc=await httpPost_("/v2/deflect-check", { situation:situation, path:pathLabels, store:store });
   if (btn){ btn.disabled=false; btn.textContent="確認する"; }
   var hasFaq = dc && dc.faqs && dc.faqs.length;
   if (dc && dc.ok && (dc.deflect || hasFaq)){ showDeflectScreen_(dc.deflect, dc.faqs||[]); return; }
