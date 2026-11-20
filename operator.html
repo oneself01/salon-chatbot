@@ -1869,7 +1869,7 @@ function renderDiag_(d){
   // 物理キー（電池切れ時・directのみ key_no あり）。場所はナレッジ由来（d.key_location）
   if (keyNo){
     var kloc=(d.key_location||"").trim();
-    var kreply="恐れ入ります。ロックの電池切れの可能性がございます。"+(kloc?("キーボックスは"+kloc+"にあります。"):"")+"番号【"+keyNo+"】で開きますので、お鍵を取り出してご入室ください。";
+    var kreply="恐れ入ります。ロックの電池切れの可能性がございます。"+(kloc?("キーボックスは"+kloc+"にあります。"):"")+"番号【"+keyNo+"】で開きますので、お鍵を取り出してご入室ください。ご迷惑をおかけしてしまい申し訳ございません。";
     html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, kreply, "#7c3aed");
   }
   // 候補が1つも無いとき。codes が空のときだけ「番号を取得できませんでした」と案内。
@@ -1911,7 +1911,7 @@ function fetchStoreKey_(){
     btn.disabled=false; btn.textContent=ot;
     if (r && r.ok && r.key_no){
       var loc=(r.location||"").trim();   // 場所はナレッジ由来（番号・ラベル・Wi-Fi文は除外済み）
-      var reply="恐れ入ります。ロックの電池切れの可能性がございます。"+(loc?("キーボックスは"+loc+"にあります。"):"")+"番号【"+r.key_no+"】で開きますので、お鍵を取り出してご入室ください。";
+      var reply="恐れ入ります。ロックの電池切れの可能性がございます。"+(loc?("キーボックスは"+loc+"にあります。"):"")+"番号【"+r.key_no+"】で開きますので、お鍵を取り出してご入室ください。ご迷惑をおかけしてしまい申し訳ございません。";
       var h='<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px;">';
       h+='<div style="font-size:11px;color:#6d28d9;margin-bottom:2px;">'+esc_(r.store||store)+'：物理キー（キーボックス）番号</div>';
       h+='<div style="font-size:20px;font-weight:800;letter-spacing:2px;color:#6d28d9;">'+esc_(String(r.key_no))+'</div>';
