@@ -1858,15 +1858,27 @@ function renderDiag_(d){
   } else if (level==="ok"){
     if (guestPin) html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#047857");
   }
+  // フォールバック: 予約が特定できない（not_found / verdictなし / FC店舗で予約未取り込み 等）でも、
+  // codes に「案内用(自動)」コードがあれば、それをユーザーキー（常設コード）として案内する。
+  if (html.indexOf("返信欄に入れる")===-1){
+    var autoCode = codes.find(function(c){ return c && (c.auto || String(c.label||"").indexOf("案内用")!==-1); });
+    if (autoCode && autoCode.code){
+      html+=ekCand_("常設コード（ユーザーキー）", autoCode.code, "恐れ入ります。常設の入室コード【"+autoCode.code+"】をご入力のうえご入室ください。", "#1d4ed8");
+    }
+  }
   // 物理キー（電池切れ時・directのみ key_no あり）。場所はナレッジ由来（d.key_location）
   if (keyNo){
     var kloc=(d.key_location||"").trim();
     var kreply="恐れ入ります。ロックの電池切れの可能性がございます。"+(kloc?("キーボックスは"+kloc+"にあります。"):"")+"番号【"+keyNo+"】で開きますので、お鍵を取り出してご入室ください。";
     html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, kreply, "#7c3aed");
   }
-  // 候補が1つも無いとき（noguest 等）
+  // 候補が1つも無いとき。codes が空のときだけ「番号を取得できませんでした」と案内。
   if (html.indexOf("返信欄に入れる")===-1){
-    html+='<div style="font-size:12px;color:#64748b;line-height:1.6;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">自動で出せる候補がありませんでした。予約番号・店舗名をご確認のうえ、必要なら手動でご対応ください。</div>';
+    if (!codes.length){
+      html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">入室コードの番号を取得できませんでした。予約番号・店舗名をご確認のうえ、必要なら手動でご対応ください。</div>';
+    } else {
+      html+='<div style="font-size:12px;color:#64748b;line-height:1.6;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">自動で出せる候補がありませんでした。予約番号・店舗名をご確認のうえ、必要なら手動でご対応ください。</div>';
+    }
   }
   // 直近ログ（参考・最大3件）
   if (Array.isArray(d.logs) && d.logs.length){
