@@ -1389,9 +1389,9 @@ function openTemplates_(){ document.getElementById("templatePanel").style.displa
 function closeTemplates_(){ document.getElementById("templatePanel").style.display="none"; }
 function tplMsg_(t,ok){ var e=document.getElementById("tplMsg"); e.style.color=ok?"#16a34a":"#b91c1c"; e.textContent=t; }
 function importTemplates_(){
-  if (!confirm("現在のスプレッドシートの定型文・キーワードでD1を上書きします。よろしいですか？")) return;
+  if (!confirm("現在のスプレッドシートの定型文・キーワードを取り込みます（シート由来の分だけ追加・更新。コンソールで追加した定型文やメール返信文は消えません）。よろしいですか？")) return;
   httpPost_("/v2/admin/import-templates", {}).then(function(r){
-    if (r && r.ok){ tplMsg_("✓ スタッフ"+r.staff+"件・お客様"+r.customer+"件を取り込みました",true); loadTemplates_(); }
+    if (r && r.ok){ tplMsg_("✓ 追加"+(r.added||0)+"件・更新"+(r.updated||0)+"件（シート: スタッフ"+r.staff+"・お客様"+r.customer+"）",true); loadTemplates_(); }
     else tplMsg_("失敗（"+((r&&(r.detail||r.error))||"")+"）",false);
   }).catch(function(){ tplMsg_("通信エラー",false); });
 }
