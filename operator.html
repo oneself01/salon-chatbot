@@ -1851,7 +1851,7 @@ function renderDiag_(d){
     html+=ekCand_("正しい入室コード（ゲストキー）", guestPin, "お待たせしております。正しい入室コードは【"+guestPin+"】です。お手数ですが、こちらの番号をご入力のうえご入室ください。", "#b45309");
   } else if (level==="sync"){
     if (userKeys.length){
-      userKeys.forEach(function(c){ html+=ekCand_((c.label||"常設コード（ユーザーキー）"), c.code, "恐れ入ります。こちらのコード【"+c.code+"】をお試しいただけますでしょうか？", "#1d4ed8"); });
+      userKeys.forEach(function(c){ html+=ekCand_((c.label||"常設コード（ユーザーキー）"), c.code, "恐れ入ります。こちらのコード【"+c.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8"); });
     } else if (guestPin){
       html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#1d4ed8");
     }
@@ -1863,7 +1863,7 @@ function renderDiag_(d){
   if (html.indexOf("返信欄に入れる")===-1){
     var autoCode = codes.find(function(c){ return c && (c.auto || String(c.label||"").indexOf("案内用")!==-1); });
     if (autoCode && autoCode.code){
-      html+=ekCand_("常設コード（ユーザーキー）", autoCode.code, "恐れ入ります。こちらのコード【"+autoCode.code+"】をお試しいただけますでしょうか？", "#1d4ed8");
+      html+=ekCand_("常設コード（ユーザーキー）", autoCode.code, "恐れ入ります。こちらのコード【"+autoCode.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8");
     }
   }
   // 物理キー（電池切れ時・directのみ key_no あり）。場所はナレッジ由来（d.key_location）
