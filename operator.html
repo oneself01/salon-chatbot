@@ -1896,11 +1896,13 @@ function fetchStoreKey_(){
   httpGet_("/v2/staff/store-key?store="+encodeURIComponent(store)).then(function(r){
     btn.disabled=false; btn.textContent=ot;
     if (r && r.ok && r.key_no){
-      var reply="恐れ入ります。ロックの電池切れの可能性がございます。入口のキーボックスからお鍵（番号【"+r.key_no+"】）を取り出し、ご入室ください。";
+      var loc=(r.location||"").trim();   // 場所はナレッジ由来（番号・Wi-Fi文は除外済み）
+      var reply="恐れ入ります。ロックの電池切れの可能性がございます。"+(loc?loc:"")+"キーボックスは番号【"+r.key_no+"】で開きますので、お鍵を取り出してご入室ください。";
       var h='<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px;">';
       h+='<div style="font-size:11px;color:#6d28d9;margin-bottom:2px;">'+esc_(r.store||store)+'：物理キー（キーボックス）番号</div>';
       h+='<div style="font-size:20px;font-weight:800;letter-spacing:2px;color:#6d28d9;">'+esc_(String(r.key_no))+'</div>';
-      if (r.key_updated_at) h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px;">更新: '+esc_(r.key_updated_at)+'</div>';
+      if (loc) h+='<div style="font-size:12px;color:#475569;margin-top:4px;">場所: '+esc_(loc)+'</div>';
+      if (r.key_updated_at) h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px;">番号の更新: '+esc_(r.key_updated_at)+'</div>';
       h+='<button class="sc-btn" style="margin-top:8px;" onclick="ekInsert_('+JSON.stringify(reply).replace(/"/g,"&quot;")+')">返信欄に入れる</button>';
       h+='<p style="font-size:11px;color:#94a3b8;margin:6px 0 0;">物理キー番号は扉の解錠情報です。電池切れ等でRemoteLockが使えない時のみ、確認のうえ案内してください。</p>';
       h+='</div>';
