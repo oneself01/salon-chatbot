@@ -288,6 +288,10 @@
     <input id="ekTyped" class="sc-input" type="text" inputmode="numeric" placeholder="分かれば。番号違いの判定に使います">
     <button id="ekGetBtn" class="sc-primary" style="width:100%;margin-top:12px;" onclick="fetchEntryKey_()">診断する</button>
     <div id="ekResult" style="margin-top:12px;"></div>
+    <div style="border-top:1px solid var(--line);margin:14px 0 10px;"></div>
+    <p style="font-size:12px;color:#64748b;line-height:1.6;margin:0 0 8px;">電池切れ等でRemoteLockが使えない時の<strong>物理キー（キーボックス）</strong>は、店舗名だけでも引けます。</p>
+    <button id="ekBoxBtn" class="sc-btn" style="width:100%;" onclick="fetchStoreKey_()">🔓 キーボックス番号を引く（店舗名）</button>
+    <div id="ekBoxResult" style="margin-top:10px;"></div>
   </div>
 </div>
 
@@ -1789,6 +1793,7 @@ function openEntryKey_(){
   document.getElementById("ekStore").value = current.store || "";
   document.getElementById("ekTyped").value = "";
   document.getElementById("ekResult").innerHTML = "";
+  var ekb=document.getElementById("ekBoxResult"); if(ekb) ekb.innerHTML="";
   document.getElementById("entryKeyModal").style.display = "flex";
   if (!current.reservation){ document.getElementById("ekRes").focus(); }
 }
@@ -1880,6 +1885,34 @@ function ekInsert_(text){
   closeEntryKey_();
   ta.focus();
   toast_("返信欄に入れました。内容を確認して送信してください");
+}
+// 電池切れ時の物理キー（キーボックス）番号を店舗名で引く（来店管理 keys_export 連携）
+function fetchStoreKey_(){
+  var store=(document.getElementById("ekStore").value||"").trim() || (current&&current.store) || "";
+  var box=document.getElementById("ekBoxResult");
+  if (!store){ box.innerHTML='<div style="font-size:13px;color:#b91c1c;">店舗名を入力してください。</div>'; return; }
+  var btn=document.getElementById("ekBoxBtn"); btn.disabled=true; var ot=btn.textContent; btn.textContent="取得中…";
+  box.innerHTML='<div style="font-size:12px;color:#94a3b8;">取得中…</div>';
+  httpGet_("/v2/staff/store-key?store="+encodeURIComponent(store)).then(function(r){
+    btn.disabled=false; btn.textContent=ot;
+    if (r && r.ok && r.key_no){
+      var reply="恐れ入ります。ロックの電池切れの可能性がございます。入口のキーボックスからお鍵（番号【"+r.key_no+"】）を取り出し、ご入室ください。";
+      var h='<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px;">';
+      h+='<div style="font-size:11px;color:#6d28d9;margin-bottom:2px;">'+esc_(r.store||store)+'：物理キー（キーボックス）番号</div>';
+      h+='<div style="font-size:20px;font-weight:800;letter-spacing:2px;color:#6d28d9;">'+esc_(String(r.key_no))+'</div>';
+      if (r.key_updated_at) h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px;">更新: '+esc_(r.key_updated_at)+'</div>';
+      h+='<button class="sc-btn" style="margin-top:8px;" onclick="ekInsert_('+JSON.stringify(reply).replace(/"/g,"&quot;")+')">返信欄に入れる</button>';
+      h+='<p style="font-size:11px;color:#94a3b8;margin:6px 0 0;">物理キー番号は扉の解錠情報です。電池切れ等でRemoteLockが使えない時のみ、確認のうえ案内してください。</p>';
+      h+='</div>';
+      box.innerHTML=h;
+    } else {
+      var msg=(r && r.message) ? r.message : "キーボックス番号を取得できませんでした。";
+      box.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:13px;color:#b91c1c;line-height:1.6;">'+esc_(msg)+'</div>';
+    }
+  }).catch(function(){
+    btn.disabled=false; btn.textContent=ot;
+    box.innerHTML='<div style="font-size:13px;color:#b91c1c;">取得に失敗しました。通信環境を確認して再度お試しください。</div>';
+  });
 }
 /* =========================================================
  *  エクスポート（緊急チャット＋一般チケット → 1行1件CSV）
