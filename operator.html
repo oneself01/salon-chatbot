@@ -1858,9 +1858,11 @@ function renderDiag_(d){
   } else if (level==="ok"){
     if (guestPin) html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#047857");
   }
-  // 物理キー（電池切れ時・directのみ key_no あり）
+  // 物理キー（電池切れ時・directのみ key_no あり）。場所はナレッジ由来（d.key_location）
   if (keyNo){
-    html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, "恐れ入ります。ロックの電池切れの可能性がございます。入口のキーボックスからお鍵（番号【"+keyNo+"】）を取り出し、ご入室ください。", "#7c3aed");
+    var kloc=(d.key_location||"").trim();
+    var kreply="恐れ入ります。ロックの電池切れの可能性がございます。"+(kloc?("キーボックスは"+kloc+"にあります。"):"")+"番号【"+keyNo+"】で開きますので、お鍵を取り出してご入室ください。";
+    html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, kreply, "#7c3aed");
   }
   // 候補が1つも無いとき（noguest 等）
   if (html.indexOf("返信欄に入れる")===-1){
@@ -1896,8 +1898,8 @@ function fetchStoreKey_(){
   httpGet_("/v2/staff/store-key?store="+encodeURIComponent(store)).then(function(r){
     btn.disabled=false; btn.textContent=ot;
     if (r && r.ok && r.key_no){
-      var loc=(r.location||"").trim();   // 場所はナレッジ由来（番号・Wi-Fi文は除外済み）
-      var reply="恐れ入ります。ロックの電池切れの可能性がございます。"+(loc?loc:"")+"キーボックスは番号【"+r.key_no+"】で開きますので、お鍵を取り出してご入室ください。";
+      var loc=(r.location||"").trim();   // 場所はナレッジ由来（番号・ラベル・Wi-Fi文は除外済み）
+      var reply="恐れ入ります。ロックの電池切れの可能性がございます。"+(loc?("キーボックスは"+loc+"にあります。"):"")+"番号【"+r.key_no+"】で開きますので、お鍵を取り出してご入室ください。";
       var h='<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px;">';
       h+='<div style="font-size:11px;color:#6d28d9;margin-bottom:2px;">'+esc_(r.store||store)+'：物理キー（キーボックス）番号</div>';
       h+='<div style="font-size:20px;font-weight:800;letter-spacing:2px;color:#6d28d9;">'+esc_(String(r.key_no))+'</div>';
