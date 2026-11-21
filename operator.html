@@ -1358,10 +1358,12 @@ function renderKnowGroups_(){
     var items=groups[s];
     var open=!!knowOpen_[s] || !!filter;   // 絞り込み中は自動展開
     html+='<div style="border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
-    html+='<div data-g="'+gi+'" style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:#f8fafc;cursor:pointer;">'
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:#f8fafc;">'
+      +'<div data-g="'+gi+'" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;">'
       +'<span style="font-size:11px;color:#64748b;width:12px;">'+(open?"▼":"▶")+'</span>'
       +'<strong style="color:#0ea5e9;">'+esc_(s)+'</strong>'
-      +'<span style="color:#94a3b8;font-size:12px;">'+items.length+'件</span></div>';
+      +'<span style="color:#94a3b8;font-size:12px;">'+items.length+'件</span></div>'
+      +'<button class="sc-btn" data-add="'+gi+'" title="この店舗に項目を追加" style="flex-shrink:0;">＋追加</button></div>';
     if(open){
       items.forEach(function(k){
         html+='<div class="sc-row" style="padding-left:20px;"><span class="lbl" style="white-space:normal;"><strong>'+esc_(k.title||"(無題)")+'</strong> <span style="color:#64748b;font-size:12px;">'+esc_(String(k.body||"").slice(0,30))+'</span></span>'
@@ -1372,6 +1374,7 @@ function renderKnowGroups_(){
   });
   cont.innerHTML = shown ? html : '<div style="padding:12px;color:#94a3b8;font-size:13px;">該当する店舗がありません。</div>';
   Array.prototype.forEach.call(cont.querySelectorAll("[data-g]"), function(b){ b.onclick=function(){ var s=order[parseInt(b.getAttribute("data-g"),10)]; knowOpen_[s]=!knowOpen_[s]; renderKnowGroups_(); }; });
+  Array.prototype.forEach.call(cont.querySelectorAll("[data-add]"), function(b){ b.onclick=function(e){ e.stopPropagation(); var s=order[parseInt(b.getAttribute("data-add"),10)]; knowAddTo_(s==="（全店共通）"?"":s); }; });
   Array.prototype.forEach.call(cont.querySelectorAll("[data-e]"), function(b){ b.onclick=function(){ knowEdit_(parseInt(b.getAttribute("data-e"),10)); }; });
   Array.prototype.forEach.call(cont.querySelectorAll("[data-d]"), function(b){ b.onclick=function(){ knowDelete_(parseInt(b.getAttribute("data-d"),10)); }; });
 }
@@ -1395,13 +1398,15 @@ function embedBackfill_(){
   loop();
 }
 function knowAdd_(){ knowForm_({ id:0, store:"", keywords:"", title:"", body:"" }); }
+function knowAddTo_(store){ if(store) knowOpen_[store]=true; knowForm_({ id:0, store:store||"", keywords:"", title:"", body:"" }); }
 function knowEdit_(id){ var k=knowItems.find(function(x){return x.id===id;}); if (k) knowForm_(k); }
 function knowForm_(k){
   document.getElementById("knowList").style.display="none";
   var v=document.getElementById("knowEdit"); v.style.display="block";
   v.innerHTML=
     '<button class="sc-btn" onclick="renderKnow_()">← 一覧へ戻る</button>'
-    +'<label class="sc-field">店舗（任意・その店舗のお客様の時だけ優先。空欄なら全店共通）</label>'
+    +(k.store ? '<div style="margin:10px 0 4px;font-size:13px;color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:8px 10px;">📍 <strong>'+esc_(k.store)+'</strong> に追加／編集中</div>' : '')
+    +'<label class="sc-field">店舗（'+(k.store?'自動入力済み。変更も可':'任意・空欄なら全店共通')+'）</label>'
     +'<input id="kn_store" class="sc-input" type="text" placeholder="例：沼津">'
     +'<label class="sc-field">キーワード（カンマ区切り。お客様の発言にこれが含まれると参照）</label>'
     +'<input id="kn_kw" class="sc-input" type="text" placeholder="例：電気,停電,ブレーカー,消えた">'
