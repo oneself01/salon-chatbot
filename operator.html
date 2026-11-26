@@ -131,6 +131,7 @@
       <div class="back" onclick="closeChat_()">◀ チャット一覧に戻る</div>
       <div class="nm" id="chNm"></div>
       <div class="sub" id="chSub"></div>
+      <div id="resInfoBar" style="display:none;"></div>
       <div id="statusBar"></div>
       <button id="endBtn" onclick="endConv_()" style="margin-top:8px;font-size:12px;padding:6px 12px;border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer;">✓ 会話を終了する</button>
       <button id="entryKeyBtn" onclick="openEntryKey_()" style="display:none;margin-top:8px;margin-left:6px;font-size:12px;padding:6px 12px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;border-radius:6px;cursor:pointer;">🔑 入室コード取得</button>
@@ -1812,6 +1813,17 @@ function openConv_(id){
   sub.push(c.id);
   document.getElementById("chSub").textContent=sub.join("　");
   var ekBtn=document.getElementById("entryKeyBtn"); if(ekBtn){ ekBtn.style.display=(c.audience==="cleaner")?"none":"inline-block"; }
+  // 予約情報（日時・前後の予約）を表示（予約番号がある会話のみ）
+  var rib=document.getElementById("resInfoBar");
+  if(rib){
+    if(c.reservation && c.audience!=="cleaner"){
+      rib.style.display="block"; rib.innerHTML='<span style="font-size:12px;color:#94a3b8;">予約情報を確認中…</span>';
+      httpGet_("/v2/staff/res-info?res_no="+encodeURIComponent(c.reservation)+"&store="+encodeURIComponent(c.store||"")).then(function(r){
+        if(!(current&&current.id===id)) return;   // 別会話に切り替わっていたら無視
+        rib.innerHTML=renderResInfo_(r);
+      }).catch(function(){ rib.innerHTML=""; });
+    } else { rib.style.display="none"; rib.innerHTML=""; }
+  }
   renderStatusBar_(); renderConvs_();
 
   // 履歴を取得
@@ -1826,6 +1838,24 @@ function openConv_(id){
     }
     openWs_(id);  // 履歴の後にWebSocket
   }).catch(function(){ openWs_(id); });
+}
+// 予約情報バー（日時＋前後の予約）
+function renderResInfo_(r){
+  if(!r || !r.ok || !r.res){ return '<span style="font-size:12px;color:#94a3b8;">予約情報：取得できませんでした</span>'; }
+  var res=r.res;
+  if(res.status==="not_found"){ return '<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:5px 8px;margin-top:6px;">🗓 予約情報：該当なし（予約番号をご確認ください）</div>'; }
+  var fmt=function(s){ return s? String(s).replace(/^\d{4}-\d{2}-\d{2}[ T]*/,"") : ""; };   // 時刻だけ
+  var today=!!res.is_today;
+  var head=(today?"本日 ":"")+(res.date||"")+(res.start?("　"+fmt(res.start)):"")+(res.end?("〜"+fmt(res.end)):"");
+  var color=today?"#047857":"#b45309", bg=today?"#ecfdf5":"#fffbeb", bd=today?"#a7f3d0":"#fcd34d";
+  var h='<div style="font-size:12px;color:'+color+';background:'+bg+';border:1px solid '+bd+';border-radius:6px;padding:5px 8px;margin-top:6px;">';
+  h+='🗓 '+esc_(head)+(today?"":"（当日外）");
+  var sub=[];
+  if(res.prev_end) sub.push("前の予約〜"+fmt(res.prev_end));
+  if(res.next_start) sub.push("次の予約"+fmt(res.next_start)+"〜");
+  if(sub.length) h+='<br><span style="color:#64748b;">'+esc_(sub.join("　/　"))+'</span>';
+  h+='</div>';
+  return h;
 }
 function closeChat_(){ document.body.classList.remove("viewing"); closeWs_(); current=null; renderConvs_(); }
 // 「一覧に戻る」：チャットを見ているときは即座に一覧へ＋最新取得、一覧のときは画面リロード

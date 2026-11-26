@@ -625,6 +625,16 @@ async function proceedToChat_(){
       if (r && r.error==="unauthorized" && reauth_()){ return; }
       alert("接続に失敗しました。通信状況をご確認のうえ、もう一度お試しください。"); return;
     }
+    // B: 当日外の予約と確定した場合は、緊急チャットに繋がず一般チケットとして受付
+    if (r.routed==="ticket"){
+      pendingIntake=null;
+      var ob=document.getElementById("options");
+      if(ob){
+        ob.innerHTML='<div class="answer">ご入力ありがとうございます。<br>ご予約が本日ではないようでしたので、担当者が内容を確認のうえ、LINEまたはメールにてご連絡いたします。<br><span style="color:#64748b;font-size:13px;">※本日のご予約でお急ぎの場合は、予約番号をご確認のうえ再度お試しください。</span></div>'
+          +'<button class="askBtn secondary" style="margin-top:12px;" onclick="renderOptions_()">← 一覧へ戻る</button>';
+      }
+      return;
+    }
     convId=r.conversationId; pendingIntake=null; staffSeen=false;
     showChat_(); setSt_("接続中…"); sendNav_();
     await loadHistory_(); openWs_();
