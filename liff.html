@@ -625,21 +625,46 @@ async function proceedToChat_(){
       if (r && r.error==="unauthorized" && reauth_()){ return; }
       alert("接続に失敗しました。通信状況をご確認のうえ、もう一度お試しください。"); return;
     }
-    // B: 当日外の予約と確定した場合は、緊急チャットに繋がず一般チケットとして受付
-    if (r.routed==="ticket"){
-      pendingIntake=null;
-      var ob=document.getElementById("options");
-      if(ob){
-        ob.innerHTML='<div class="answer">ご入力ありがとうございます。<br>ご予約が本日ではないようでしたので、担当者が内容を確認のうえ、LINEまたはメールにてご連絡いたします。<br><span style="color:#64748b;font-size:13px;">※本日のご予約でお急ぎの場合は、予約番号をご確認のうえ再度お試しください。</span></div>'
-          +'<button class="askBtn secondary" style="margin-top:12px;" onclick="renderOptions_()">← 一覧へ戻る</button>';
-      }
-      return;
-    }
+    // B: 当日外の予約と確定した場合は、緊急チャットに繋がず「一般お問い合わせ」として送信確認画面へ
+    if (r.routed==="ticket"){ renderTicketConfirm_(p); return; }
     convId=r.conversationId; pendingIntake=null; staffSeen=false;
     showChat_(); setSt_("接続中…"); sendNav_();
     await loadHistory_(); openWs_();
     if (!staffSeen) startCalling_();
   } finally { chatStarting_=false; }
+}
+// 当日外のご予約：入力済みの内容を確認して「一般お問い合わせ」として送信
+var ticketIntake_=null;
+function renderTicketConfirm_(p){
+  ticketIntake_=p; pendingIntake=null;
+  var box=document.getElementById("options"); if(!box) return;
+  var atc=(p.attachments&&p.attachments.length)?('　添付'+p.attachments.length+'件'):'';
+  box.innerHTML=
+    '<div class="answer">'
+    +'<div style="font-weight:700;margin-bottom:6px;">本日のご予約ではないようです</div>'
+    +'<div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:10px;">当日のトラブルでなければ、通常のお問い合わせとして承ります。以下の内容で送信してよろしければ「送信する」を押してください。担当者が確認のうえ、LINEまたはメールにてご連絡いたします。</div>'
+    +'<div style="font-size:13px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;line-height:1.9;">'
+    +'お名前：'+esc_(p.name||'')+'<br>メール：'+esc_(p.email||'')+'<br>店舗：'+esc_(p.store||'')+'<br>予約番号：'+esc_(p.reservation||'')+'<br>内容：'+esc_(p.situation||'')+esc_(atc)
+    +'</div>'
+    +'<button id="gt_submit" class="askBtn" style="margin-top:14px;" onclick="submitGeneralTicket_()">送信する</button>'
+    +'<button class="askBtn secondary" style="margin-top:10px;" onclick="renderOptions_()">← やめて一覧へ戻る</button>'
+    +'</div>';
+  box.scrollTop=0;
+}
+function submitGeneralTicket_(){
+  var p=ticketIntake_; if(!p) return;
+  var btn=document.getElementById("gt_submit"); if(btn){ btn.disabled=true; btn.textContent="送信中…"; }
+  refreshAuth_();
+  httpPost_("/v2/general-ticket", { name:p.name, email:p.email, store:p.store, reservation:p.reservation, situation:p.situation, attachments:p.attachments, emgCat:p.emgCat }).then(function(r){
+    if(r && r.ok){
+      ticketIntake_=null;
+      var box=document.getElementById("options");
+      if(box){ box.innerHTML='<div class="answer">送信しました。<br>担当者が内容を確認のうえ、LINEまたはメールにてご連絡いたしますので、少々お待ちください。</div><button class="askBtn secondary" style="margin-top:12px;" onclick="renderOptions_()">← 一覧へ戻る</button>'; }
+    } else {
+      if(btn){ btn.disabled=false; btn.textContent="送信する"; }
+      alert("送信に失敗しました。通信状況をご確認のうえ、もう一度お試しください。");
+    }
+  }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent="送信する"; } alert("通信エラーが発生しました。もう一度お試しください。"); });
 }
 // 指定ノードまでの祖先ID配列（stack用）を返す
 function pathTo_(id){
