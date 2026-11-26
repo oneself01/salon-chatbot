@@ -159,6 +159,7 @@
       <strong style="font-size:16px;">🧠 AI学習データ（質問→回答）</strong>
       <div style="display:flex;gap:6px;">
         <button class="sc-btn" onclick="qaAdd_()">＋ 追加</button>
+        <button class="sc-btn" style="color:#b91c1c;" onclick="purgeCodeQA_()" title="入室コード・暗証番号など他のお客様宛の番号を含む学習データを一括削除">🧹 コード混入を削除</button>
         <button class="sc-btn" onclick="closeQA_()">閉じる</button>
       </div>
     </div>
@@ -833,6 +834,13 @@ function loadQA_(){
   }).catch(function(){ box.innerHTML='<div style="padding:16px;color:#b91c1c;font-size:13px;">通信エラー</div>'; });
 }
 function qaAdd_(){ qaForm_({ id:0, question:"", answer:"", store:"" }); }
+function purgeCodeQA_(){
+  if(!confirm("入室コード・暗証番号・キーボックス番号など「その場限りの番号」を含む学習データをまとめて削除します。よろしいですか？")) return;
+  httpPost_("/v2/admin/purge-code-qa", {}).then(function(r){
+    if(r && r.ok){ alert("削除しました（"+r.deleted+"件／"+r.scanned+"件中）"); if(typeof qaSearch_==="function") qaSearch_(); else if(typeof loadQA_==="function") loadQA_(); }
+    else alert("削除に失敗しました"+((r&&r.error)?("："+r.error):""));
+  }).catch(function(){ alert("通信エラー"); });
+}
 function qaEdit_(id){ var t=qaItems.find(function(x){return x.id===id;}); if (t) qaForm_(t); }
 function qaForm_(t){
   document.getElementById("qaList").style.display="none";
