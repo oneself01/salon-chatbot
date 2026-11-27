@@ -1852,16 +1852,17 @@ function renderResInfo_(r){
   if(!r || !r.ok || !r.res){ return '<span style="font-size:12px;color:#94a3b8;">予約情報：取得できませんでした</span>'; }
   var res=r.res;
   if(res.status==="not_found"){ return '<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:5px 8px;margin-top:6px;">🗓 予約情報：該当なし（予約番号をご確認ください）</div>'; }
-  var fmt=function(s){ return s? String(s).replace(/^\d{4}-\d{2}-\d{2}[ T]*/,"") : ""; };   // 時刻だけ
+  var fmt=function(s){ var m=String(s||"").match(/(\d{1,2}:\d{2})/); return m?m[1]:""; };   // HH:MM（秒は省略）
   var today=!!res.is_today;
-  var head=(today?"本日 ":"")+(res.date||"")+(res.start?("　"+fmt(res.start)):"")+(res.end?("〜"+fmt(res.end)):"");
   var color=today?"#047857":"#b45309", bg=today?"#ecfdf5":"#fffbeb", bd=today?"#a7f3d0":"#fcd34d";
-  var h='<div style="font-size:12px;color:'+color+';background:'+bg+';border:1px solid '+bd+';border-radius:6px;padding:5px 8px;margin-top:6px;">';
-  h+='🗓 '+esc_(head)+(today?"":"（当日外）");
+  var slot=(res.start?fmt(res.start):"")+(res.end?("〜"+fmt(res.end)):"");
+  var h='<div style="font-size:12px;color:'+color+';background:'+bg+';border:1px solid '+bd+';border-radius:6px;padding:6px 9px;margin-top:6px;line-height:1.7;">';
+  h+='🗓 <strong>'+esc_((today?"本日 ":"")+(res.date||""))+'</strong>'+(today?"":"（当日外）");
+  if(slot) h+='　【該当予約】<strong>'+esc_(slot)+'</strong>';
   var sub=[];
-  if(res.prev_end) sub.push("前の予約〜"+fmt(res.prev_end));
-  if(res.next_start) sub.push("次の予約"+fmt(res.next_start)+"〜");
-  if(sub.length) h+='<br><span style="color:#64748b;">'+esc_(sub.join("　/　"))+'</span>';
+  if(res.prev_end) sub.push("前の予約 〜"+fmt(res.prev_end));
+  if(res.next_start) sub.push("次の予約 "+fmt(res.next_start)+"〜");
+  if(sub.length) h+='<br><span style="color:#64748b;">'+esc_(sub.join("　｜　"))+'</span>';
   h+='</div>';
   return h;
 }
@@ -1912,6 +1913,18 @@ function ekCand_(label, code, reply, accent){
   return h;
 }
 // 診断結果を原因別に表示（番号違い/同期遅延/OK/予約なし ＋ 物理キー）
+// 予約の日時(JST文字列)をミリ秒に
+function parseJst_(s){ if(!s) return null; var t=String(s).trim().replace(" ","T"); if(!/([+\-]\d\d:?\d\d|Z)$/.test(t)) t+="+09:00"; var ms=Date.parse(t); return isNaN(ms)?null:ms; }
+// 予約時間外か（開始10分前〜終了まで の外。判定できないときは false＝ゲートしない）
+function resWindowOut_(res){
+  if(!res || !res.start) return false;
+  var st=parseJst_(res.start); if(!st) return false;
+  var en=res.end?parseJst_(res.end):null;
+  var now=Date.now();
+  var openFrom=st-10*60*1000;
+  var closeAt=en||(st+90*60*1000);
+  return (now<openFrom || now>closeAt);
+}
 function renderDiag_(d){
   var box=document.getElementById("ekResult");
   d=d||{}; var v=d.verdict||{}; var level=String(v.level||"");
@@ -1931,24 +1944,30 @@ function renderDiag_(d){
   html+='<div style="font-size:12px;font-weight:700;color:'+bannerColor+';margin-bottom:4px;">'+esc_(levelLabel)+'</div>';
   if (v.msg) html+='<div style="font-size:13px;color:#334155;line-height:1.6;">'+esc_(v.msg)+'</div>';
   html+='</div>';
-  // 原因別の候補
-  if (level==="mismatch" && guestPin){
-    html+=ekCand_("正しい入室コード（ゲストキー）", guestPin, "お待たせしております。正しい入室コードは【"+guestPin+"】です。お手数ですが、こちらの番号をご入力のうえご入室ください。", "#b45309");
-  } else if (level==="sync"){
-    if (userKeys.length){
-      userKeys.forEach(function(c){ html+=ekCand_((c.label||"常設コード（ユーザーキー）"), c.code, "恐れ入ります。こちらのコード【"+c.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8"); });
-    } else if (guestPin){
-      html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#1d4ed8");
+  // 予約時間外（開始10分前〜終了までの外）なら、入室コードは案内しない
+  var winOut = resWindowOut_(d.res);
+  if (winOut){
+    html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">⏰ ご予約時間外（ご予約開始の10分前〜終了まで）のため、入室コードのご案内は控えてください。ご予約のお時間になってから、または予約状況をご確認のうえご対応ください。</div>';
+  } else {
+    // 原因別の候補
+    if (level==="mismatch" && guestPin){
+      html+=ekCand_("正しい入室コード（ゲストキー）", guestPin, "お待たせしております。正しい入室コードは【"+guestPin+"】です。お手数ですが、こちらの番号をご入力のうえご入室ください。", "#b45309");
+    } else if (level==="sync"){
+      if (userKeys.length){
+        userKeys.forEach(function(c){ html+=ekCand_((c.label||"常設コード（ユーザーキー）"), c.code, "恐れ入ります。こちらのコード【"+c.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8"); });
+      } else if (guestPin){
+        html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#1d4ed8");
+      }
+    } else if (level==="ok"){
+      if (guestPin) html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#047857");
     }
-  } else if (level==="ok"){
-    if (guestPin) html+=ekCand_("入室コード（ゲストキー）", guestPin, "入室コードは【"+guestPin+"】です。お手数ですがご入力のうえご入室ください。", "#047857");
-  }
-  // フォールバック: 予約が特定できない（not_found / verdictなし / FC店舗で予約未取り込み 等）でも、
-  // codes に「案内用(自動)」コードがあれば、それをユーザーキー（常設コード）として案内する。
-  if (html.indexOf("返信欄に入れる")===-1){
-    var autoCode = codes.find(function(c){ return c && (c.auto || String(c.label||"").indexOf("案内用")!==-1); });
-    if (autoCode && autoCode.code){
-      html+=ekCand_("常設コード（ユーザーキー）", autoCode.code, "恐れ入ります。こちらのコード【"+autoCode.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8");
+    // フォールバック: 予約が特定できない（not_found / verdictなし / FC店舗で予約未取り込み 等）でも、
+    // codes に「案内用(自動)」コードがあれば、それをユーザーキー（常設コード）として案内する。
+    if (html.indexOf("返信欄に入れる")===-1){
+      var autoCode = codes.find(function(c){ return c && (c.auto || String(c.label||"").indexOf("案内用")!==-1); });
+      if (autoCode && autoCode.code){
+        html+=ekCand_("常設コード（ユーザーキー）", autoCode.code, "恐れ入ります。こちらのコード【"+autoCode.code+"】をお試しいただけますでしょうか？ご迷惑をおかけしてしまい申し訳ございません。", "#1d4ed8");
+      }
     }
   }
   // 物理キー（電池切れ時・directのみ key_no あり）。場所はナレッジ由来（d.key_location）
@@ -1957,8 +1976,8 @@ function renderDiag_(d){
     var kreply="恐れ入ります。ロックの電池切れの可能性がございます。"+(kloc?("キーボックスは"+kloc+"にあります。"):"")+"番号【"+keyNo+"】で開きますので、お鍵を取り出してご入室ください。ご迷惑をおかけしてしまい申し訳ございません。";
     html+=ekCand_("物理キー（電池切れ・159点滅のとき）", keyNo, kreply, "#7c3aed");
   }
-  // 候補が1つも無いとき。codes が空のときだけ「番号を取得できませんでした」と案内。
-  if (html.indexOf("返信欄に入れる")===-1){
+  // 候補が1つも無いとき。codes が空のときだけ「番号を取得できませんでした」と案内。（時間外の警告中は出さない）
+  if (!winOut && html.indexOf("返信欄に入れる")===-1){
     if (!codes.length){
       html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">入室コードの番号を取得できませんでした。予約番号・店舗名をご確認のうえ、必要なら手動でご対応ください。</div>';
     } else {
