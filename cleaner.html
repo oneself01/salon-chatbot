@@ -259,6 +259,10 @@ function replaceStoreInput_(){
 async function submitKey_(mode){
   var store=v_("cf_store").trim(), name=v_("cf_name").trim(), date=v_("cf_date").trim(), start=v_("cf_start").trim(), end=v_("cf_end").trim();
   if (!store||!name||!date||!start||!end){ alert("すべての項目を入力してください。"); return; }
+  // 入室コード・マニュアルは「お仕事の前日・当日」のみ（過去日・明後日以降は弾く）
+  var rel=dateRelation_(date);
+  if (rel===-1){ alert("このお仕事の業務日は過ぎています。\n入室コード・マニュアルのお渡しは、お仕事の前日・当日のみとなります。"); return; }
+  if (rel===2){ alert("入室コード・マニュアルは、お仕事の前日から取得いただけます。\n前日または当日に、改めてお試しください。"); return; }
   var boxes=document.querySelectorAll(".cf_agree");
   var allChecked=boxes.length>0; for (var bi=0;bi<boxes.length;bi++){ if(!boxes[bi].checked){ allChecked=false; break; } }
   if (!allChecked){ alert("すべての確認事項にチェック（同意）してください。"); return; }
@@ -307,6 +311,28 @@ function screenKeyResult_(mode, res, form){
   box.appendChild(btn_("🏠 最初に戻る","askBtn secondary",screenStart_));
   box.scrollTop=0;
 }
+// 業務日と今日の関係（-1:過去 / 0:当日 / 1:翌日 / 2:明後日以降 / null:不明）
+function dateRelation_(dateStr){
+  var m=String(dateStr||"").match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(!m) return null;
+  var target=new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  var now=new Date(); var today=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var diff=Math.round((target-today)/86400000);
+  if(diff<0) return -1; if(diff===0) return 0; if(diff===1) return 1; return 2;
+}
+// 当日の仕事終了後2時間を過ぎたか（業務日・終了時刻が分かる場合のみ true になりうる）
+function chatEndPassed_(form){
+  if(!form || !form.date || !form.end) return false;
+  var md=String(form.date).match(/(\d{4})-(\d{1,2})-(\d{1,2})/), me=String(form.end).match(/(\d{1,2}):(\d{2})/);
+  if(!md||!me) return false;
+  var end=new Date(parseInt(md[1],10), parseInt(md[2],10)-1, parseInt(md[3],10), parseInt(me[1],10), parseInt(me[2],10), 0);
+  return Date.now() > (end.getTime() + 2*3600*1000);
+}
+function screenChatClosed_(){
+  var box=box_();
+  box.appendChild(answerCard_("本日のお仕事終了後のお時間（終了から2時間）を過ぎているため、チャットの受付は終了しました。\nお急ぎの場合は、タイミーのメッセージまたは店舗へのご連絡をお願いいたします。"));
+  box.appendChild(btn_("← 戻る","askBtn secondary",screenMenu_));
+  box.scrollTop=0;
+}
 function inquiryOpen_(){
   var h=new Date().getHours();
   if (workDay==="future") return (h>=8 && h<18);
@@ -323,6 +349,8 @@ function screenAbsent_(){
   box.scrollTop=0;
 }
 async function startCleanerChat_(kind, form){
+  // 当日の仕事終了後2時間を過ぎたら繋がない（業務日・終了時刻が分かる場合）
+  if (chatEndPassed_(form)){ screenChatClosed_(); return; }
   // 時間外は清掃報告・問い合わせとも繋がない（翌日以降=8-18、本日=23時まで）
   if (!inquiryOpen_()){ screenAbsent_(); return; }
   var head = (kind==="report" ? "【清掃報告】" : "【問い合わせ】");
