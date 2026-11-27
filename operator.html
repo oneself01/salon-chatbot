@@ -1915,13 +1915,13 @@ function ekCand_(label, code, reply, accent){
 // 診断結果を原因別に表示（番号違い/同期遅延/OK/予約なし ＋ 物理キー）
 // 予約の日時(JST文字列)をミリ秒に
 function parseJst_(s){ if(!s) return null; var t=String(s).trim().replace(" ","T"); if(!/([+\-]\d\d:?\d\d|Z)$/.test(t)) t+="+09:00"; var ms=Date.parse(t); return isNaN(ms)?null:ms; }
-// 予約時間外か（開始10分前〜終了まで の外。判定できないときは false＝ゲートしない）
+// 予約時間外か（予約開始時刻〜終了まで の外。判定できないときは false＝ゲートしない）
 function resWindowOut_(res){
   if(!res || !res.start) return false;
   var st=parseJst_(res.start); if(!st) return false;
   var en=res.end?parseJst_(res.end):null;
   var now=Date.now();
-  var openFrom=st-10*60*1000;
+  var openFrom=st;                        // 予約開始時刻ちょうどから（それ以前は案内しない）
   var closeAt=en||(st+90*60*1000);
   return (now<openFrom || now>closeAt);
 }
@@ -1947,7 +1947,18 @@ function renderDiag_(d){
   // 予約時間外（開始10分前〜終了までの外）なら、入室コードは案内しない
   var winOut = resWindowOut_(d.res);
   if (winOut){
-    html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">⏰ ご予約時間外（ご予約開始の10分前〜終了まで）のため、入室コードのご案内は控えてください。ご予約のお時間になってから、または予約状況をご確認のうえご対応ください。</div>';
+    html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">⏰ ご予約時間外（ご予約のお時間〜終了まで）のため、入室コードのご案内は控えてください。ご予約のお時間になってから、または予約状況をご確認のうえご対応ください。</div>';
+    // 番号自体は参考として表示（送信ボタンは出さない）
+    var refs=[];
+    if (guestPin) refs.push({label:"ゲストキー", code:guestPin});
+    userKeys.forEach(function(c){ if(c.code) refs.push({label:(c.label||"常設コード（ユーザーキー）"), code:c.code}); });
+    var auto0=codes.find(function(c){ return c && (c.auto || String(c.label||"").indexOf("案内用")!==-1); });
+    if (auto0 && auto0.code && !refs.some(function(x){ return x.code===auto0.code; })) refs.push({label:"常設コード（ユーザーキー）", code:auto0.code});
+    if (refs.length){
+      html+='<div style="font-size:12px;color:#64748b;margin-top:8px;">参考（送信は控えてください）<br>'
+        + refs.map(function(r){ return esc_(r.label)+'：<strong style="color:#334155;font-size:15px;letter-spacing:1px;">'+esc_(String(r.code))+'</strong>'; }).join('<br>')
+        + '</div>';
+    }
   } else {
     // 原因別の候補
     if (level==="mismatch" && guestPin){
