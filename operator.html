@@ -1944,8 +1944,10 @@ function renderDiag_(d){
   html+='<div style="font-size:12px;font-weight:700;color:'+bannerColor+';margin-bottom:4px;">'+esc_(levelLabel)+'</div>';
   if (v.msg) html+='<div style="font-size:13px;color:#334155;line-height:1.6;">'+esc_(v.msg)+'</div>';
   html+='</div>';
-  // 予約時間外（開始10分前〜終了までの外）なら、入室コードは案内しない
-  var winOut = resWindowOut_(d.res);
+  // 予約時間内かは来店管理APIの in_window を正とする（res内 or 直下）。無ければ自前計算にフォールバック。
+  var iw = (d.res && typeof d.res.in_window==="boolean") ? d.res.in_window
+         : (typeof d.in_window==="boolean" ? d.in_window : null);
+  var winOut = (iw===null) ? resWindowOut_(d.res) : !iw;
   if (winOut){
     html+='<div style="font-size:12px;color:#b91c1c;line-height:1.6;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">⏰ ご予約時間外（ご予約のお時間〜終了まで）のため、入室コードのご案内は控えてください。ご予約のお時間になってから、または予約状況をご確認のうえご対応ください。</div>';
     // 番号自体は参考として表示（送信ボタンは出さない）
