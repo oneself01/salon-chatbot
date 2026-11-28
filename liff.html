@@ -480,8 +480,8 @@ function renderEmergencyForm_(){
     + '<div style="font-size:13px;color:#334155;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.7;">スタッフが順番に確認し、できる限り対応いたしますのでご安心ください。ご予約のお時間についても、次のご予約状況を確認し、延長などで対応できる場合は対応させていただきます。</div>'
     + '<label class="fl">予約者名（ご予約時のお名前）*</label><input id="ef_name" class="fi" type="text" placeholder="例：山田 花子">'
     + '<label class="fl">メールアドレス *</label><input id="ef_email" class="fi" type="email">'
-    + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text" autocomplete="off" placeholder="例：沼津（「ぬ」でも検索できます）"><div id="ef_store_sug" class="sug"></div>'
-    + '<label class="fl">予約番号 *</label><input id="ef_res" class="fi" type="text" inputmode="numeric" autocomplete="off" placeholder="例：123456"><div style="font-size:12px;color:#64748b;margin:-2px 0 6px;">スムーズ/正確にご対応させていただく為に必要です。LINE通知よりご確認ください。</div>'
+    + '<label class="fl">予約番号 *</label><input id="ef_res" class="fi" type="text" inputmode="numeric" autocomplete="off" placeholder="例：123456"><div style="font-size:12px;color:#64748b;margin:-2px 0 6px;">スムーズ/正確にご対応させていただく為に必要です。LINE通知よりご確認ください。入力すると店舗名が自動で入ります。</div>'
+    + '<label class="fl">ご予約店舗名 *</label><input id="ef_store" class="fi" type="text" autocomplete="off" placeholder="例：沼津（「ぬ」でも検索できます）"><div id="ef_store_sug" class="sug"></div><div id="ef_store_note" style="font-size:12px;margin:-2px 0 6px;"></div>'
     + '<label class="fl">状況 *</label><textarea id="ef_sit" class="fi" placeholder="状況を詳しく教えてください"></textarea>'
     + '<label class="fl">画像・動画・PDFの添付（任意・複数可・各20MBまで）</label><input id="ef_file" class="fi" type="file" accept="image/*,video/*,application/pdf" multiple>'
     + '<button id="ef_submit" class="askBtn" style="margin-top:14px;" onclick="submitEmergency_()">確認する</button>'
@@ -493,8 +493,31 @@ function renderEmergencyForm_(){
   if (savedProfile.store) document.getElementById("ef_store").value=savedProfile.store;
   if (savedProfile.reservation && document.getElementById("ef_res")) document.getElementById("ef_res").value=savedProfile.reservation;
   var si=document.getElementById("ef_store");
-  if (si) si.addEventListener("input", renderStoreSug_);
+  if (si) si.addEventListener("input", function(){ efStoreManual_=true; renderStoreSug_(); });
+  var ri=document.getElementById("ef_res");
+  if (ri){ ri.addEventListener("change", resStoreAutofill_); ri.addEventListener("blur", resStoreAutofill_); }
   box.scrollTop=0;
+}
+// 予約番号から店舗名を自動入力（見つからない・FCなら手動入力のまま）
+var efStoreManual_=false, efResLast_="";
+function resStoreAutofill_(){
+  var ri=document.getElementById("ef_res"); if(!ri) return;
+  var res_no=ri.value.trim();
+  if(!res_no || res_no===efResLast_) return;
+  efResLast_=res_no;
+  var note=document.getElementById("ef_store_note");
+  if(note){ note.style.color="#64748b"; note.textContent="予約番号を確認中…"; }
+  httpPost_("/v2/res-store", { res_no:res_no }).then(function(r){
+    if(!note) return;
+    if(r && r.found && r.store){
+      var si=document.getElementById("ef_store");
+      // 店舗を手入力していない、または空のときだけ自動入力（手入力を上書きしない）
+      if(si && (!efStoreManual_ || !si.value.trim())){ si.value=r.store; efStoreManual_=false; var sg=document.getElementById("ef_store_sug"); if(sg) sg.innerHTML=""; }
+      note.style.color="#16a34a"; note.textContent="✓ 予約から店舗を自動入力しました（違う場合は修正できます）";
+    } else {
+      note.style.color="#b45309"; note.textContent="予約が確認できませんでした。店舗名はご自身でご入力ください。";
+    }
+  }).catch(function(){ if(note){ note.style.color="#b45309"; note.textContent="店舗名はご自身でご入力ください。"; } });
 }
 
 // 店舗名サジェスト（漢字でも読み仮名でも検索）
