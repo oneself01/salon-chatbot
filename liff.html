@@ -515,9 +515,9 @@ function resStoreAutofill_(){
       if(si && (!efStoreManual_ || !si.value.trim())){ si.value=r.store; efStoreManual_=false; var sg=document.getElementById("ef_store_sug"); if(sg) sg.innerHTML=""; }
       note.style.color="#16a34a"; note.textContent="✓ 予約から店舗を自動入力しました（違う場合は修正できます）";
     } else {
-      note.style.color="#b45309"; note.textContent="予約が確認できませんでした。店舗名はご自身でご入力ください。";
+      note.textContent="";   // 確認できない/FC等は何も出さない（店舗名は手入力のまま）
     }
-  }).catch(function(){ if(note){ note.style.color="#b45309"; note.textContent="店舗名はご自身でご入力ください。"; } });
+  }).catch(function(){ if(note){ note.textContent=""; } });
 }
 
 // 店舗名サジェスト（漢字でも読み仮名でも検索）
